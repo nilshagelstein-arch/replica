@@ -17,6 +17,10 @@
     Array.prototype.forEach.call(boxes, function (x) { x.checked = !allOn; });
   });
 
+  // OAuth: automatisch zur Anmeldeseite weiterleiten
+  var go = document.getElementById('oauth-go');
+  if (go) window.location.href = go.href;
+
   // Druckansicht automatisch drucken
   if (document.body.classList.contains('print')) {
     window.addEventListener('load', function () { window.print(); });

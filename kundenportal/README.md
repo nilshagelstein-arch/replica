@@ -19,6 +19,7 @@ Erste eingebaute App ist **On- & Offboarding**. Darüber beauftragen die Firmen:
   - Administrator (Dienstleister, sieht und pflegt alle Firmen)
   - Firmen-Administrator (pflegt Firmenprofil und Benutzer der eigenen Firma)
   - Firmen-Benutzer
+- **E-Mail-Versand:** zentrales Absender-Postfach und auf Wunsch ein eigenes Postfach je Firma (SMTP mit Anmeldung, Microsoft 365 oder Gmail/Google Workspace per OAuth2). Benachrichtigungen an eine Firma laufen über deren Postfach, Mails an die Administratoren über das zentrale. Fällt ein Postfach aus, springt automatisch das nächste ein (Firma → zentral → Mailfunktion des Webhosters). Zugangsdaten werden verschlüsselt gespeichert, und für jedes Postfach gibt es einen Knopf für eine Testmail.
 - **Sicherheit:** 2FA (TOTP) mit QR-Code, der auf dem eigenen Server erzeugt wird. Außerdem Sperre nach Fehlversuchen, CSRF-Schutz, strikte Mandantentrennung, Protokoll und erzwungene Passwortänderung beim ersten Login.
 
 ### App „On- & Offboarding“
@@ -52,9 +53,18 @@ Composer und ein Kommandozeilenzugang sind nicht nötig.
 
 `app/` und die Konfiguration sind per `.htaccess` vor direktem Zugriff geschützt (Apache). Auf nginx-Servern muss der Zugriff auf `app/` und `config.php` in der Serverkonfiguration gesperrt werden.
 
+## E-Mail-Versand per Microsoft 365 / Google einrichten
+
+1. **Microsoft:** Im Microsoft Entra Admin Center unter *App-Registrierungen* eine neue Anwendung anlegen. Kontotyp: *Konten in einem beliebigen Organisationsverzeichnis*. Als Umleitungs-URI (Web) `https://<portal>/index.php?r=oauth_callback` eintragen. Delegierte API-Berechtigungen: `Mail.Send`, `User.Read`, `offline_access`. Dann einen geheimen Clientschlüssel erzeugen.
+2. **Google:** In der Google Cloud Console die Gmail API aktivieren, den OAuth-Zustimmungsbildschirm mit dem Bereich `gmail.send` einrichten und einen OAuth-Client vom Typ *Webanwendung* mit derselben Weiterleitungs-URI anlegen.
+3. Client-ID und Schlüssel im Portal unter **E-Mail-Versand → Zentral → Anwendungsdaten** eintragen.
+4. Danach kann jede Firma unter **E-Mail-Versand** „Mit Microsoft anmelden“ bzw. „Mit Google anmelden“ wählen. Das Portal bekommt nur das Recht zum Senden, nicht zum Lesen.
+
+Die Zugangsdaten werden mit einem Schlüssel in `app/data/secret.key` verschlüsselt. Diese Datei gehört in die Datensicherung. Geht sie verloren, müssen alle Postfächer neu verbunden werden.
+
 ## Updates
 
-Neue Dateien einfach über die alten hochladen und dabei `config.php` und `app/data/` behalten. Beim nächsten Aufruf bringt das Portal die Datenbank automatisch auf den neuen Stand. Wer schon eine Version ohne App-Freigaben im Einsatz hatte, bekommt das Onboarding für alle bestehenden Firmen automatisch freigeschaltet.
+Am einfachsten mit der **update.php**: in den Portal-Ordner hochladen und im Browser aufrufen. Sie ersetzt die Programmdateien, behält `config.php` und `app/data/` und löscht sich danach selbst. Alternativ die neuen Dateien von Hand über die alten hochladen und dabei `config.php` und `app/data/` behalten. Beim nächsten Aufruf bringt das Portal die Datenbank automatisch auf den neuen Stand. Wer schon eine Version ohne App-Freigaben im Einsatz hatte, bekommt das Onboarding für alle bestehenden Firmen automatisch freigeschaltet.
 
 ## Eine weitere interne App ergänzen
 

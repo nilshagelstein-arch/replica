@@ -27,10 +27,12 @@ if ($user) {
         $nav[] = ['companies', 'Firmen', in_array($route, ['companies', 'company_edit'], true)];
         $nav[] = ['users', 'Benutzer', in_array($route, ['users', 'user_edit'], true)];
         $nav[] = ['apps', 'Apps & Freigaben', $route === 'apps'];
+        $nav[] = ['mail_settings', 'E-Mail-Versand', $route === 'mail_settings'];
         $nav[] = ['audit', 'Protokoll', $route === 'audit'];
     } elseif ($user['role'] === 'firma_admin') {
         $nav[] = ['company_edit', 'Firmenprofil', $route === 'company_edit'];
         $nav[] = ['users', 'Benutzer', in_array($route, ['users', 'user_edit'], true)];
+        $nav[] = ['mail_settings', 'E-Mail-Versand', $route === 'mail_settings'];
     }
 }
 $companyName = '';

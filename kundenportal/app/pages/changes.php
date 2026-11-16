@@ -250,7 +250,7 @@ function page_change_form(): void
                 . ($type === 'stilllegung' ? "\nGrund: {$r['absence_reason']}\nGeplante Rückkehr: " . ($r['return_date'] ? fmt_date($r['return_date']) : 'offen') : '')
                 . "\nErstellt/geändert von: {$u['name']}\n\nZum Auftrag: " . request_link($id);
             if ($u['role'] === 'admin') {
-                if (!$existing) send_mail(company_recipients($cid, $u['id']), $subject, "Für Ihre Firma wurde ein Auftrag angelegt.\n\n" . $body);
+                if (!$existing) send_mail(company_recipients($cid, $u['id']), $subject, "Für Ihre Firma wurde ein Auftrag angelegt.\n\n" . $body, $cid);
             } else {
                 send_mail((array)cfg('mail.admin_recipients', []), $subject, $body);
             }

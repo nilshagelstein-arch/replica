@@ -163,7 +163,37 @@ function schema_statements(string $driver): array
         granted_at $ts NOT NULL
     )$tail";
 
+    // E-Mail-Versand: zentrales Konto (company_id NULL) oder Konto je Firma
+    $tables[] = "CREATE TABLE IF NOT EXISTS mail_accounts (
+        id $pk,
+        company_id $fk NULL,
+        provider VARCHAR(20) NOT NULL DEFAULT 'smtp',
+        from_email VARCHAR(190) NOT NULL DEFAULT '',
+        from_name VARCHAR(190) NOT NULL DEFAULT '',
+        reply_to VARCHAR(190) NOT NULL DEFAULT '',
+        smtp_host VARCHAR(190) NOT NULL DEFAULT '',
+        smtp_port INT NOT NULL DEFAULT 587,
+        smtp_security VARCHAR(10) NOT NULL DEFAULT 'tls',
+        smtp_user VARCHAR(190) NOT NULL DEFAULT '',
+        secret_enc TEXT NULL,
+        oauth_refresh_enc TEXT NULL,
+        oauth_access_enc TEXT NULL,
+        oauth_expires INT NOT NULL DEFAULT 0,
+        active INT NOT NULL DEFAULT 1,
+        last_ok_at $ts NULL,
+        last_error VARCHAR(500) NOT NULL DEFAULT '',
+        last_error_at $ts NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS settings (
+        id $pk,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        value TEXT NULL
+    )$tail";
+
     $indexes = [
+        'idx_mailacc_company' => 'mail_accounts (company_id)',
         'idx_compapps'        => 'company_apps (company_id, app_id)',
         'idx_users_company'   => 'users (company_id)',
         'idx_dep_company'     => 'departments (company_id)',
@@ -183,7 +213,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [

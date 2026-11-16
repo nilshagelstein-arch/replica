@@ -113,6 +113,8 @@ progress { width: 90px; height: 8px; vertical-align: middle; accent-color: var(-
 .card.related { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; padding: .8rem 1.25rem; }
 .inline-form label.grow { flex: 1 1 360px; margin: 0; }
 [hidden] { display: none !important; }
+.ok-text { color: var(--ok); }
+.err-text { color: var(--danger); }
 .tag { display: inline-block; font-size: .72rem; padding: .05rem .45rem; border-radius: 4px; background: #eef1f4; color: var(--muted); margin-left: .3rem; vertical-align: middle; }
 .tag.warn { background: #fff1d6; color: #7a4b00; }
 

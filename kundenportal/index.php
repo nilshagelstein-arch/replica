@@ -26,6 +26,7 @@ require APP_DIR . '/pages/companies.php';
 require APP_DIR . '/pages/users.php';
 require APP_DIR . '/pages/masterdata.php';
 require APP_DIR . '/pages/apps.php';
+require APP_DIR . '/pages/mailsettings.php';
 
 $routes = [
     'login'          => 'page_login',
@@ -36,6 +37,9 @@ $routes = [
     'home'           => 'page_home',
     'apps'           => 'page_apps',
     'app_css'        => 'page_app_css',
+    'mail_settings'  => 'page_mail_settings',
+    'oauth_start'    => 'page_oauth_start',
+    'oauth_callback' => 'page_oauth_callback',
     'dashboard'      => 'page_dashboard',
     'request_new'    => 'page_request_form',
     'change_new'     => 'page_change_form',

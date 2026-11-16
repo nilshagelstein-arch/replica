@@ -169,6 +169,7 @@ function page_company_edit(): void
             <p class="links">
                 <?php $p = $u['role'] === 'admin' ? ['company' => $id] : []; ?>
                 <a href="<?= e(url('users', $p)) ?>">Benutzer verwalten</a>
+                <a href="<?= e(url('mail_settings', $p)) ?>">E-Mail-Versand über eigenes Postfach</a>
                 <?php if ($u['role'] === 'admin' || company_has_app($id, 'onboarding')): ?>
                 <a href="<?= e(url('structure', $p)) ?>">Onboarding: Abteilungen & Positionen</a>
                 <a href="<?= e(url('catalog', $p)) ?>">Onboarding: Netzlaufwerke, Freigaben & Katalog</a>

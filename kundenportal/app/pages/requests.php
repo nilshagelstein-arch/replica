@@ -306,7 +306,7 @@ function page_request_form(): void
                 . "Abteilung/Position: {$r['department_name']} / {$r['position_name']}\nEintritt: " . fmt_date($r['entry_date'])
                 . "\nErstellt/geändert von: {$u['name']}\n\nZum Auftrag: " . request_link($id);
             if ($u['role'] === 'admin') {
-                if (!$existing) send_mail(company_recipients($cid, $u['id']), $subject, "Für Ihre Firma wurde ein Onboarding-Auftrag angelegt.\n\n" . $body);
+                if (!$existing) send_mail(company_recipients($cid, $u['id']), $subject, "Für Ihre Firma wurde ein Onboarding-Auftrag angelegt.\n\n" . $body, $cid);
             } else {
                 send_mail((array)cfg('mail.admin_recipients', []), $subject, $body);
             }
@@ -623,11 +623,11 @@ function page_request_action(): void
             $text = "Der Status Ihres Auftrags " . request_subject($r) . " wurde geändert:\n"
                 . status_label($r['status'], $r['type']) . ' → ' . status_label($new, $r['type']) . ($msg ? "\n\nNachricht:\n$msg" : '')
                 . "\n\nZum Auftrag: " . request_link($id);
-            send_mail($firmRecipients(), request_subject($r) . ': ' . status_label($new, $r['type']), $text);
+            send_mail($firmRecipients(), request_subject($r) . ': ' . status_label($new, $r['type']), $text, (int)$r['company_id']);
             flash('success', 'Der Status wurde geändert und die Firma benachrichtigt.');
         } elseif ($msg !== '') {
             request_log($id, 'comment', $msg);
-            send_mail($firmRecipients(), 'Nachricht zu ' . request_subject($r), $msg . "\n\nZum Auftrag: " . request_link($id));
+            send_mail($firmRecipients(), 'Nachricht zu ' . request_subject($r), $msg . "\n\nZum Auftrag: " . request_link($id), (int)$r['company_id']);
             flash('success', 'Die Nachricht wurde gesendet.');
         }
     } elseif ($action === 'comment') {
@@ -636,7 +636,7 @@ function page_request_action(): void
         request_log($id, 'comment', $msg, null, null, $internal);
         update('requests', $id, ['updated_at' => now()]);
         if (is_admin()) {
-            if (!$internal) send_mail($firmRecipients(), 'Nachricht zu ' . request_subject($r), $msg . "\n\nZum Auftrag: " . request_link($id));
+            if (!$internal) send_mail($firmRecipients(), 'Nachricht zu ' . request_subject($r), $msg . "\n\nZum Auftrag: " . request_link($id), (int)$r['company_id']);
         } else {
             if ($r['status'] === 'rueckfrage') {
                 update('requests', $id, ['status' => 'in_bearbeitung']);
