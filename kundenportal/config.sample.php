@@ -1,11 +1,11 @@
 <?php
 /**
- * Konfiguration des Onboarding-Portals.
+ * Konfiguration des Kundenportals.
  * Diese Datei nach "config.php" kopieren und anpassen.
  */
 return [
     // Name, der im Portal angezeigt wird
-    'app_name' => 'Onboarding-Portal',
+    'app_name' => 'Kundenportal',
 
     // Öffentliche Adresse des Portals (ohne abschließenden Schrägstrich),
     // wird für Links in E-Mails verwendet
@@ -27,13 +27,13 @@ return [
     'mail' => [
         'enabled'    => true,
         'from'       => 'onboarding@example.de',
-        'from_name'  => 'Onboarding-Portal',
+        'from_name'  => 'Kundenportal',
         // Empfänger für neue Aufträge und Rückmeldungen der Firmen
         'admin_recipients' => ['it-service@example.de'],
     ],
 
     // Name des Ausstellers in der Authenticator-App
-    'totp_issuer' => 'Onboarding-Portal',
+    'totp_issuer' => 'Kundenportal',
 
     // Sicherheit
     'session_lifetime_minutes' => 60,   // Abmeldung nach Inaktivität

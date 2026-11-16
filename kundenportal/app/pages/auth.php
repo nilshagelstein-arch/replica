@@ -44,7 +44,7 @@ function finish_login(array $u, ?int $step = null): void
 
 function page_login(): void
 {
-    if (current_user()) redirect('dashboard');
+    if (current_user()) redirect('home');
     $error = '';
     if (is_post()) {
         require_post_csrf();
@@ -115,7 +115,7 @@ function page_login_2fa(): void
         $step = totp_verify((string)$u['totp_secret'], post('code'), (int)$u['totp_last_step']);
         if ($step !== null) {
             finish_login($u, $step);
-            redirect('dashboard');
+            redirect('home');
         }
         login_fail($u);
         $error = 'Der Code ist ungültig oder abgelaufen.';
@@ -165,12 +165,12 @@ function page_setup_2fa(): void
             }
             finish_login($u, $step);
             flash('success', 'Die Zwei-Faktor-Authentifizierung ist eingerichtet. Willkommen!');
-            redirect('dashboard');
+            redirect('home');
         }
         $error = 'Der Code stimmt nicht. Prüfen Sie die Uhrzeit Ihres Smartphones und versuchen Sie es erneut.';
     }
 
-    $uri = totp_uri($secret, $u['email'], (string)cfg('totp_issuer', cfg('app_name', 'Onboarding-Portal')));
+    $uri = totp_uri($secret, $u['email'], (string)cfg('totp_issuer', cfg('app_name', 'Kundenportal')));
     $qr = QrCodeM::svg($uri, 220);
     $qrData = 'data:image/svg+xml;base64,' . base64_encode($qr);
     render_page('Zwei-Faktor-Authentifizierung einrichten', function () use ($error, $secret, $qrData) { ?>

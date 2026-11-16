@@ -39,15 +39,7 @@ if (!$errors && is_post()) {
     if ($pw !== $pw2) $errors[] = 'Die Passwörter stimmen nicht überein.';
 
     if (!$errors) {
-        $driver = cfg('db.driver', 'mysql');
-        foreach (schema_statements($driver) as $sql) {
-            try {
-                db()->exec($sql);
-            } catch (PDOException $ex) {
-                // bereits vorhandene Indizes ignorieren
-                if (stripos($sql, 'CREATE INDEX') !== 0) throw $ex;
-            }
-        }
+        run_migrations();
         if (row('SELECT id FROM users WHERE email = ?', [$email])) {
             $errors[] = 'Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.';
         } else {
@@ -85,7 +77,7 @@ if (!$errors && is_post()) {
 render_page('Installation', function () use ($errors, $done) {
     if ($done) {
         echo '<div class="card"><h2>Installation abgeschlossen</h2>'
-            . '<p>Die Datenbank wurde eingerichtet und der Administrator angelegt. Bei der ersten Anmeldung '
+            . '<p>Die Datenbank wurde eingerichtet und der Administrator angelegt. Unter <em>Apps &amp; Freigaben</em> legen Sie fest, welche Firma welche Apps nutzen darf. Bei der ersten Anmeldung '
             . 'richten Sie die Zwei-Faktor-Authentifizierung mit einer Authenticator-App ein.</p>'
             . '<p><strong>Wichtig:</strong> Löschen Sie jetzt die Datei <code>install.php</code> vom Server.</p>'
             . '<p><a class="btn primary" href="index.php">Zur Anmeldung</a></p></div>';

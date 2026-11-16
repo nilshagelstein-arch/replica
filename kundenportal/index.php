@@ -1,6 +1,6 @@
 <?php
 /**
- * Einstiegspunkt (Front-Controller) des Onboarding-Portals.
+ * Einstiegspunkt (Front-Controller) des Kundenportals.
  */
 declare(strict_types=1);
 require __DIR__ . '/app/bootstrap.php';
@@ -15,6 +15,8 @@ header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
 header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; form-action 'self'; frame-ancestors 'none'");
 
+require APP_DIR . '/schema.php';
+ensure_schema();
 start_session();
 
 require APP_DIR . '/pages/auth.php';
@@ -22,6 +24,7 @@ require APP_DIR . '/pages/requests.php';
 require APP_DIR . '/pages/companies.php';
 require APP_DIR . '/pages/users.php';
 require APP_DIR . '/pages/masterdata.php';
+require APP_DIR . '/pages/apps.php';
 
 $routes = [
     'login'          => 'page_login',
@@ -29,6 +32,9 @@ $routes = [
     'setup_2fa'      => 'page_setup_2fa',
     'logout'         => 'page_logout',
     'account'        => 'page_account',
+    'home'           => 'page_home',
+    'apps'           => 'page_apps',
+    'app_css'        => 'page_app_css',
     'dashboard'      => 'page_dashboard',
     'request_new'    => 'page_request_form',
     'request_edit'   => 'page_request_form',
@@ -47,7 +53,7 @@ $routes = [
 
 $r = (string)($_GET['r'] ?? '');
 if ($r === '') {
-    redirect(current_user() ? 'dashboard' : 'login');
+    redirect(current_user() ? 'home' : 'login');
 }
 if (!isset($routes[$r])) abort(404);
 

@@ -1,4 +1,4 @@
-/* Onboarding-Portal – kleine Komfortfunktionen (ohne externe Bibliotheken) */
+/* Kundenportal – kleine Komfortfunktionen (ohne externe Bibliotheken) */
 (function () {
   'use strict';
 
@@ -6,6 +6,15 @@
   document.addEventListener('click', function (ev) {
     var btn = ev.target.closest('[data-confirm]');
     if (btn && !window.confirm(btn.getAttribute('data-confirm'))) ev.preventDefault();
+  });
+
+  // App-Freigaben: ganze Spalte an-/abwählen
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-toggle-col]');
+    if (!b) return;
+    var boxes = document.querySelectorAll('input[data-col="' + b.getAttribute('data-toggle-col') + '"]');
+    var allOn = Array.prototype.every.call(boxes, function (x) { return x.checked; });
+    Array.prototype.forEach.call(boxes, function (x) { x.checked = !allOn; });
   });
 
   // Druckansicht automatisch drucken

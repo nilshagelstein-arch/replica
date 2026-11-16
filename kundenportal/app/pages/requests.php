@@ -6,7 +6,7 @@
 /** Lädt einen Auftrag und prüft die Mandantenberechtigung */
 function load_request(int $id): array
 {
-    require_login();
+    require_app('onboarding');
     $r = row('SELECT r.*, c.name AS company_name, c.email_domain, u.name AS creator_name, u.email AS creator_email
         FROM requests r JOIN companies c ON c.id = r.company_id LEFT JOIN users u ON u.id = r.created_by WHERE r.id = ?', [$id]);
     if (!$r) abort(404);
@@ -39,7 +39,7 @@ function request_title(array $r): string
 // ---------------------------------------------------------------------------
 function page_dashboard(): void
 {
-    $u = require_login();
+    $u = require_app('onboarding');
     $where = [];
     $params = [];
     $companyFilter = 0;
@@ -95,7 +95,7 @@ function page_dashboard(): void
             <input type="hidden" name="r" value="dashboard"><input type="hidden" name="status" value="<?= e($status) ?>">
             <?php if ($u['role'] === 'admin'): ?>
                 <label>Firma <select name="company"><option value="0">Alle Firmen</option>
-                    <?php foreach (companies_for_select() as $c): ?><option value="<?= (int)$c['id'] ?>" <?= $companyFilter === (int)$c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?>
+                    <?php foreach (companies_with_app('onboarding') as $c): ?><option value="<?= (int)$c['id'] ?>" <?= $companyFilter === (int)$c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?>
                 </select></label>
             <?php endif; ?>
             <input type="search" name="q" value="<?= e($search) ?>" placeholder="Name oder Personalnummer">
@@ -137,7 +137,7 @@ function page_dashboard(): void
 // ---------------------------------------------------------------------------
 function page_request_form(): void
 {
-    $u = require_login();
+    $u = require_app('onboarding');
     $id = query_int('id');
     $existing = $id ? load_request($id) : null;
     if ($existing && !request_editable($existing)) {
@@ -153,11 +153,12 @@ function page_request_form(): void
         $cid = (int)$u['company_id'];
     }
     $company = $cid ? row('SELECT * FROM companies WHERE id = ? AND active = 1', [$cid]) : null;
+    if ($company && !company_has_app($cid, 'onboarding')) $company = null;
 
     // Admin muss zuerst die Firma wählen
     if (!$company) {
         if ($u['role'] !== 'admin') abort(403);
-        $companies = rows('SELECT id, name FROM companies WHERE active = 1 ORDER BY name');
+        $companies = array_filter(companies_with_app('onboarding'), fn($c) => (int)$c['active'] === 1);
         render_page('Neuer Auftrag', function () use ($companies) { ?>
             <form method="get" class="card form narrow">
                 <input type="hidden" name="r" value="request_new">
@@ -165,6 +166,7 @@ function page_request_form(): void
                     <select name="company" required><option value="">– bitte wählen –</option>
                     <?php foreach ($companies as $c): ?><option value="<?= (int)$c['id'] ?>"><?= e($c['name']) ?></option><?php endforeach; ?>
                     </select></label>
+                <?php if (!$companies): ?><p class="muted small">Noch keine Firma hat die App „Onboarding“ freigeschaltet. Das geht unter <a href="<?= e(url('apps')) ?>">Apps &amp; Freigaben</a>.</p><?php endif; ?>
                 <button class="btn primary">Weiter</button>
             </form>
         <?php });

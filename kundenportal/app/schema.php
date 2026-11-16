@@ -140,7 +140,31 @@ function schema_statements(string $driver): array
         created_at $ts NOT NULL
     )$tail";
 
+    // App-Verzeichnis: interne Apps (Bereich dieses Portals) oder externe Links
+    $tables[] = "CREATE TABLE IF NOT EXISTS apps (
+        id $pk,
+        slug VARCHAR(60) NOT NULL UNIQUE,
+        name VARCHAR(120) NOT NULL,
+        description VARCHAR(500) NOT NULL DEFAULT '',
+        kind VARCHAR(10) NOT NULL DEFAULT 'extern',
+        target VARCHAR(500) NOT NULL DEFAULT '',
+        icon VARCHAR(16) NOT NULL DEFAULT '',
+        color VARCHAR(7) NOT NULL DEFAULT '#1f5fa8',
+        active INT NOT NULL DEFAULT 1,
+        sort INT NOT NULL DEFAULT 0,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS company_apps (
+        id $pk,
+        company_id $fk NOT NULL,
+        app_id $fk NOT NULL,
+        granted_by $fk NULL,
+        granted_at $ts NOT NULL
+    )$tail";
+
     $indexes = [
+        'idx_compapps'        => 'company_apps (company_id, app_id)',
         'idx_users_company'   => 'users (company_id)',
         'idx_dep_company'     => 'departments (company_id)',
         'idx_pos_company'     => 'positions (company_id)',
@@ -157,4 +181,57 @@ function schema_statements(string $driver): array
             : "CREATE INDEX IF NOT EXISTS $name ON $def";
     }
     return $tables;
+}
+
+const SCHEMA_VERSION = 2;
+
+/** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
+const BUILTIN_APPS = [
+    'onboarding' => ['name' => 'Onboarding', 'description' => 'Neue Mitarbeitende zur Einrichtung von Arbeitsplatz, Zugängen und Freigaben melden.',
+        'target' => 'dashboard', 'icon' => '👤', 'color' => '#1f5fa8', 'sort' => 10],
+];
+
+/**
+ * Legt fehlende Tabellen an und bringt die Datenbank auf den aktuellen Stand.
+ * Läuft bei der Installation und automatisch nach einem Update der Dateien.
+ */
+function run_migrations(): void
+{
+    $driver = cfg('db.driver', 'mysql');
+    foreach (schema_statements($driver) as $sql) {
+        try {
+            db()->exec($sql);
+        } catch (PDOException $ex) {
+            if (stripos($sql, 'CREATE INDEX') !== 0) throw $ex; // vorhandene Indizes ignorieren
+        }
+    }
+    // Spalten, die in älteren Versionen fehlen
+    try {
+        db()->query('SELECT must_change_password FROM users LIMIT 1');
+    } catch (PDOException $ex) {
+        db()->exec('ALTER TABLE users ADD COLUMN must_change_password INT NOT NULL DEFAULT 0');
+    }
+    foreach (BUILTIN_APPS as $slug => $a) {
+        if (!row('SELECT id FROM apps WHERE slug = ?', [$slug])) {
+            $appId = insert('apps', ['slug' => $slug, 'name' => $a['name'], 'description' => $a['description'], 'kind' => 'intern',
+                'target' => $a['target'], 'icon' => $a['icon'], 'color' => $a['color'], 'active' => 1, 'sort' => $a['sort'],
+                'created_at' => now()]);
+            // bestehende Firmen behalten das Onboarding (vor Einführung der App-Freigaben)
+            if ($slug === 'onboarding') {
+                foreach (rows('SELECT id FROM companies') as $c) {
+                    insert('company_apps', ['company_id' => $c['id'], 'app_id' => $appId, 'granted_by' => null, 'granted_at' => now()]);
+                }
+            }
+        }
+    }
+    $file = APP_DIR . '/data/schema.version';
+    if (!is_dir(dirname($file))) mkdir(dirname($file), 0770, true);
+    file_put_contents($file, (string)SCHEMA_VERSION);
+}
+
+function ensure_schema(): void
+{
+    $file = APP_DIR . '/data/schema.version';
+    $v = is_file($file) ? (int)file_get_contents($file) : 1;
+    if ($v < SCHEMA_VERSION) run_migrations();
 }

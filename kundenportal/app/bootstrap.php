@@ -130,7 +130,7 @@ function abort(int $code, string $msg = ''): never
         echo '<div class="card"><p>' . e($msg ?: ($code === 403
             ? 'Sie haben keine Berechtigung für diese Seite.'
             : 'Die angeforderte Seite wurde nicht gefunden.')) . '</p>';
-        echo '<p><a class="btn" href="' . e(url('dashboard')) . '">Zur Übersicht</a></p></div>';
+        echo '<p><a class="btn" href="' . e(url('home')) . '">Zur Startseite</a></p></div>';
     });
     exit;
 }
@@ -347,6 +347,42 @@ function context_company_id(): int
         return $id;
     }
     return (int)$u['company_id'];
+}
+
+// ---------------------------------------------------------------------------
+// App-Freigaben
+// ---------------------------------------------------------------------------
+function company_has_app(int $companyId, string $slug): bool
+{
+    return (bool)row('SELECT ca.id FROM company_apps ca JOIN apps a ON a.id = ca.app_id
+        WHERE ca.company_id = ? AND a.slug = ? AND a.active = 1', [$companyId, $slug]);
+}
+
+/** Apps, die der angemeldete Benutzer sehen darf (Admins: alle aktiven) */
+function apps_for_user(): array
+{
+    $u = current_user();
+    if (!$u) return [];
+    if ($u['role'] === 'admin') return rows('SELECT * FROM apps WHERE active = 1 ORDER BY sort, name');
+    return rows('SELECT a.* FROM apps a JOIN company_apps ca ON ca.app_id = a.id
+        WHERE ca.company_id = ? AND a.active = 1 ORDER BY a.sort, a.name', [$u['company_id']]);
+}
+
+/** Bricht ab, wenn die Firma des Benutzers die App nicht freigeschaltet hat */
+function require_app(string $slug): array
+{
+    $u = require_login();
+    if ($u['role'] !== 'admin' && !company_has_app((int)$u['company_id'], $slug)) {
+        abort(403, 'Diese App ist für Ihre Firma nicht freigeschaltet. Bitte wenden Sie sich an Ihren IT-Dienstleister.');
+    }
+    return $u;
+}
+
+/** Firmen, die eine App nutzen dürfen (für Admin-Auswahllisten) */
+function companies_with_app(string $slug): array
+{
+    return rows('SELECT c.id, c.name, c.active FROM companies c JOIN company_apps ca ON ca.company_id = c.id
+        JOIN apps a ON a.id = ca.app_id WHERE a.slug = ? ORDER BY c.name', [$slug]);
 }
 
 function companies_for_select(): array

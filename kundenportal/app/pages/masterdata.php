@@ -28,6 +28,7 @@ function positions_of(int $companyId, bool $onlyActive = true): array
 function masterdata_company(): int
 {
     require_manager();
+    require_app('onboarding');
     $cid = context_company_id();
     if (!$cid) {
         flash('info', 'Bitte legen Sie zuerst eine Firma an.');

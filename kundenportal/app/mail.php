@@ -10,7 +10,7 @@ function send_mail(array $to, string $subject, string $body): void
     if (!$to) return;
 
     $from = cfg('mail.from', 'noreply@localhost');
-    $fromName = cfg('mail.from_name', cfg('app_name', 'Onboarding-Portal'));
+    $fromName = cfg('mail.from_name', cfg('app_name', 'Kundenportal'));
     $encSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
     $body .= "\n\n--\n" . $fromName . "\nDiese Nachricht wurde automatisch erzeugt.";
 
@@ -28,7 +28,7 @@ function send_mail(array $to, string $subject, string $body): void
         'MIME-Version: 1.0',
         'Content-Type: text/plain; charset=UTF-8',
         'Content-Transfer-Encoding: 8bit',
-        'X-Mailer: Onboarding-Portal',
+        'X-Mailer: Kundenportal',
     ];
     foreach ($to as $addr) {
         @mail($addr, $encSubject, $body, implode("\r\n", $headers), '-f' . $from);

@@ -1,4 +1,4 @@
-/* Onboarding-Portal */
+/* Kundenportal */
 :root {
   --bg: #f4f6f8;
   --card: #ffffff;
@@ -32,6 +32,9 @@ code { background: #eef1f4; padding: 0 .3em; border-radius: 4px; }
 .mainnav a { padding: .75rem .8rem; text-decoration: none; color: var(--text); border-bottom: 3px solid transparent; }
 .mainnav a:hover { color: var(--accent); }
 .mainnav a.active { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
+.subnav { background: #eef3f9; border-bottom: 1px solid var(--line); padding: 0 1.5rem; display: flex; gap: .25rem; flex-wrap: wrap; font-size: .92rem; }
+.subnav a { padding: .5rem .7rem; text-decoration: none; color: var(--text); }
+.subnav a.active { color: var(--accent); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); }
 main { max-width: 1250px; margin: 0 auto; padding: 1.5rem; }
 
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1.25rem; }
@@ -62,6 +65,8 @@ legend { font-weight: 600; padding: 0 .4rem; }
 .check-row:has(input:checked) .item-note { display: block; }
 .inline-form { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .75rem; }
 .inline-form input, .inline-form select { flex: 1 1 180px; width: auto; }
+.inline-form input[type=color] { flex: 0 0 3rem; }
+.inline-form input.tiny { flex: 0 0 9rem; }
 .inline { display: inline; }
 
 .btn { display: inline-block; padding: .5rem 1rem; border: 1px solid #c4cdd7; border-radius: 6px; background: #fff;
@@ -146,6 +151,23 @@ progress { width: 90px; height: 8px; vertical-align: middle; accent-color: var(-
   .facts { grid-template-columns: 1fr; }
   .table { display: block; overflow-x: auto; }
 }
+
+/* App-Startseite */
+.app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.1rem; margin-bottom: 1.5rem; }
+.app-tile { display: flex; flex-direction: column; gap: .45rem; background: #fff; border: 1px solid var(--line); border-top: 4px solid var(--accent);
+  border-radius: var(--radius); padding: 1.2rem; text-decoration: none; color: var(--text); transition: box-shadow .15s, transform .15s; min-height: 190px; }
+.app-tile:hover { box-shadow: 0 6px 18px rgba(22, 38, 58, .12); transform: translateY(-2px); }
+.app-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 700; }
+.app-name { font-weight: 700; font-size: 1.1rem; }
+.app-desc { color: var(--muted); font-size: .9rem; flex: 1; }
+.app-foot { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+.matrix-wrap { overflow-x: auto; margin-bottom: 1rem; }
+.matrix th, .matrix td.center, .center { text-align: center; }
+.matrix th:first-child { text-align: left; }
+.matrix tbody tr:hover { background: #f7f9fb; }
+.matrix input[type=checkbox] { width: 18px; height: 18px; }
+.linkbtn { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; text-decoration: underline; font: inherit; }
+input[type=color] { width: 3rem; height: 2.3rem; padding: .15rem; }
 
 /* Druckansicht */
 body.print { background: #fff; padding: 1.5cm; max-width: 21cm; margin: 0 auto; }
