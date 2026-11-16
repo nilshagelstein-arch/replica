@@ -1,0 +1,95 @@
+/* Onboarding-Portal – kleine Komfortfunktionen (ohne externe Bibliotheken) */
+(function () {
+  'use strict';
+
+  // Sicherheitsabfrage für Buttons mit data-confirm
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest('[data-confirm]');
+    if (btn && !window.confirm(btn.getAttribute('data-confirm'))) ev.preventDefault();
+  });
+
+  // Druckansicht automatisch drucken
+  if (document.body.classList.contains('print')) {
+    window.addEventListener('load', function () { window.print(); });
+  }
+
+  var form = document.getElementById('request-form');
+  if (!form) return;
+  var dataEl = document.getElementById('template-data');
+  var tpl = dataEl ? JSON.parse(dataEl.textContent) : { dep: {}, pos: {}, posDept: {} };
+  var dep = document.getElementById('department_id');
+  var pos = document.getElementById('position_id');
+  var boxes = Array.prototype.slice.call(form.querySelectorAll('input[name="items[]"]'));
+  var autoChecked = new Set();
+  var manual = new Set();
+
+  boxes.forEach(function (b) {
+    b.addEventListener('change', function () { manual.add(b.value); });
+  });
+
+  function filterPositions() {
+    var d = dep.value;
+    Array.prototype.forEach.call(pos.options, function (o) {
+      if (!o.value) return;
+      var od = o.getAttribute('data-dep');
+      var visible = !d || od === '0' || od === d;
+      o.hidden = !visible;
+      o.disabled = !visible;
+      if (!visible && o.selected) pos.value = '';
+    });
+  }
+
+  function applyTemplates() {
+    var wanted = new Set();
+    (tpl.dep[dep.value] || []).forEach(function (id) { wanted.add(String(id)); });
+    (tpl.pos[pos.value] || []).forEach(function (id) { wanted.add(String(id)); });
+    var added = 0;
+    boxes.forEach(function (b) {
+      if (manual.has(b.value)) return;
+      if (wanted.has(b.value)) {
+        if (!b.checked) added++;
+        b.checked = true;
+      } else if (autoChecked.has(b.value)) {
+        b.checked = false;
+      }
+    });
+    autoChecked = wanted;
+    var hint = document.getElementById('template-hint');
+    if (hint && (dep.value || pos.value)) {
+      hint.textContent = wanted.size
+        ? wanted.size + ' Einträge aus den Vorlagen für Abteilung/Position vorausgewählt. Sie können die Auswahl anpassen.'
+        : 'Für diese Abteilung/Position ist keine Vorlage hinterlegt. Bitte wählen Sie die Einträge manuell aus.';
+    }
+  }
+
+  // Position wählt passende Abteilung, falls noch keine gewählt
+  pos.addEventListener('change', function () {
+    var d = tpl.posDept[pos.value];
+    if (d && !dep.value) { dep.value = String(d); filterPositions(); }
+    applyTemplates();
+  });
+  dep.addEventListener('change', function () { filterPositions(); applyTemplates(); });
+  filterPositions();
+
+  // E-Mail-Vorschlag aus Vor- und Nachname
+  var email = document.getElementById('email_wish');
+  function norm(s) {
+    return s.trim().toLowerCase()
+      .replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss')
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  }
+  function suggest() {
+    if (!tpl.domain || !email) return;
+    var f = norm(form.first_name.value), l = norm(form.last_name.value);
+    if (f && l) email.placeholder = f + '.' + l + '@' + tpl.domain;
+  }
+  form.first_name.addEventListener('input', suggest);
+  form.last_name.addEventListener('input', suggest);
+  if (email) {
+    email.addEventListener('focus', function () {
+      if (!email.value && email.placeholder && email.placeholder.indexOf('vorname.') !== 0) email.value = email.placeholder;
+    });
+  }
+  suggest();
+})();
