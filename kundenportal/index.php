@@ -21,6 +21,7 @@ start_session();
 
 require APP_DIR . '/pages/auth.php';
 require APP_DIR . '/pages/requests.php';
+require APP_DIR . '/pages/changes.php';
 require APP_DIR . '/pages/companies.php';
 require APP_DIR . '/pages/users.php';
 require APP_DIR . '/pages/masterdata.php';
@@ -37,6 +38,7 @@ $routes = [
     'app_css'        => 'page_app_css',
     'dashboard'      => 'page_dashboard',
     'request_new'    => 'page_request_form',
+    'change_new'     => 'page_change_form',
     'request_edit'   => 'page_request_form',
     'request'        => 'page_request_detail',
     'request_action' => 'page_request_action',

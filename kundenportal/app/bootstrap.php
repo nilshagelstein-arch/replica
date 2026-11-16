@@ -45,6 +45,89 @@ const ITEM_TYPES = [
     'permission' => 'Freigaben / Berechtigungen',
 ];
 
+const REQUEST_TYPES = [
+    'onboarding'    => 'Onboarding',
+    'offboarding'   => 'Offboarding',
+    'stilllegung'   => 'Stilllegung',
+    'reaktivierung' => 'Reaktivierung',
+];
+
+const REQUEST_TYPE_HINTS = [
+    'onboarding'    => 'Neue/r Mitarbeiter/in: Arbeitsplatz, Zugänge und Freigaben einrichten',
+    'offboarding'   => 'Austritt: Zugänge sperren, Geräte zurücknehmen, Postfach und Daten regeln',
+    'stilllegung'   => 'Vorübergehende Abwesenheit (z. B. Elternzeit): Zugänge ruhen lassen, Lizenzen pausieren',
+    'reaktivierung' => 'Rückkehr nach einer Stilllegung: Zugänge und Ausstattung wieder bereitstellen',
+];
+
+/** Bezeichnung des Stichtags je Auftragstyp */
+const TYPE_DATE_LABELS = [
+    'onboarding'    => 'Eintrittsdatum',
+    'offboarding'   => 'Austrittsdatum (letzter Arbeitstag)',
+    'stilllegung'   => 'Beginn der Abwesenheit',
+    'reaktivierung' => 'Rückkehrdatum (erster Arbeitstag)',
+];
+
+/** abweichende Statusbezeichnungen je Auftragstyp */
+const TYPE_STATUS_LABELS = [
+    'offboarding' => ['eingerichtet' => 'Durchgeführt', 'freigegeben' => 'Abgeschlossen'],
+    'stilllegung' => ['eingerichtet' => 'Durchgeführt', 'freigegeben' => 'Abgeschlossen'],
+];
+
+/** Überschriften der Checkliste je Auftragstyp */
+const TYPE_ITEM_LABELS = [
+    'offboarding' => [
+        'device' => 'Geräte zurücknehmen', 'license' => 'Lizenzen entziehen', 'software' => 'Programmzugänge entfernen',
+        'drive' => 'Laufwerkszugriffe entfernen', 'permission' => 'Freigaben / Berechtigungen entziehen',
+    ],
+    'stilllegung' => [
+        'device' => 'Geräte (Rückgabe oder Verbleib laut Bemerkung)', 'license' => 'Lizenzen pausieren', 'software' => 'Programmzugänge deaktivieren',
+        'drive' => 'Laufwerkszugriffe deaktivieren', 'permission' => 'Freigaben / Berechtigungen deaktivieren',
+    ],
+    'reaktivierung' => [
+        'device' => 'Geräte bereitstellen', 'license' => 'Lizenzen wieder zuweisen', 'software' => 'Programmzugänge reaktivieren',
+        'drive' => 'Laufwerkszugriffe reaktivieren', 'permission' => 'Freigaben / Berechtigungen reaktivieren',
+    ],
+];
+
+const ABSENCE_REASONS = ['Elternzeit', 'Mutterschutz', 'Pflegezeit', 'Sabbatical', 'Sonstige längere Abwesenheit'];
+
+const MAILBOX_ACTIONS = [
+    'offboarding' => [
+        'sperren'      => 'Postfach sperren, Inhalte aufbewahren',
+        'freigeben'    => 'In freigegebenes Postfach umwandeln, Zugriff für Nachfolger/in',
+        'weiterleiten' => 'E-Mails an Nachfolger/in weiterleiten',
+        'loeschen'     => 'Postfach nach Aufbewahrungsfrist löschen',
+    ],
+    'stilllegung' => [
+        'abwesenheit'  => 'Nur Abwesenheitsnotiz',
+        'weiterleiten' => 'Abwesenheitsnotiz und Weiterleitung an Vertretung',
+        'zugriff'      => 'Abwesenheitsnotiz und Zugriff für Vertretung',
+    ],
+];
+
+const DATA_ACTIONS = [
+    'uebergeben'  => 'Persönliche Dateien (z. B. OneDrive/Home-Laufwerk) an Nachfolger/in übergeben',
+    'archivieren' => 'Dateien archivieren',
+    'loeschen'    => 'Dateien löschen',
+];
+
+const LOCK_OPTIONS = [
+    'austritt' => 'Am Stichtag nach Dienstschluss',
+    'sofort'   => 'Sofort',
+    'termin'   => 'Zu einem bestimmten Zeitpunkt',
+];
+
+function status_label(string $status, string $type = 'onboarding'): string
+{
+    return TYPE_STATUS_LABELS[$type][$status] ?? (STATUSES[$status] ?? $status);
+}
+
+function item_type_label(string $itemType, string $requestType = 'onboarding'): string
+{
+    if ($itemType === 'task') return 'Aufgaben';
+    return TYPE_ITEM_LABELS[$requestType][$itemType] ?? (ITEM_TYPES[$itemType] ?? $itemType);
+}
+
 // ---------------------------------------------------------------------------
 // Allgemeine Helfer
 // ---------------------------------------------------------------------------
@@ -395,9 +478,14 @@ function companies_for_select(): array
 // ---------------------------------------------------------------------------
 // Darstellung
 // ---------------------------------------------------------------------------
-function status_badge(string $status): string
+function status_badge(string $status, string $type = 'onboarding'): string
 {
-    return '<span class="badge st-' . e($status) . '">' . e(STATUSES[$status] ?? $status) . '</span>';
+    return '<span class="badge st-' . e($status) . '">' . e(status_label($status, $type)) . '</span>';
+}
+
+function type_badge(string $type): string
+{
+    return '<span class="badge type-' . e($type) . '">' . e(REQUEST_TYPES[$type] ?? $type) . '</span>';
 }
 
 function render_page(string $title, callable $content): void

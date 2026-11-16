@@ -34,6 +34,17 @@ function request_title(array $r): string
     return '#' . $r['id'] . ' ' . $r['first_name'] . ' ' . $r['last_name'];
 }
 
+/** z. B. "Offboarding #12 Erika Müller" für Betreffzeilen */
+function request_subject(array $r): string
+{
+    return (REQUEST_TYPES[$r['type'] ?? 'onboarding'] ?? 'Auftrag') . ' ' . request_title($r);
+}
+
+function date_label(array $r): string
+{
+    return TYPE_DATE_LABELS[$r['type'] ?? 'onboarding'] ?? 'Stichtag';
+}
+
 // ---------------------------------------------------------------------------
 // Übersicht
 // ---------------------------------------------------------------------------
@@ -49,6 +60,13 @@ function page_dashboard(): void
     } else {
         $where[] = 'r.company_id = ?';
         $params[] = $u['company_id'];
+    }
+    $type = (string)($_GET['type'] ?? '');
+    if (isset(REQUEST_TYPES[$type])) {
+        $where[] = 'r.type = ?';
+        $params[] = $type;
+    } else {
+        $type = '';
     }
     $baseWhere = $where;
     $baseParams = $params;
@@ -81,18 +99,31 @@ function page_dashboard(): void
         $counts[$c['status']] = (int)$c['n'];
     }
 
-    render_page('Onboarding-Aufträge', function () use ($u, $list, $counts, $status, $search, $companyFilter) {
+    render_page('Aufträge', function () use ($u, $list, $counts, $status, $search, $companyFilter, $type) {
         $open = array_sum(array_intersect_key($counts, array_flip(OPEN_STATUSES)));
-        $keep = $companyFilter ? ['company' => $companyFilter] : []; ?>
+        $keep = ($companyFilter ? ['company' => $companyFilter] : []) + ($type ? ['type' => $type] : []);
+        $keepNoType = $companyFilter ? ['company' => $companyFilter] : []; ?>
+        <div class="new-buttons">
+            <?php foreach (REQUEST_TYPES as $t => $label): ?>
+                <a class="btn <?= $t === 'onboarding' ? 'primary' : '' ?>" title="<?= e(REQUEST_TYPE_HINTS[$t]) ?>"
+                   href="<?= e(url($t === 'onboarding' ? 'request_new' : 'change_new', ['type' => $t] + ($companyFilter ? ['company' => $companyFilter] : []))) ?>">+ <?= e($label) ?></a>
+            <?php endforeach; ?>
+        </div>
+        <nav class="type-tabs">
+            <a class="<?= $type === '' ? 'active' : '' ?>" href="<?= e(url('dashboard', $keepNoType + ['status' => $status])) ?>">Alle Arten</a>
+            <?php foreach (REQUEST_TYPES as $t => $label): ?>
+                <a class="<?= $type === $t ? 'active' : '' ?>" href="<?= e(url('dashboard', $keepNoType + ['status' => $status, 'type' => $t])) ?>"><?= e($label) ?></a>
+            <?php endforeach; ?>
+        </nav>
         <div class="tiles">
             <a class="tile <?= $status === 'offen' ? 'active' : '' ?>" href="<?= e(url('dashboard', $keep + ['status' => 'offen'])) ?>"><strong><?= $open ?></strong><span>Offen</span></a>
             <?php foreach (STATUSES as $k => $label): ?>
-                <a class="tile st-<?= e($k) ?> <?= $status === $k ? 'active' : '' ?>" href="<?= e(url('dashboard', $keep + ['status' => $k])) ?>"><strong><?= $counts[$k] ?></strong><span><?= e($label) ?></span></a>
+                <a class="tile st-<?= e($k) ?> <?= $status === $k ? 'active' : '' ?>" href="<?= e(url('dashboard', $keep + ['status' => $k])) ?>"><strong><?= $counts[$k] ?></strong><span><?= e($type && $type !== 'onboarding' ? status_label($k, $type) : $label) ?></span></a>
             <?php endforeach; ?>
             <a class="tile <?= $status === 'alle' ? 'active' : '' ?>" href="<?= e(url('dashboard', $keep + ['status' => 'alle'])) ?>"><strong><?= array_sum($counts) ?></strong><span>Alle</span></a>
         </div>
         <form method="get" class="toolbar">
-            <input type="hidden" name="r" value="dashboard"><input type="hidden" name="status" value="<?= e($status) ?>">
+            <input type="hidden" name="r" value="dashboard"><input type="hidden" name="status" value="<?= e($status) ?>"><input type="hidden" name="type" value="<?= e($type) ?>">
             <?php if ($u['role'] === 'admin'): ?>
                 <label>Firma <select name="company"><option value="0">Alle Firmen</option>
                     <?php foreach (companies_with_app('onboarding') as $c): ?><option value="<?= (int)$c['id'] ?>" <?= $companyFilter === (int)$c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?>
@@ -100,15 +131,14 @@ function page_dashboard(): void
             <?php endif; ?>
             <input type="search" name="q" value="<?= e($search) ?>" placeholder="Name oder Personalnummer">
             <button class="btn">Filtern</button>
-            <a class="btn primary push-right" href="<?= e(url('request_new', $companyFilter ? ['company' => $companyFilter] : [])) ?>">+ Neuer Auftrag</a>
         </form>
         <div class="card">
         <?php if (!$list): ?>
             <p class="muted">Keine Aufträge gefunden.</p>
         <?php else: ?>
             <table class="table">
-                <thead><tr><th>Nr.</th><?php if ($u['role'] === 'admin'): ?><th>Firma</th><?php endif; ?><th>Mitarbeiter/in</th><th>Pers.-Nr.</th>
-                    <th>Abteilung / Position</th><th>Eintritt</th><th>Fortschritt</th><th>Status</th></tr></thead>
+                <thead><tr><th>Nr.</th><?php if ($u['role'] === 'admin'): ?><th>Firma</th><?php endif; ?><th>Art</th><th>Mitarbeiter/in</th><th>Pers.-Nr.</th>
+                    <th>Abteilung / Position</th><th>Stichtag</th><th>Fortschritt</th><th>Status</th></tr></thead>
                 <tbody>
                 <?php foreach ($list as $r):
                     $soon = in_array($r['status'], OPEN_STATUSES, true) && strtotime($r['entry_date']) <= strtotime('+7 days');
@@ -116,13 +146,14 @@ function page_dashboard(): void
                     <tr>
                         <td><a href="<?= e(url('request', ['id' => $r['id']])) ?>">#<?= (int)$r['id'] ?></a></td>
                         <?php if ($u['role'] === 'admin'): ?><td><?= e($r['company_name']) ?></td><?php endif; ?>
+                        <td><?= type_badge($r['type']) ?></td>
                         <td><a href="<?= e(url('request', ['id' => $r['id']])) ?>"><strong><?= e($r['last_name'] . ', ' . $r['first_name']) ?></strong></a></td>
                         <td><?= e($r['employee_no']) ?></td>
                         <td><?= e($r['department_name']) ?><br><span class="muted small"><?= e($r['position_name']) ?></span></td>
                         <td class="<?= $soon ? 'soon' : '' ?>"><?= fmt_date($r['entry_date']) ?><?= $soon ? ' ⚠' : '' ?></td>
                         <td><progress max="100" value="<?= $pct ?>" title="<?= (int)$r['done_count'] ?> von <?= (int)$r['item_count'] ?> erledigt"></progress>
                             <span class="muted small"><?= (int)$r['done_count'] ?>/<?= (int)$r['item_count'] ?></span></td>
-                        <td><?= status_badge($r['status']) ?></td>
+                        <td><?= status_badge($r['status'], $r['type']) ?></td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -140,6 +171,10 @@ function page_request_form(): void
     $u = require_app('onboarding');
     $id = query_int('id');
     $existing = $id ? load_request($id) : null;
+    if ($existing && $existing['type'] !== 'onboarding') {
+        page_change_form();
+        return;
+    }
     if ($existing && !request_editable($existing)) {
         flash('error', 'Dieser Auftrag kann im aktuellen Status nicht mehr geändert werden.');
         redirect('request', ['id' => $id]);
@@ -216,9 +251,9 @@ function page_request_form(): void
         if (!$d || $d->format('Y-m-d') !== $data['entry_date']) $errors[] = 'Bitte ein gültiges Eintrittsdatum angeben.';
         if ($data['email_wish'] !== '' && !filter_var($data['email_wish'], FILTER_VALIDATE_EMAIL)) $errors[] = 'Die gewünschte E-Mail-Adresse ist ungültig.';
         if ($data['employee_no'] !== '') {
-            $dup = row("SELECT id FROM requests WHERE company_id = ? AND employee_no = ? AND status <> 'storniert' AND id <> ?",
+            $dup = row("SELECT id FROM requests WHERE company_id = ? AND employee_no = ? AND type = 'onboarding' AND status <> 'storniert' AND id <> ?",
                 [$cid, $data['employee_no'], $id ?: 0]);
-            if ($dup) $errors[] = 'Für diese Mitarbeiternummer gibt es bereits einen Auftrag (#' . $dup['id'] . ').';
+            if ($dup) $errors[] = 'Für diese Mitarbeiternummer gibt es bereits ein Onboarding (#' . $dup['id'] . ').';
         }
 
         if (!$errors) {
@@ -232,7 +267,7 @@ function page_request_form(): void
             if ($existing) {
                 update('requests', $id, $save);
             } else {
-                $save += ['company_id' => $cid, 'created_by' => $u['id'], 'status' => 'eingereicht', 'created_at' => now()];
+                $save += ['type' => 'onboarding', 'company_id' => $cid, 'created_by' => $u['id'], 'status' => 'eingereicht', 'created_at' => now()];
                 $id = insert('requests', $save);
             }
             // Positionen abgleichen: Erledigt-Status bestehender Einträge bleibt erhalten
@@ -365,12 +400,62 @@ function page_request_form(): void
 // ---------------------------------------------------------------------------
 function request_items_grouped(int $id): array
 {
-    $g = array_fill_keys(array_keys(ITEM_TYPES), []);
+    $g = ['task' => []] + array_fill_keys(array_keys(ITEM_TYPES), []);
     foreach (rows('SELECT i.*, u.name AS done_by_name FROM request_items i LEFT JOIN users u ON u.id = i.done_by
         WHERE i.request_id = ? ORDER BY i.id', [$id]) as $it) {
         $g[$it['type']][] = $it;
     }
     return $g;
+}
+
+/** Fachliche Angaben eines Auftrags als [Bezeichnung => Wert] */
+function request_facts(array $r): array
+{
+    $t = $r['type'];
+    $f = [
+        'Firma' => $r['company_name'],
+        'Name' => trim($r['salutation'] . ' ' . $r['first_name'] . ' ' . $r['last_name']),
+        'Mitarbeiternummer' => $r['employee_no'],
+        'Abteilung' => $r['department_name'],
+        'Position' => $r['position_name'],
+        date_label($r) => fmt_date($r['entry_date']),
+    ];
+    if ($t === 'stilllegung') {
+        $f['Grund'] = $r['absence_reason'] ?: '–';
+        $f['Geplante Rückkehr'] = $r['return_date'] ? fmt_date($r['return_date']) : 'offen';
+    }
+    if (in_array($t, ['offboarding', 'stilllegung'], true)) {
+        $lock = LOCK_OPTIONS[$r['lock_option']] ?? '–';
+        if ($r['lock_option'] === 'termin' && $r['lock_at']) $lock .= ': ' . fmt_dt(str_replace('T', ' ', $r['lock_at']));
+        $f[$t === 'offboarding' ? 'Konto sperren' : 'Konto deaktivieren'] = $lock;
+        $f['Postfach'] = MAILBOX_ACTIONS[$t][$r['mailbox_action']] ?? '–';
+        $f[$t === 'offboarding' ? 'Nachfolger/in' : 'Vertretung'] = trim($r['successor_name'] . ($r['successor_email'] ? ' <' . $r['successor_email'] . '>' : '')) ?: '–';
+        if ($r['forward_until']) $f['Weiterleitung bis'] = fmt_date($r['forward_until']);
+        if ($t === 'offboarding') $f['Persönliche Dateien'] = DATA_ACTIONS[$r['data_action']] ?? '–';
+        $f['Telefon / Rufnummer'] = $r['phone_action'] ?: '–';
+    }
+    if ($t === 'onboarding') {
+        $f['Standort'] = $r['location'] ?: '–';
+        $f['Vorgesetzte/r'] = $r['manager_name'] ?: '–';
+        $f['E-Mail (Wunsch)'] = $r['email_wish'] ?: '–';
+        $f['Telefon'] = $r['phone'] ?: '–';
+    }
+    if ($t === 'reaktivierung') {
+        $f['Standort'] = $r['location'] ?: '–';
+        $f['Vorgesetzte/r'] = $r['manager_name'] ?: '–';
+    }
+    return $f;
+}
+
+/** Folgeaufträge, die aus einem Auftrag gestartet werden können */
+function followup_types(array $r): array
+{
+    if ($r['status'] !== 'freigegeben') return [];
+    return match ($r['type']) {
+        'onboarding', 'reaktivierung' => ['offboarding', 'stilllegung'],
+        'stilllegung' => ['reaktivierung', 'offboarding'],
+        default => [],
+    };
 }
 
 function page_request_detail(): void
@@ -384,30 +469,35 @@ function page_request_detail(): void
     $total = 0; $done = 0;
     foreach ($items as $list) foreach ($list as $it) { $total++; $done += (int)$it['done']; }
 
-    render_page('Auftrag ' . request_title($r), function () use ($u, $r, $items, $log, $total, $done) { ?>
+    $source = $r['source_request_id'] ? row('SELECT id, type, company_id FROM requests WHERE id = ?', [$r['source_request_id']]) : null;
+    if ($source && !can_access_company((int)$source['company_id'])) $source = null;
+    $followups = rows('SELECT id, type, status FROM requests WHERE source_request_id = ? ORDER BY id', [$r['id']]);
+    render_page(request_subject($r), function () use ($u, $r, $items, $log, $total, $done, $source, $followups) { ?>
         <div class="toolbar">
-            <?= status_badge($r['status']) ?>
+            <?= type_badge($r['type']) ?>
+            <?= status_badge($r['status'], $r['type']) ?>
             <span class="muted">Fortschritt: <?= $done ?> von <?= $total ?> erledigt</span>
             <span class="push-right"></span>
             <?php if (request_editable($r)): ?><a class="btn" href="<?= e(url('request_edit', ['id' => $r['id']])) ?>">Bearbeiten</a><?php endif; ?>
             <a class="btn" href="<?= e(url('request_print', ['id' => $r['id']])) ?>" target="_blank" rel="noopener">Druckansicht</a>
         </div>
+        <?php if ($source || $followups || followup_types($r)): ?>
+        <div class="card related">
+            <?php if ($source): ?><span>Basiert auf: <a href="<?= e(url('request', ['id' => $source['id']])) ?>"><?= e(REQUEST_TYPES[$source['type']]) ?> #<?= (int)$source['id'] ?></a></span><?php endif; ?>
+            <?php foreach ($followups as $fu): ?><span>Folgeauftrag: <a href="<?= e(url('request', ['id' => $fu['id']])) ?>"><?= e(REQUEST_TYPES[$fu['type']]) ?> #<?= (int)$fu['id'] ?></a> <?= status_badge($fu['status'], $fu['type']) ?></span><?php endforeach; ?>
+            <?php foreach (followup_types($r) as $ft): ?>
+                <a class="btn" href="<?= e(url('change_new', ['type' => $ft, 'from' => $r['id']])) ?>" title="<?= e(REQUEST_TYPE_HINTS[$ft]) ?>"><?= e(REQUEST_TYPES[$ft]) ?> starten</a>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
         <div class="grid2">
             <div class="card">
                 <h2>Mitarbeiter/in</h2>
                 <dl class="facts">
-                    <dt>Firma</dt><dd><?= e($r['company_name']) ?></dd>
-                    <dt>Name</dt><dd><?= e(trim($r['salutation'] . ' ' . $r['first_name'] . ' ' . $r['last_name'])) ?></dd>
-                    <dt>Mitarbeiternummer</dt><dd><?= e($r['employee_no']) ?></dd>
-                    <dt>Abteilung</dt><dd><?= e($r['department_name']) ?></dd>
-                    <dt>Position</dt><dd><?= e($r['position_name']) ?></dd>
-                    <dt>Eintritt</dt><dd><?= fmt_date($r['entry_date']) ?></dd>
-                    <dt>Standort</dt><dd><?= e($r['location'] ?: '–') ?></dd>
-                    <dt>Vorgesetzte/r</dt><dd><?= e($r['manager_name'] ?: '–') ?></dd>
-                    <dt>E-Mail (Wunsch)</dt><dd><?= e($r['email_wish'] ?: '–') ?></dd>
-                    <dt>Telefon</dt><dd><?= e($r['phone'] ?: '–') ?></dd>
+                    <?php foreach (request_facts($r) as $label => $value): ?><dt><?= e($label) ?></dt><dd><?= e($value) ?></dd><?php endforeach; ?>
                     <dt>Erstellt</dt><dd><?= fmt_dt($r['created_at']) ?> von <?= e($r['creator_name'] ?? '–') ?></dd>
                 </dl>
+                <?php if (!empty($r['auto_reply'])): ?><h3>Abwesenheitsnotiz</h3><p class="prewrap"><?= e($r['auto_reply']) ?></p><?php endif; ?>
                 <?php if ($r['notes']): ?><h3>Hinweise</h3><p class="prewrap"><?= e($r['notes']) ?></p><?php endif; ?>
             </div>
             <div class="card">
@@ -415,8 +505,8 @@ function page_request_detail(): void
                 <?php $canCheck = is_admin() && !in_array($r['status'], ['storniert'], true); ?>
                 <form method="post" action="<?= e(url('request_action', ['id' => $r['id']])) ?>">
                     <?= csrf_field() ?><input type="hidden" name="action" value="checklist">
-                    <?php foreach (ITEM_TYPES as $type => $label): if (!$items[$type]) continue; ?>
-                        <h3><?= e($label) ?></h3>
+                    <?php foreach ($items as $type => $list): if (!$list) continue; ?>
+                        <h3><?= e(item_type_label($type, $r['type'])) ?></h3>
                         <ul class="checklist">
                         <?php foreach ($items[$type] as $it): ?>
                             <li class="<?= (int)$it['done'] ? 'done' : '' ?>">
@@ -441,11 +531,11 @@ function page_request_detail(): void
                 <?= csrf_field() ?><input type="hidden" name="action" value="status">
                 <div class="grid3">
                     <label>Neuer Status
-                        <select name="status"><?php foreach (STATUSES as $k => $label): ?><option value="<?= e($k) ?>" <?= $r['status'] === $k ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select>
+                        <select name="status"><?php foreach (STATUSES as $k => $label): ?><option value="<?= e($k) ?>" <?= $r['status'] === $k ? 'selected' : '' ?>><?= e(status_label($k, $r['type'])) ?></option><?php endforeach; ?></select>
                     </label>
                 </div>
                 <label>Nachricht an die Firma (optional; bei „Rückfrage“ bitte die Frage formulieren)<textarea name="message" rows="3"></textarea></label>
-                <p class="muted small">„Eingerichtet“ = technisch vorbereitet · „Freigegeben“ = Zugang ist aktiv und an die Firma übergeben. Zugangsdaten bitte nicht über das Portal versenden.</p>
+                <p class="muted small"><?php if (in_array($r['type'], ['offboarding', 'stilllegung'], true)): ?>„Durchgeführt“ = Zugänge gesperrt bzw. stillgelegt · „Abgeschlossen“ = alle Punkte erledigt, Geräte zurück.<?php else: ?>„Eingerichtet“ = technisch vorbereitet · „Freigegeben“ = Zugang ist aktiv und an die Firma übergeben. Zugangsdaten bitte nicht über das Portal versenden.<?php endif; ?></p>
                 <button class="btn primary">Status speichern</button>
             </form>
         </div>
@@ -460,7 +550,7 @@ function page_request_detail(): void
                         <?= ($l['user_role'] ?? '') === 'admin' ? '<span class="tag">IT-Service</span>' : '' ?>
                         <?= (int)$l['internal'] ? '<span class="tag warn">intern</span>' : '' ?></div>
                     <?php if ($l['kind'] === 'status'): ?>
-                        <div>Status: <?= status_badge((string)$l['status_from']) ?> → <?= status_badge((string)$l['status_to']) ?></div>
+                        <div>Status: <?= status_badge((string)$l['status_from'], $r['type']) ?> → <?= status_badge((string)$l['status_to'], $r['type']) ?></div>
                     <?php endif; ?>
                     <?php if ($l['message']): ?><div class="prewrap"><?= e($l['message']) ?></div><?php endif; ?>
                 </li>
@@ -530,14 +620,14 @@ function page_request_action(): void
             update('requests', $id, ['status' => $new, 'updated_at' => now(),
                 'completed_at' => in_array($new, ['freigegeben', 'storniert'], true) ? now() : null]);
             request_log($id, 'status', $msg, $r['status'], $new);
-            $text = "Der Status Ihres Onboarding-Auftrags " . request_title($r) . " wurde geändert:\n"
-                . STATUSES[$r['status']] . ' → ' . STATUSES[$new] . ($msg ? "\n\nNachricht:\n$msg" : '')
+            $text = "Der Status Ihres Auftrags " . request_subject($r) . " wurde geändert:\n"
+                . status_label($r['status'], $r['type']) . ' → ' . status_label($new, $r['type']) . ($msg ? "\n\nNachricht:\n$msg" : '')
                 . "\n\nZum Auftrag: " . request_link($id);
-            send_mail($firmRecipients(), 'Onboarding ' . request_title($r) . ': ' . STATUSES[$new], $text);
+            send_mail($firmRecipients(), request_subject($r) . ': ' . status_label($new, $r['type']), $text);
             flash('success', 'Der Status wurde geändert und die Firma benachrichtigt.');
         } elseif ($msg !== '') {
             request_log($id, 'comment', $msg);
-            send_mail($firmRecipients(), 'Nachricht zu Onboarding ' . request_title($r), $msg . "\n\nZum Auftrag: " . request_link($id));
+            send_mail($firmRecipients(), 'Nachricht zu ' . request_subject($r), $msg . "\n\nZum Auftrag: " . request_link($id));
             flash('success', 'Die Nachricht wurde gesendet.');
         }
     } elseif ($action === 'comment') {
@@ -546,13 +636,13 @@ function page_request_action(): void
         request_log($id, 'comment', $msg, null, null, $internal);
         update('requests', $id, ['updated_at' => now()]);
         if (is_admin()) {
-            if (!$internal) send_mail($firmRecipients(), 'Nachricht zu Onboarding ' . request_title($r), $msg . "\n\nZum Auftrag: " . request_link($id));
+            if (!$internal) send_mail($firmRecipients(), 'Nachricht zu ' . request_subject($r), $msg . "\n\nZum Auftrag: " . request_link($id));
         } else {
             if ($r['status'] === 'rueckfrage') {
                 update('requests', $id, ['status' => 'in_bearbeitung']);
                 request_log($id, 'status', 'Rückfrage beantwortet', 'rueckfrage', 'in_bearbeitung');
             }
-            send_mail($adminRecipients, 'Antwort der Firma zu Onboarding ' . request_title($r) . ' (' . $r['company_name'] . ')',
+            send_mail($adminRecipients, 'Antwort der Firma zu ' . request_subject($r) . ' (' . $r['company_name'] . ')',
                 $u['name'] . " schreibt:\n\n" . $msg . "\n\nZum Auftrag: " . request_link($id));
         }
         flash('success', $internal ? 'Die interne Notiz wurde gespeichert.' : 'Die Nachricht wurde gesendet.');
@@ -560,7 +650,7 @@ function page_request_action(): void
         if (is_admin() || !in_array($r['status'], ['eingereicht', 'rueckfrage'], true)) abort(403);
         update('requests', $id, ['status' => 'storniert', 'updated_at' => now(), 'completed_at' => now()]);
         request_log($id, 'status', $msg ?: 'Von der Firma storniert', $r['status'], 'storniert');
-        send_mail($adminRecipients, 'Onboarding storniert: ' . request_title($r) . ' (' . $r['company_name'] . ')',
+        send_mail($adminRecipients, 'Storniert: ' . request_subject($r) . ' (' . $r['company_name'] . ')',
             'Der Auftrag wurde von ' . $u['name'] . ' storniert.' . ($msg ? "\nGrund: $msg" : '') . "\n\n" . request_link($id));
         flash('success', 'Der Auftrag wurde storniert.');
     } else {
@@ -574,28 +664,29 @@ function page_request_print(): void
     require_login();
     $r = load_request(query_int('id'));
     $items = request_items_grouped((int)$r['id']);
+    $facts = request_facts($r);
     ?><!DOCTYPE html>
-<html lang="de"><head><meta charset="utf-8"><title>Onboarding <?= e(request_title($r)) ?></title>
+<html lang="de"><head><meta charset="utf-8"><title><?= e(request_subject($r)) ?></title>
 <link rel="stylesheet" href="assets/style.css"></head>
 <body class="print">
-<h1>Onboarding-Auftrag <?= e(request_title($r)) ?></h1>
-<p><?= e($r['company_name']) ?> · Status: <?= e(STATUSES[$r['status']] ?? $r['status']) ?> · gedruckt <?= date('d.m.Y H:i') ?></p>
+<h1><?= e(request_subject($r)) ?></h1>
+<p><?= e($r['company_name']) ?> · Status: <?= e(status_label($r['status'], $r['type'])) ?> · gedruckt <?= date('d.m.Y H:i') ?></p>
 <table class="table compact">
-    <tr><th>Name</th><td><?= e(trim($r['salutation'] . ' ' . $r['first_name'] . ' ' . $r['last_name'])) ?></td><th>Pers.-Nr.</th><td><?= e($r['employee_no']) ?></td></tr>
-    <tr><th>Abteilung</th><td><?= e($r['department_name']) ?></td><th>Position</th><td><?= e($r['position_name']) ?></td></tr>
-    <tr><th>Eintritt</th><td><?= fmt_date($r['entry_date']) ?></td><th>Standort</th><td><?= e($r['location']) ?></td></tr>
-    <tr><th>Vorgesetzte/r</th><td><?= e($r['manager_name']) ?></td><th>E-Mail (Wunsch)</th><td><?= e($r['email_wish']) ?></td></tr>
+<?php foreach (array_chunk($facts, 2, true) as $pair): ?>
+    <tr><?php foreach ($pair as $label => $value): ?><th><?= e($label) ?></th><td><?= e($value) ?></td><?php endforeach; ?></tr>
+<?php endforeach; ?>
 </table>
-<?php foreach (ITEM_TYPES as $type => $label): if (!$items[$type]) continue; ?>
-    <h2><?= e($label) ?></h2>
+<?php if (!empty($r['auto_reply'])): ?><h2>Abwesenheitsnotiz</h2><p class="prewrap"><?= e($r['auto_reply']) ?></p><?php endif; ?>
+<?php foreach ($items as $type => $list): if (!$list) continue; ?>
+    <h2><?= e(item_type_label($type, $r['type'])) ?></h2>
     <ul class="checklist print-list">
-    <?php foreach ($items[$type] as $it): ?>
+    <?php foreach ($list as $it): ?>
         <li><span class="box"><?= (int)$it['done'] ? '☑' : '☐' ?></span> <?= e($it['name']) ?><?= $it['note'] ? ' – <em>' . e($it['note']) . '</em>' : '' ?></li>
     <?php endforeach; ?>
     </ul>
 <?php endforeach; ?>
 <?php if ($r['notes']): ?><h2>Hinweise</h2><p class="prewrap"><?= e($r['notes']) ?></p><?php endif; ?>
-<p class="sign">Eingerichtet von: ______________________ &nbsp; Datum: ____________</p>
+<p class="sign">Erledigt von: ______________________ &nbsp; Datum: ____________</p>
 <script src="assets/app.js"></script>
 </body></html>
 <?php

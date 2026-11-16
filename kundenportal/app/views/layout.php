@@ -3,19 +3,23 @@
 $appName = cfg('app_name', 'Kundenportal');
 $nav = [];
 $subnav = [];
-$onboardingRoutes = ['dashboard', 'request_new', 'request_edit', 'request', 'structure', 'catalog', 'templates'];
+$onboardingRoutes = ['dashboard', 'request_new', 'change_new', 'request_edit', 'request', 'structure', 'catalog', 'templates'];
 if ($user) {
     $nav[] = ['home', 'Start', $route === 'home'];
     $myApps = array_column(apps_for_user(), null, 'slug');
     if (isset($myApps['onboarding'])) {
         $nav[] = ['dashboard', $myApps['onboarding']['name'], in_array($route, $onboardingRoutes, true)];
         if (in_array($route, $onboardingRoutes, true)) {
-            $subnav[] = ['dashboard', 'Aufträge'];
-            $subnav[] = ['request_new', 'Neuer Auftrag'];
+            $curType = (string)($_GET['type'] ?? '');
+            $subnav[] = ['dashboard', 'Aufträge', [], $route === 'dashboard'];
+            $subnav[] = ['request_new', '+ Onboarding', [], $route === 'request_new'];
+            $subnav[] = ['change_new', '+ Offboarding', ['type' => 'offboarding'], $route === 'change_new' && $curType === 'offboarding'];
+            $subnav[] = ['change_new', '+ Stilllegung', ['type' => 'stilllegung'], $route === 'change_new' && $curType === 'stilllegung'];
+            $subnav[] = ['change_new', '+ Reaktivierung', ['type' => 'reaktivierung'], $route === 'change_new' && $curType === 'reaktivierung'];
             if (in_array($user['role'], ['admin', 'firma_admin'], true)) {
-                $subnav[] = ['structure', 'Abteilungen & Positionen'];
-                $subnav[] = ['catalog', 'Katalog'];
-                $subnav[] = ['templates', 'Vorlagen'];
+                $subnav[] = ['structure', 'Abteilungen & Positionen', [], $route === 'structure'];
+                $subnav[] = ['catalog', 'Katalog', [], $route === 'catalog'];
+                $subnav[] = ['templates', 'Vorlagen', [], $route === 'templates'];
             }
         }
     }
@@ -64,8 +68,8 @@ if ($user && $user['company_id']) {
 <?php endif; ?>
 <?php if ($subnav): ?>
 <nav class="subnav">
-    <?php foreach ($subnav as [$r, $label]): ?>
-        <a href="<?= e(url($r)) ?>" class="<?= $route === $r ? 'active' : '' ?>"><?= e($label) ?></a>
+    <?php foreach ($subnav as [$r, $label, $params, $active]): ?>
+        <a href="<?= e(url($r, $params)) ?>" class="<?= $active ? 'active' : '' ?>"><?= e($label) ?></a>
     <?php endforeach; ?>
 </nav>
 <?php endif; ?>

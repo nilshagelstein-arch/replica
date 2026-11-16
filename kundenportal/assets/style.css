@@ -102,6 +102,17 @@ progress { width: 90px; height: 8px; vertical-align: middle; accent-color: var(-
 .st-eingerichtet { background: #e6f0ff; color: #2b3f9e; }
 .st-freigegeben { background: #dff3e4; color: #145c28; }
 .st-storniert { background: #eceff2; color: #5d6670; }
+.type-onboarding { background: #e3edfa; color: #184a86; }
+.type-offboarding { background: #fde4e1; color: #8a1f13; }
+.type-stilllegung { background: #fff1d6; color: #7a4b00; }
+.type-reaktivierung { background: #dff3e4; color: #145c28; }
+.new-buttons { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.type-tabs { display: flex; gap: .3rem; flex-wrap: wrap; margin-bottom: .8rem; border-bottom: 1px solid var(--line); }
+.type-tabs a { padding: .45rem .8rem; text-decoration: none; color: var(--text); border-bottom: 3px solid transparent; }
+.type-tabs a.active { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
+.card.related { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; padding: .8rem 1.25rem; }
+.inline-form label.grow { flex: 1 1 360px; margin: 0; }
+[hidden] { display: none !important; }
 .tag { display: inline-block; font-size: .72rem; padding: .05rem .45rem; border-radius: 4px; background: #eef1f4; color: var(--muted); margin-left: .3rem; vertical-align: middle; }
 .tag.warn { background: #fff1d6; color: #7a4b00; }
 

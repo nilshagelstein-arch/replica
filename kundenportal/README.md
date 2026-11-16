@@ -2,7 +2,12 @@
 
 Mandantenfähiges Webportal für Kundenfirmen eines IT-Dienstleisters. Nach der Anmeldung mit Passwort und Zwei-Faktor-Authentifizierung (Authenticator-App) sieht jede Firma eine Startseite mit den **Apps, die für sie freigeschaltet sind**.
 
-Erste eingebaute App ist **Onboarding**. Darüber melden die Firmen neue Mitarbeitende zur Einrichtung von Arbeitsplatz, Zugängen und Freigaben.
+Erste eingebaute App ist **On- & Offboarding**. Darüber beauftragen die Firmen:
+
+- **Onboarding:** neue Mitarbeitende einrichten
+- **Offboarding:** Austritte abwickeln (Konto sperren, Geräte zurücknehmen, Lizenzen entziehen, Postfach und Daten regeln)
+- **Stilllegung:** Zugänge bei längerer Abwesenheit (z. B. Elternzeit, Pflegezeit, Sabbatical) ruhen lassen
+- **Reaktivierung:** bei der Rückkehr alles wieder bereitstellen
 
 ## Funktionen
 
@@ -16,8 +21,13 @@ Erste eingebaute App ist **Onboarding**. Darüber melden die Firmen neue Mitarbe
   - Firmen-Benutzer
 - **Sicherheit:** 2FA (TOTP) mit QR-Code, der auf dem eigenen Server erzeugt wird. Außerdem Sperre nach Fehlversuchen, CSRF-Schutz, strikte Mandantentrennung, Protokoll und erzwungene Passwortänderung beim ersten Login.
 
-### App „Onboarding“
-- **Auftrag:** Name, Mitarbeiternummer, Abteilung, Position, Eintrittsdatum, Standort, Vorgesetzte/r, Wunsch-E-Mail, Geräte, Lizenzen, Programme, Netzlaufwerke und Freigaben, dazu Bemerkungen und Freitext-Zusatzwünsche
+### App „On- & Offboarding“
+- **Onboarding:** Name, Mitarbeiternummer, Abteilung, Position, Eintrittsdatum, Standort, Vorgesetzte/r, Wunsch-E-Mail, Geräte, Lizenzen, Programme, Netzlaufwerke und Freigaben, dazu Bemerkungen und Freitext-Zusatzwünsche
+- **Offboarding:** Austrittsdatum, Zeitpunkt der Kontosperre, Postfach (sperren, freigeben, weiterleiten, löschen), Nachfolger/in, Abwesenheitsnotiz, persönliche Dateien, Rufnummer sowie eine Rückgabe- und Entzugsliste
+- **Stilllegung:** Beginn, Grund (Auswahlliste, ohne Gesundheitsdaten), geplante Rückkehr, Vertretung, Abwesenheitsnotiz; Lizenzen und Zugänge werden pausiert statt gelöscht. Bei Geräten kann vermerkt werden, ob sie bei der Person bleiben.
+- **Reaktivierung:** übernimmt Ausstattung und Rückkehrdatum aus der Stilllegung
+- **Folgeaufträge mit einem Klick:** Aus einem abgeschlossenen Auftrag lassen sich Offboarding, Stilllegung oder Reaktivierung starten. Person und Ausstattung werden übernommen, die Aufträge sind miteinander verknüpft.
+- **Automatische Aufgaben** in der Checkliste, z. B. Konto sperren zum Zeitpunkt X, Postfach umwandeln, Wiedervorlage vor der Rückkehr
 - **Kataloge und Vorlagen:** Einträge gelten für alle Firmen oder nur für eine. Für jede Abteilung und Position lässt sich hinterlegen, was vorausgewählt wird.
 - **Workflow:** Eingereicht → In Bearbeitung → Rückfrage → Eingerichtet → Freigegeben (oder Storniert). Dazu gibt es eine Checkliste, Nachrichten, interne Notizen und eine Druckansicht.
 - **E-Mail-Benachrichtigungen** bei neuen Aufträgen, Antworten und Statuswechseln

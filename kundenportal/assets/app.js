@@ -22,6 +22,16 @@
     window.addEventListener('load', function () { window.print(); });
   }
 
+  // Felder nur bei bestimmter Auswahl anzeigen: data-show-if="feldname=wert"
+  Array.prototype.forEach.call(document.querySelectorAll('[data-show-if]'), function (el) {
+    var parts = el.getAttribute('data-show-if').split('=');
+    var ctrl = document.querySelector('[name="' + parts[0] + '"]');
+    if (!ctrl) return;
+    function upd() { el.hidden = ctrl.value !== parts[1]; }
+    ctrl.addEventListener('change', upd);
+    upd();
+  });
+
   var form = document.getElementById('request-form');
   if (!form) return;
   var dataEl = document.getElementById('template-data');
@@ -93,8 +103,10 @@
     var f = norm(form.first_name.value), l = norm(form.last_name.value);
     if (f && l) email.placeholder = f + '.' + l + '@' + tpl.domain;
   }
-  form.first_name.addEventListener('input', suggest);
-  form.last_name.addEventListener('input', suggest);
+  if (email) {
+    form.first_name.addEventListener('input', suggest);
+    form.last_name.addEventListener('input', suggest);
+  }
   if (email) {
     email.addEventListener('focus', function () {
       if (!email.value && email.placeholder && email.placeholder.indexOf('vorname.') !== 0) email.value = email.placeholder;

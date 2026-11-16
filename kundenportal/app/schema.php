@@ -183,11 +183,11 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
-    'onboarding' => ['name' => 'Onboarding', 'description' => 'Neue Mitarbeitende zur Einrichtung von Arbeitsplatz, Zugängen und Freigaben melden.',
+    'onboarding' => ['name' => 'On- & Offboarding', 'description' => 'Neue Mitarbeitende einrichten lassen, Austritte abwickeln und Zugänge bei Elternzeit & Co. vorübergehend stilllegen.',
         'target' => 'dashboard', 'icon' => '👤', 'color' => '#1f5fa8', 'sort' => 10],
 ];
 
@@ -206,11 +206,33 @@ function run_migrations(): void
         }
     }
     // Spalten, die in älteren Versionen fehlen
-    try {
-        db()->query('SELECT must_change_password FROM users LIMIT 1');
-    } catch (PDOException $ex) {
-        db()->exec('ALTER TABLE users ADD COLUMN must_change_password INT NOT NULL DEFAULT 0');
+    $columns = [
+        ['users', 'must_change_password', 'INT NOT NULL DEFAULT 0'],
+        // Offboarding (ab Version 3)
+        ['requests', 'type', "VARCHAR(20) NOT NULL DEFAULT 'onboarding'"],
+        ['requests', 'source_request_id', 'INT NULL'],
+        ['requests', 'lock_option', "VARCHAR(20) NOT NULL DEFAULT ''"],
+        ['requests', 'lock_at', "VARCHAR(16) NOT NULL DEFAULT ''"],
+        ['requests', 'mailbox_action', "VARCHAR(20) NOT NULL DEFAULT ''"],
+        ['requests', 'successor_name', "VARCHAR(190) NOT NULL DEFAULT ''"],
+        ['requests', 'successor_email', "VARCHAR(190) NOT NULL DEFAULT ''"],
+        ['requests', 'forward_until', "VARCHAR(10) NOT NULL DEFAULT ''"],
+        ['requests', 'auto_reply', 'TEXT NULL'],
+        ['requests', 'data_action', "VARCHAR(20) NOT NULL DEFAULT ''"],
+        ['requests', 'phone_action', "VARCHAR(190) NOT NULL DEFAULT ''"],
+        ['requests', 'return_date', "VARCHAR(10) NOT NULL DEFAULT ''"],
+        ['requests', 'absence_reason', "VARCHAR(60) NOT NULL DEFAULT ''"],
+    ];
+    foreach ($columns as [$table, $col, $ddl]) {
+        try {
+            db()->query("SELECT $col FROM $table LIMIT 1");
+        } catch (PDOException $ex) {
+            db()->exec("ALTER TABLE $table ADD COLUMN $col $ddl");
+        }
     }
+    // Anzeigename der eingebauten App aktualisieren, solange er nicht angepasst wurde
+    q("UPDATE apps SET name = ?, description = ? WHERE slug = 'onboarding' AND name = 'Onboarding'",
+        [BUILTIN_APPS['onboarding']['name'], BUILTIN_APPS['onboarding']['description']]);
     foreach (BUILTIN_APPS as $slug => $a) {
         if (!row('SELECT id FROM apps WHERE slug = ?', [$slug])) {
             $appId = insert('apps', ['slug' => $slug, 'name' => $a['name'], 'description' => $a['description'], 'kind' => 'intern',
