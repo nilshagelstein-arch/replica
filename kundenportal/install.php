@@ -48,7 +48,7 @@ if (!$errors && is_post()) {
                 'email'         => $email,
                 'name'          => $name,
                 'password_hash' => password_hash($pw, PASSWORD_DEFAULT),
-                'role'          => 'admin',
+                'role'          => 'superadmin',
                 'active'        => 1,
                 'created_at'    => now(),
             ]);
@@ -86,8 +86,8 @@ render_page('Installation', function () use ($errors, $done) {
     foreach ($errors as $err) echo '<div class="alert error">' . e($err) . '</div>';
     ?>
     <div class="card narrow">
-        <h2>Ersten Administrator anlegen</h2>
-        <p class="muted">Datenbank: <?= e(cfg('db.driver')) ?> · Dieser Zugang verwaltet später alle Firmen.</p>
+        <h2>Superadmin anlegen</h2>
+        <p class="muted">Datenbank: <?= e(cfg('db.driver')) ?> · Dieser Zugang ist der einzige Superadmin: Er verwaltet alle Firmen und als Einziger die Administratoren-Konten.</p>
         <form method="post" class="form">
             <?= csrf_field() ?>
             <label>Name<input name="name" required value="<?= e(post('name')) ?>"></label>

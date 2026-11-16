@@ -64,7 +64,7 @@ function page_company_edit(): void
 {
     $u = require_manager();
     $isNew = false;
-    if ($u['role'] === 'admin') {
+    if (is_staff_role($u['role'])) {
         $id = query_int('id');
         $isNew = !$id && isset($_GET['new']);
         if (!$id && !$isNew) redirect('companies');
@@ -89,7 +89,7 @@ function page_company_edit(): void
         }
         $data['email_domain'] = strtolower(ltrim($data['email_domain'], '@'));
         $data['it_notes'] = mb_substr(post('it_notes'), 0, 5000);
-        if ($u['role'] === 'admin') $data['active'] = post('active') === '1' ? 1 : 0;
+        if (is_staff_role($u['role'])) $data['active'] = post('active') === '1' ? 1 : 0;
 
         $wantApps = array_map('intval', (array)($_POST['apps'] ?? []));
         if (!$errors) {
@@ -105,7 +105,7 @@ function page_company_edit(): void
                 audit('company_updated', $save['name'], $id);
                 flash('success', 'Das Firmenprofil wurde gespeichert.');
             }
-            if ($u['role'] === 'admin') {
+            if (is_staff_role($u['role'])) {
                 $valid = array_map('intval', array_column(rows('SELECT id FROM apps'), 'id'));
                 $want = array_intersect($valid, $wantApps);
                 $have = array_map('intval', array_column(rows('SELECT app_id FROM company_apps WHERE company_id = ?', [$id]), 'app_id'));
@@ -118,7 +118,7 @@ function page_company_edit(): void
                     audit('app_revoked', 'App-ID ' . $aid, $id);
                 }
             }
-            redirect('company_edit', $u['role'] === 'admin' ? ['id' => $id] : []);
+            redirect('company_edit', is_staff_role($u['role']) ? ['id' => $id] : []);
         }
     }
 
@@ -137,7 +137,7 @@ function page_company_edit(): void
             <label>Hinweise für die IT (z. B. Standorte, Druckerumgebung, Besonderheiten)
                 <textarea name="it_notes" rows="5"><?= e($data['it_notes']) ?></textarea>
             </label>
-            <?php if ($u['role'] === 'admin'):
+            <?php if (is_staff_role($u['role'])):
                 $allApps = rows('SELECT * FROM apps ORDER BY sort, name');
                 $has = $id ? array_map('intval', array_column(rows('SELECT app_id FROM company_apps WHERE company_id = ?', [$id]), 'app_id')) : [];
                 if (is_post()) $has = array_map('intval', (array)($_POST['apps'] ?? [])); ?>
@@ -153,10 +153,10 @@ function page_company_edit(): void
             <?php endif; ?>
             <div class="buttons">
                 <button class="btn primary"><?= $isNew ? 'Firma anlegen' : 'Speichern' ?></button>
-                <?php if ($u['role'] === 'admin'): ?><a class="btn" href="<?= e(url('companies')) ?>">Zurück</a><?php endif; ?>
+                <?php if (is_staff_role($u['role'])): ?><a class="btn" href="<?= e(url('companies')) ?>">Zurück</a><?php endif; ?>
             </div>
         </form>
-        <?php if (!$isNew && $u['role'] !== 'admin'): $mine = apps_for_user(); ?>
+        <?php if (!$isNew && !is_staff_role($u['role'])): $mine = apps_for_user(); ?>
         <div class="card">
             <h2>Freigeschaltete Apps</h2>
             <p><?= $mine ? e(implode(', ', array_column($mine, 'name'))) : '<span class="muted">keine</span>' ?></p>
@@ -167,10 +167,10 @@ function page_company_edit(): void
         <div class="card">
             <h2>Weitere Einstellungen</h2>
             <p class="links">
-                <?php $p = $u['role'] === 'admin' ? ['company' => $id] : []; ?>
+                <?php $p = is_staff_role($u['role']) ? ['company' => $id] : []; ?>
                 <a href="<?= e(url('users', $p)) ?>">Benutzer verwalten</a>
                 <a href="<?= e(url('mail_settings', $p)) ?>">E-Mail-Versand über eigenes Postfach</a>
-                <?php if ($u['role'] === 'admin' || company_has_app($id, 'onboarding')): ?>
+                <?php if (is_staff_role($u['role']) || company_has_app($id, 'onboarding')): ?>
                 <a href="<?= e(url('structure', $p)) ?>">Onboarding: Abteilungen & Positionen</a>
                 <a href="<?= e(url('catalog', $p)) ?>">Onboarding: Netzlaufwerke, Freigaben & Katalog</a>
                 <a href="<?= e(url('templates', $p)) ?>">Onboarding: Vorlagen je Abteilung/Position</a>

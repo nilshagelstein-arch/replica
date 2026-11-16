@@ -16,14 +16,14 @@ if ($user) {
             $subnav[] = ['change_new', '+ Offboarding', ['type' => 'offboarding'], $route === 'change_new' && $curType === 'offboarding'];
             $subnav[] = ['change_new', '+ Stilllegung', ['type' => 'stilllegung'], $route === 'change_new' && $curType === 'stilllegung'];
             $subnav[] = ['change_new', '+ Reaktivierung', ['type' => 'reaktivierung'], $route === 'change_new' && $curType === 'reaktivierung'];
-            if (in_array($user['role'], ['admin', 'firma_admin'], true)) {
+            if (in_array($user['role'], ['superadmin', 'admin', 'firma_admin'], true)) {
                 $subnav[] = ['structure', 'Abteilungen & Positionen', [], $route === 'structure'];
                 $subnav[] = ['catalog', 'Katalog', [], $route === 'catalog'];
                 $subnav[] = ['templates', 'Vorlagen', [], $route === 'templates'];
             }
         }
     }
-    if ($user['role'] === 'admin') {
+    if (is_staff_role($user['role'])) {
         $nav[] = ['companies', 'Firmen', in_array($route, ['companies', 'company_edit'], true)];
         $nav[] = ['users', 'Benutzer', in_array($route, ['users', 'user_edit'], true)];
         $nav[] = ['apps', 'Apps & Freigaben', $route === 'apps'];

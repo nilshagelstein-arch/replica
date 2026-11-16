@@ -16,9 +16,10 @@ Erste eingebaute App ist **On- & Offboarding**. Darüber beauftragen die Firmen:
 - **Apps & Freigaben** (nur Administratoren): eine Übersicht, welche Firma welche App nutzen darf, mit Häkchen pro Firma und App. Die Freigaben lassen sich auch im Firmenprofil setzen.
 - **Externe Apps:** Links zu anderen Anwendungen (z. B. Ticketsystem, Wissensdatenbank) mit Name, Symbol, Farbe und Beschreibung. Diese Anwendungen haben ihre eigene Anmeldung.
 - **Rollen:**
-  - Administrator (Dienstleister, sieht und pflegt alle Firmen)
-  - Firmen-Administrator (pflegt Firmenprofil und Benutzer der eigenen Firma)
-  - Firmen-Benutzer
+  - **Superadmin** (genau einer): alles, was Verwaltungsadmins dürfen, und als Einziger die Verwaltung der Administratoren-Konten (anlegen, deaktivieren, löschen, Zugang zurücksetzen). Nur der Superadmin selbst kann seine Rolle an einen Verwaltungsadmin übertragen, bestätigt mit seinem Passwort. Danach ist er selbst Verwaltungsadmin.
+  - **Verwaltungsadmin** (Dienstleister): sieht und pflegt alle Firmen, deren Benutzer, Apps, E-Mail-Versand und Aufträge
+  - **Firmen-Administrator:** pflegt Firmenprofil und Benutzer der eigenen Firma
+  - **Firmen-Benutzer:** erstellt und verfolgt Aufträge
 - **E-Mail-Versand:** zentrales Absender-Postfach und auf Wunsch ein eigenes Postfach je Firma (SMTP mit Anmeldung, Microsoft 365 oder Gmail/Google Workspace per OAuth2). Benachrichtigungen an eine Firma laufen über deren Postfach, Mails an die Administratoren über das zentrale. Fällt ein Postfach aus, springt automatisch das nächste ein (Firma → zentral → Mailfunktion des Webhosters). Zugangsdaten werden verschlüsselt gespeichert, und für jedes Postfach gibt es einen Knopf für eine Testmail.
 - **Sicherheit:** 2FA (TOTP) mit QR-Code, der auf dem eigenen Server erzeugt wird. Außerdem Sperre nach Fehlversuchen, CSRF-Schutz, strikte Mandantentrennung, Protokoll und erzwungene Passwortänderung beim ersten Login.
 
@@ -46,7 +47,7 @@ Composer und ein Kommandozeilenzugang sind nicht nötig.
 1. Den Inhalt des Ordners `kundenportal/` per FTP hochladen, z. B. nach `/portal`.
 2. Im Kundenmenü des Hosters eine MySQL-Datenbank anlegen.
 3. `config.sample.php` nach `config.php` kopieren. Dort Datenbankzugang, `base_url`, den Portalnamen, Absender und Empfänger für E-Mails eintragen.
-4. `https://ihre-domain.de/portal/install.php` aufrufen und den ersten Administrator anlegen.
+4. `https://ihre-domain.de/portal/install.php` aufrufen und den Superadmin anlegen.
 5. **`install.php` vom Server löschen.**
 6. Anmelden und die Authenticator-App einrichten.
 7. Unter **Firmen** die Kundenfirmen anlegen und unter **Apps & Freigaben** festlegen, welche Firma welche App bekommt. Danach je Firma einen Firmen-Administrator anlegen; das Startpasswort wird einmalig angezeigt.

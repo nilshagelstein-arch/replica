@@ -54,7 +54,7 @@ function page_dashboard(): void
     $where = [];
     $params = [];
     $companyFilter = 0;
-    if ($u['role'] === 'admin') {
+    if (is_staff_role($u['role'])) {
         $companyFilter = query_int('company');
         if ($companyFilter) { $where[] = 'r.company_id = ?'; $params[] = $companyFilter; }
     } else {
@@ -124,7 +124,7 @@ function page_dashboard(): void
         </div>
         <form method="get" class="toolbar">
             <input type="hidden" name="r" value="dashboard"><input type="hidden" name="status" value="<?= e($status) ?>"><input type="hidden" name="type" value="<?= e($type) ?>">
-            <?php if ($u['role'] === 'admin'): ?>
+            <?php if (is_staff_role($u['role'])): ?>
                 <label>Firma <select name="company"><option value="0">Alle Firmen</option>
                     <?php foreach (companies_with_app('onboarding') as $c): ?><option value="<?= (int)$c['id'] ?>" <?= $companyFilter === (int)$c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?>
                 </select></label>
@@ -137,7 +137,7 @@ function page_dashboard(): void
             <p class="muted">Keine Aufträge gefunden.</p>
         <?php else: ?>
             <table class="table">
-                <thead><tr><th>Nr.</th><?php if ($u['role'] === 'admin'): ?><th>Firma</th><?php endif; ?><th>Art</th><th>Mitarbeiter/in</th><th>Pers.-Nr.</th>
+                <thead><tr><th>Nr.</th><?php if (is_staff_role($u['role'])): ?><th>Firma</th><?php endif; ?><th>Art</th><th>Mitarbeiter/in</th><th>Pers.-Nr.</th>
                     <th>Abteilung / Position</th><th>Stichtag</th><th>Fortschritt</th><th>Status</th></tr></thead>
                 <tbody>
                 <?php foreach ($list as $r):
@@ -145,7 +145,7 @@ function page_dashboard(): void
                     $pct = $r['item_count'] ? round(100 * $r['done_count'] / $r['item_count']) : 0; ?>
                     <tr>
                         <td><a href="<?= e(url('request', ['id' => $r['id']])) ?>">#<?= (int)$r['id'] ?></a></td>
-                        <?php if ($u['role'] === 'admin'): ?><td><?= e($r['company_name']) ?></td><?php endif; ?>
+                        <?php if (is_staff_role($u['role'])): ?><td><?= e($r['company_name']) ?></td><?php endif; ?>
                         <td><?= type_badge($r['type']) ?></td>
                         <td><a href="<?= e(url('request', ['id' => $r['id']])) ?>"><strong><?= e($r['last_name'] . ', ' . $r['first_name']) ?></strong></a></td>
                         <td><?= e($r['employee_no']) ?></td>
@@ -182,7 +182,7 @@ function page_request_form(): void
 
     if ($existing) {
         $cid = (int)$existing['company_id'];
-    } elseif ($u['role'] === 'admin') {
+    } elseif (is_staff_role($u['role'])) {
         $cid = query_int('company') ?: (int)post('company_id', 0);
     } else {
         $cid = (int)$u['company_id'];
@@ -192,7 +192,7 @@ function page_request_form(): void
 
     // Admin muss zuerst die Firma wählen
     if (!$company) {
-        if ($u['role'] !== 'admin') abort(403);
+        if (!is_staff_role($u['role'])) abort(403);
         $companies = array_filter(companies_with_app('onboarding'), fn($c) => (int)$c['active'] === 1);
         render_page('Neuer Auftrag', function () use ($companies) { ?>
             <form method="get" class="card form narrow">
@@ -305,7 +305,7 @@ function page_request_form(): void
             $body = "Firma: {$r['company_name']}\nMitarbeiter/in: {$r['first_name']} {$r['last_name']} (Pers.-Nr. {$r['employee_no']})\n"
                 . "Abteilung/Position: {$r['department_name']} / {$r['position_name']}\nEintritt: " . fmt_date($r['entry_date'])
                 . "\nErstellt/geändert von: {$u['name']}\n\nZum Auftrag: " . request_link($id);
-            if ($u['role'] === 'admin') {
+            if (is_staff_role($u['role'])) {
                 if (!$existing) send_mail(company_recipients($cid, $u['id']), $subject, "Für Ihre Firma wurde ein Onboarding-Auftrag angelegt.\n\n" . $body, $cid);
             } else {
                 send_mail((array)cfg('mail.admin_recipients', []), $subject, $body);
@@ -546,8 +546,8 @@ function page_request_detail(): void
             <ul class="timeline">
             <?php foreach ($log as $l): ?>
                 <li class="<?= (int)$l['internal'] ? 'internal' : '' ?> kind-<?= e($l['kind']) ?>">
-                    <div class="meta"><?= fmt_dt($l['created_at']) ?> · <?= e($l['user_name'] ?? 'System') ?>
-                        <?= ($l['user_role'] ?? '') === 'admin' ? '<span class="tag">IT-Service</span>' : '' ?>
+                    <div class="meta"><?= fmt_dt($l['created_at']) ?> · <?= e($l['user_name'] ?? ($l['user_id'] ? 'Gelöschter Benutzer' : 'System')) ?>
+                        <?= is_staff_role((string)($l['user_role'] ?? '')) ? '<span class="tag">IT-Service</span>' : '' ?>
                         <?= (int)$l['internal'] ? '<span class="tag warn">intern</span>' : '' ?></div>
                     <?php if ($l['kind'] === 'status'): ?>
                         <div>Status: <?= status_badge((string)$l['status_from'], $r['type']) ?> → <?= status_badge((string)$l['status_to'], $r['type']) ?></div>

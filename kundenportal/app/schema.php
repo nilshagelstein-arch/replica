@@ -213,7 +213,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -275,6 +275,11 @@ function run_migrations(): void
                 }
             }
         }
+    }
+    // genau ein Superadmin: gibt es noch keinen, wird der zuerst angelegte aktive Administrator dazu
+    if (!row("SELECT id FROM users WHERE role = 'superadmin'")) {
+        $first = row("SELECT id FROM users WHERE role = 'admin' AND active = 1 ORDER BY id LIMIT 1");
+        if ($first) q("UPDATE users SET role = 'superadmin' WHERE id = ?", [$first['id']]);
     }
     $file = APP_DIR . '/data/schema.version';
     if (!is_dir(dirname($file))) mkdir(dirname($file), 0770, true);

@@ -122,14 +122,14 @@ function page_change_form(): void
 
     if ($existing) $cid = (int)$existing['company_id'];
     elseif ($source) $cid = (int)$source['company_id'];
-    elseif ($u['role'] === 'admin') $cid = query_int('company') ?: (int)post('company_id', 0);
+    elseif (is_staff_role($u['role'])) $cid = query_int('company') ?: (int)post('company_id', 0);
     else $cid = (int)$u['company_id'];
     $company = $cid ? row('SELECT * FROM companies WHERE id = ? AND active = 1', [$cid]) : null;
     if ($company && !company_has_app($cid, 'onboarding')) $company = null;
     $typeLabel = REQUEST_TYPES[$type];
 
     if (!$company) {
-        if ($u['role'] !== 'admin') abort(403);
+        if (!is_staff_role($u['role'])) abort(403);
         $companies = array_filter(companies_with_app('onboarding'), fn($c) => (int)$c['active'] === 1);
         render_page('Neue ' . $typeLabel, function () use ($companies, $type) { ?>
             <form method="get" class="card form narrow">
@@ -249,7 +249,7 @@ function page_change_form(): void
                 . TYPE_DATE_LABELS[$type] . ': ' . fmt_date($r['entry_date'])
                 . ($type === 'stilllegung' ? "\nGrund: {$r['absence_reason']}\nGeplante Rückkehr: " . ($r['return_date'] ? fmt_date($r['return_date']) : 'offen') : '')
                 . "\nErstellt/geändert von: {$u['name']}\n\nZum Auftrag: " . request_link($id);
-            if ($u['role'] === 'admin') {
+            if (is_staff_role($u['role'])) {
                 if (!$existing) send_mail(company_recipients($cid, $u['id']), $subject, "Für Ihre Firma wurde ein Auftrag angelegt.\n\n" . $body, $cid);
             } else {
                 send_mail((array)cfg('mail.admin_recipients', []), $subject, $body);

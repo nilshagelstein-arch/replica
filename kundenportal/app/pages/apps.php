@@ -31,7 +31,7 @@ function app_badge(array $a): string
     if ($a['slug'] !== 'onboarding') return '';
     $u = current_user();
     $in = "'" . implode("','", OPEN_STATUSES) . "'";
-    $n = $u['role'] === 'admin'
+    $n = is_staff_role($u['role'])
         ? (int)row("SELECT COUNT(*) AS n FROM requests WHERE status IN ($in)")['n']
         : (int)row("SELECT COUNT(*) AS n FROM requests WHERE status IN ($in) AND company_id = ?", [$u['company_id']])['n'];
     return $n ? $n . ' offen' : '';
@@ -42,7 +42,7 @@ function page_home(): void
     $u = require_login();
     $apps = apps_for_user();
     $grantCounts = [];
-    if ($u['role'] === 'admin') {
+    if (is_staff_role($u['role'])) {
         foreach (rows('SELECT app_id, COUNT(*) AS n FROM company_apps GROUP BY app_id') as $g) $grantCounts[(int)$g['app_id']] = (int)$g['n'];
     }
     render_page('Willkommen, ' . $u['name'], function () use ($u, $apps, $grantCounts) { ?>
@@ -58,13 +58,13 @@ function page_home(): void
                     <span class="app-desc"><?= e($a['description']) ?></span>
                     <span class="app-foot">
                         <?php if ($badge): ?><span class="badge st-eingereicht"><?= e($badge) ?></span><?php endif; ?>
-                        <?php if ($u['role'] === 'admin'): ?><span class="muted small">freigeschaltet für <?= $grantCounts[(int)$a['id']] ?? 0 ?> Firma/Firmen</span><?php endif; ?>
+                        <?php if (is_staff_role($u['role'])): ?><span class="muted small">freigeschaltet für <?= $grantCounts[(int)$a['id']] ?? 0 ?> Firma/Firmen</span><?php endif; ?>
                     </span>
                 </a>
             <?php endforeach; ?>
         </div>
         <?php endif; ?>
-        <?php if ($u['role'] === 'admin'): ?>
+        <?php if (is_staff_role($u['role'])): ?>
             <p><a class="btn" href="<?= e(url('apps')) ?>">Apps &amp; Freigaben verwalten</a></p>
         <?php endif;
     });

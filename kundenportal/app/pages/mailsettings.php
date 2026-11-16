@@ -9,7 +9,7 @@ const SMTP_ALLOWED_PORTS = [25, 465, 587, 2525];
 function mail_settings_target(): ?int
 {
     $u = require_manager();
-    if ($u['role'] === 'admin') {
+    if (is_staff_role($u['role'])) {
         $cid = query_int('company') ?: (int)post('company_id', 0);
         if ($cid && !row('SELECT id FROM companies WHERE id = ?', [$cid])) abort(404);
         return $cid ?: null;

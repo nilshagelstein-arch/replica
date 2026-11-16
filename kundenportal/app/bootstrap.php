@@ -22,7 +22,8 @@ require_once APP_DIR . '/mail.php';
 // Konstanten
 // ---------------------------------------------------------------------------
 const ROLES = [
-    'admin'       => 'Administrator (Dienstleister)',
+    'superadmin'  => 'Superadmin (Dienstleister)',
+    'admin'       => 'Verwaltungsadmin (Dienstleister)',
     'firma_admin' => 'Firmen-Administrator',
     'firma_user'  => 'Firmen-Benutzer',
 ];
@@ -365,9 +366,33 @@ function current_user(): ?array
     return $cache = $u;
 }
 
+/** Superadmin oder Verwaltungsadmin (Dienstleister) */
+function is_staff_role(string $role): bool
+{
+    return $role === 'admin' || $role === 'superadmin';
+}
+
+function is_superadmin(): bool
+{
+    return (current_user()['role'] ?? '') === 'superadmin';
+}
+
+function require_superadmin(): array
+{
+    $u = require_login();
+    if ($u['role'] !== 'superadmin') abort(403, 'Diese Aktion ist nur für Superadmins erlaubt.');
+    return $u;
+}
+
+/** Anzahl aktiver Superadmins (es muss immer mindestens einer übrig bleiben) */
+function active_superadmin_count(): int
+{
+    return (int)row("SELECT COUNT(*) AS n FROM users WHERE role = 'superadmin' AND active = 1")['n'];
+}
+
 function is_admin(): bool
 {
-    return (current_user()['role'] ?? '') === 'admin';
+    return is_staff_role((string)(current_user()['role'] ?? ''));
 }
 
 function is_company_admin(): bool
@@ -389,7 +414,7 @@ function require_login(): array
 function require_admin(): array
 {
     $u = require_login();
-    if ($u['role'] !== 'admin') abort(403);
+    if (!is_staff_role($u['role'])) abort(403);
     return $u;
 }
 
@@ -397,7 +422,7 @@ function require_admin(): array
 function require_manager(): array
 {
     $u = require_login();
-    if (!in_array($u['role'], ['admin', 'firma_admin'], true)) abort(403);
+    if (!in_array($u['role'], ['superadmin', 'admin', 'firma_admin'], true)) abort(403);
     return $u;
 }
 
@@ -409,7 +434,7 @@ function can_access_company(int $companyId): bool
 {
     $u = current_user();
     if (!$u) return false;
-    return $u['role'] === 'admin' || $u['company_id'] === $companyId;
+    return is_staff_role($u['role']) || $u['company_id'] === $companyId;
 }
 
 function require_company_access(int $companyId): void
@@ -421,7 +446,7 @@ function require_company_access(int $companyId): void
 function context_company_id(): int
 {
     $u = require_login();
-    if ($u['role'] === 'admin') {
+    if (is_staff_role($u['role'])) {
         $id = query_int('company') ?: (int)post('company_id', 0);
         if (!$id) {
             $first = row('SELECT id FROM companies ORDER BY name LIMIT 1');
@@ -446,7 +471,7 @@ function apps_for_user(): array
 {
     $u = current_user();
     if (!$u) return [];
-    if ($u['role'] === 'admin') return rows('SELECT * FROM apps WHERE active = 1 ORDER BY sort, name');
+    if (is_staff_role($u['role'])) return rows('SELECT * FROM apps WHERE active = 1 ORDER BY sort, name');
     return rows('SELECT a.* FROM apps a JOIN company_apps ca ON ca.app_id = a.id
         WHERE ca.company_id = ? AND a.active = 1 ORDER BY a.sort, a.name', [$u['company_id']]);
 }
@@ -455,7 +480,7 @@ function apps_for_user(): array
 function require_app(string $slug): array
 {
     $u = require_login();
-    if ($u['role'] !== 'admin' && !company_has_app((int)$u['company_id'], $slug)) {
+    if (!is_staff_role($u['role']) && !company_has_app((int)$u['company_id'], $slug)) {
         abort(403, 'Diese App ist für Ihre Firma nicht freigeschaltet. Bitte wenden Sie sich an Ihren IT-Dienstleister.');
     }
     return $u;
