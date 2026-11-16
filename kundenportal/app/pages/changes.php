@@ -125,18 +125,18 @@ function page_change_form(): void
     elseif (is_staff_role($u['role'])) $cid = query_int('company') ?: (int)post('company_id', 0);
     else $cid = (int)$u['company_id'];
     $company = $cid ? row('SELECT * FROM companies WHERE id = ? AND active = 1', [$cid]) : null;
-    if ($company && !company_has_app($cid, 'onboarding')) $company = null;
+    if ($company && !is_admin() && !company_has_app($cid, 'onboarding')) $company = null;
     $typeLabel = REQUEST_TYPES[$type];
 
     if (!$company) {
         if (!is_staff_role($u['role'])) abort(403);
-        $companies = array_filter(companies_with_app('onboarding'), fn($c) => (int)$c['active'] === 1);
+        $companies = rows('SELECT id, name FROM companies WHERE active = 1 ORDER BY name');
         render_page('Neue ' . $typeLabel, function () use ($companies, $type) { ?>
             <form method="get" class="card form narrow">
                 <input type="hidden" name="r" value="change_new"><input type="hidden" name="type" value="<?= e($type) ?>">
                 <label>Für welche Firma?
                     <select name="company" required><option value="">– bitte wählen –</option>
-                    <?php foreach ($companies as $c): ?><option value="<?= (int)$c['id'] ?>"><?= e($c['name']) ?></option><?php endforeach; ?>
+                    <?php foreach ($companies as $c): ?><option value="<?= (int)$c['id'] ?>"><?= e($c['name']) ?><?= company_has_app((int)$c['id'], 'onboarding') ? '' : ' (App nicht freigeschaltet)' ?></option><?php endforeach; ?>
                     </select></label>
                 <button class="btn primary">Weiter</button>
             </form>
@@ -236,11 +236,11 @@ function page_change_form(): void
                 update('requests', $id, $save);
             } else {
                 $save += ['type' => $type, 'source_request_id' => $source ? (int)$source['id'] : null, 'company_id' => $cid,
-                    'created_by' => $u['id'], 'status' => 'eingereicht', 'created_at' => now()];
+                    'created_by' => $u['id'], 'status' => is_admin() ? 'in_bearbeitung' : 'eingereicht', 'created_at' => now()];
                 $id = insert('requests', $save);
             }
             sync_request_items($id, $selected, $itemNotes, $extras, $catalogIds, change_tasks($type, $data));
-            request_log($id, 'system', $existing ? 'Auftrag geändert' : $typeLabel . ' eingereicht');
+            request_log($id, 'system', $existing ? 'Auftrag geändert' : (is_admin() ? $typeLabel . ' vom IT-Service angelegt und in Bearbeitung genommen' : $typeLabel . ' eingereicht'));
             db()->commit();
 
             $r = load_request($id);
@@ -250,11 +250,11 @@ function page_change_form(): void
                 . ($type === 'stilllegung' ? "\nGrund: {$r['absence_reason']}\nGeplante Rückkehr: " . ($r['return_date'] ? fmt_date($r['return_date']) : 'offen') : '')
                 . "\nErstellt/geändert von: {$u['name']}\n\nZum Auftrag: " . request_link($id);
             if (is_staff_role($u['role'])) {
-                if (!$existing) send_mail(company_recipients($cid, $u['id']), $subject, "Für Ihre Firma wurde ein Auftrag angelegt.\n\n" . $body, $cid);
+                if (!$existing && post('notify') === '1') send_mail(company_recipients($cid, $u['id']), $subject, "Unser IT-Service hat für Ihre Firma einen Auftrag angelegt und bearbeitet ihn.\n\n" . $body, $cid);
             } else {
                 send_mail((array)cfg('mail.admin_recipients', []), $subject, $body);
             }
-            flash('success', $existing ? 'Der Auftrag wurde aktualisiert.' : "Die {$typeLabel} wurde eingereicht. Sie werden über Statusänderungen informiert.");
+            flash('success', $existing ? 'Der Auftrag wurde aktualisiert.' : (is_admin() ? "Die {$typeLabel} wurde angelegt und ist in Bearbeitung." : "Die {$typeLabel} wurde eingereicht. Sie werden über Statusänderungen informiert."));
             redirect('request', ['id' => $id]);
         }
     }
@@ -388,6 +388,14 @@ function page_change_form(): void
                 <label>Weitere Informationen für die IT<textarea name="notes" rows="4"><?= e($data['notes']) ?></textarea></label>
                 <p class="muted small">Bitte keine Passwörter oder Gesundheitsdaten eintragen.</p>
             </div>
+            <?php if (!$existing && is_admin()): $hasApp = company_has_app((int)$cid, 'onboarding'); ?>
+            <div class="card staff-box">
+                <strong>Durchführung durch den IT-Service</strong>
+                <p class="muted small">Der Auftrag startet direkt mit „In Bearbeitung“. Sie können ihn anschließend abhaken und abschließen.</p>
+                <label class="check"><input type="checkbox" name="notify" value="1" <?= $hasApp ? 'checked' : '' ?>> Firma per E-Mail über den neuen Auftrag informieren</label>
+                <?php if (!$hasApp): ?><p class="muted small">Die Firma hat die App nicht freigeschaltet und sieht den Auftrag nicht im Portal.</p><?php endif; ?>
+            </div>
+            <?php endif; ?>
             <div class="buttons">
                 <button class="btn primary"><?= $existing ? 'Änderungen speichern' : e($typeLabel) . ' absenden' ?></button>
                 <a class="btn" href="<?= e($existing ? url('request', ['id' => $existing['id']]) : url('dashboard')) ?>">Abbrechen</a>

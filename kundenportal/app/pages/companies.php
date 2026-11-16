@@ -50,6 +50,10 @@ function page_companies(): void
                             <a href="<?= e(url('company_edit', ['id' => $c['id']])) ?>">Profil</a>
                             <a href="<?= e(url('users', ['company' => $c['id']])) ?>">Benutzer</a>
                             <a href="<?= e(url('dashboard', ['company' => $c['id']])) ?>">Aufträge</a>
+                            <?php if ((int)$c['active']): ?>
+                            <a href="<?= e(url('request_new', ['company' => $c['id']])) ?>">+ Onboarding</a>
+                            <a href="<?= e(url('change_new', ['type' => 'offboarding', 'company' => $c['id']])) ?>">+ Offboarding</a>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>

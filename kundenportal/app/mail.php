@@ -408,8 +408,8 @@ function company_recipients(int $companyId, ?int $creatorId = null): array
     $list = array_column(rows(
         "SELECT email FROM users WHERE company_id = ? AND active = 1 AND role = 'firma_admin'", [$companyId]), 'email');
     if ($creatorId) {
-        $c = row('SELECT email FROM users WHERE id = ? AND active = 1', [$creatorId]);
-        if ($c) $list[] = $c['email'];
+        $c = row('SELECT email, role FROM users WHERE id = ? AND active = 1', [$creatorId]);
+        if ($c && !is_staff_role($c['role'])) $list[] = $c['email'];
     }
     $co = row('SELECT contact_email FROM companies WHERE id = ?', [$companyId]);
     if ($co && $co['contact_email']) $list[] = $co['contact_email'];

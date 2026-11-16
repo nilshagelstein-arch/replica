@@ -119,6 +119,10 @@ progress { width: 90px; height: 8px; vertical-align: middle; accent-color: var(-
 .err-text { color: var(--danger); }
 .card.danger-zone { border-color: #f4b4ad; }
 .card.danger-zone form + form { margin-top: 1rem; }
+.staff-box { background: #f3f8ff; border-color: #b4cdea; }
+.staff-box p { margin: .3rem 0; }
+.complete-form { margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--line); display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.complete-form label.check { margin: 0; }
 .tag { display: inline-block; font-size: .72rem; padding: .05rem .45rem; border-radius: 4px; background: #eef1f4; color: var(--muted); margin-left: .3rem; vertical-align: middle; }
 .tag.warn { background: #fff1d6; color: #7a4b00; }
 

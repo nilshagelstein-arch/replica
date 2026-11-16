@@ -29,6 +29,7 @@ Erste eingebaute App ist **On- & Offboarding**. Darüber beauftragen die Firmen:
 - **Stilllegung:** Beginn, Grund (Auswahlliste, ohne Gesundheitsdaten), geplante Rückkehr, Vertretung, Abwesenheitsnotiz; Lizenzen und Zugänge werden pausiert statt gelöscht. Bei Geräten kann vermerkt werden, ob sie bei der Person bleiben.
 - **Reaktivierung:** übernimmt Ausstattung und Rückkehrdatum aus der Stilllegung
 - **Folgeaufträge mit einem Klick:** Aus einem abgeschlossenen Auftrag lassen sich Offboarding, Stilllegung oder Reaktivierung starten. Person und Ausstattung werden übernommen, die Aufträge sind miteinander verknüpft.
+- **Boarding durch den IT-Service:** Superadmin und Verwaltungsadmins legen für jede aktive Firma selbst Aufträge an, auch ohne App-Freigabe der Firma. Diese Aufträge starten direkt „In Bearbeitung“, die Benachrichtigung der Firma ist wählbar, und mit „Alles erledigt und abschließen“ ist ein Auftrag in einem Schritt erledigt.
 - **Automatische Aufgaben** in der Checkliste, z. B. Konto sperren zum Zeitpunkt X, Postfach umwandeln, Wiedervorlage vor der Rückkehr
 - **Kataloge und Vorlagen:** Einträge gelten für alle Firmen oder nur für eine. Für jede Abteilung und Position lässt sich hinterlegen, was vorausgewählt wird.
 - **Workflow:** Eingereicht → In Bearbeitung → Rückfrage → Eingerichtet → Freigegeben (oder Storniert). Dazu gibt es eine Checkliste, Nachrichten, interne Notizen und eine Druckansicht.

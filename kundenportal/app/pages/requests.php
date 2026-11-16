@@ -126,7 +126,7 @@ function page_dashboard(): void
             <input type="hidden" name="r" value="dashboard"><input type="hidden" name="status" value="<?= e($status) ?>"><input type="hidden" name="type" value="<?= e($type) ?>">
             <?php if (is_staff_role($u['role'])): ?>
                 <label>Firma <select name="company"><option value="0">Alle Firmen</option>
-                    <?php foreach (companies_with_app('onboarding') as $c): ?><option value="<?= (int)$c['id'] ?>" <?= $companyFilter === (int)$c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?>
+                    <?php foreach (companies_for_select() as $c): ?><option value="<?= (int)$c['id'] ?>" <?= $companyFilter === (int)$c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?>
                 </select></label>
             <?php endif; ?>
             <input type="search" name="q" value="<?= e($search) ?>" placeholder="Name oder Personalnummer">
@@ -188,20 +188,21 @@ function page_request_form(): void
         $cid = (int)$u['company_id'];
     }
     $company = $cid ? row('SELECT * FROM companies WHERE id = ? AND active = 1', [$cid]) : null;
-    if ($company && !company_has_app($cid, 'onboarding')) $company = null;
+    // Firmen-Benutzer brauchen die App-Freigabe; der IT-Service darf für jede aktive Firma Aufträge anlegen
+    if ($company && !is_admin() && !company_has_app($cid, 'onboarding')) $company = null;
 
     // Admin muss zuerst die Firma wählen
     if (!$company) {
         if (!is_staff_role($u['role'])) abort(403);
-        $companies = array_filter(companies_with_app('onboarding'), fn($c) => (int)$c['active'] === 1);
+        $companies = rows('SELECT id, name FROM companies WHERE active = 1 ORDER BY name');
         render_page('Neuer Auftrag', function () use ($companies) { ?>
             <form method="get" class="card form narrow">
                 <input type="hidden" name="r" value="request_new">
                 <label>Für welche Firma wird der Auftrag angelegt?
                     <select name="company" required><option value="">– bitte wählen –</option>
-                    <?php foreach ($companies as $c): ?><option value="<?= (int)$c['id'] ?>"><?= e($c['name']) ?></option><?php endforeach; ?>
+                    <?php foreach ($companies as $c): ?><option value="<?= (int)$c['id'] ?>"><?= e($c['name']) ?><?= company_has_app((int)$c['id'], 'onboarding') ? '' : ' (App nicht freigeschaltet)' ?></option><?php endforeach; ?>
                     </select></label>
-                <?php if (!$companies): ?><p class="muted small">Noch keine Firma hat die App „Onboarding“ freigeschaltet. Das geht unter <a href="<?= e(url('apps')) ?>">Apps &amp; Freigaben</a>.</p><?php endif; ?>
+                <p class="muted small">Sie können für jede Firma Aufträge anlegen und selbst durchführen. Ohne App-Freigabe sieht die Firma den Auftrag nicht im Portal.</p>
                 <button class="btn primary">Weiter</button>
             </form>
         <?php });
@@ -267,7 +268,8 @@ function page_request_form(): void
             if ($existing) {
                 update('requests', $id, $save);
             } else {
-                $save += ['type' => 'onboarding', 'company_id' => $cid, 'created_by' => $u['id'], 'status' => 'eingereicht', 'created_at' => now()];
+                $save += ['type' => 'onboarding', 'company_id' => $cid, 'created_by' => $u['id'],
+                    'status' => is_admin() ? 'in_bearbeitung' : 'eingereicht', 'created_at' => now()];
                 $id = insert('requests', $save);
             }
             // Positionen abgleichen: Erledigt-Status bestehender Einträge bleibt erhalten
@@ -297,7 +299,7 @@ function page_request_form(): void
                         'name' => mb_substr($line, 0, 190), 'note' => 'zusätzlich angefordert', 'done' => 0]);
                 }
             }
-            request_log($id, 'system', $existing ? 'Auftrag geändert' : 'Auftrag eingereicht');
+            request_log($id, 'system', $existing ? 'Auftrag geändert' : (is_admin() ? 'Vom IT-Service angelegt und in Bearbeitung genommen' : 'Auftrag eingereicht'));
             db()->commit();
 
             $r = load_request($id);
@@ -306,11 +308,11 @@ function page_request_form(): void
                 . "Abteilung/Position: {$r['department_name']} / {$r['position_name']}\nEintritt: " . fmt_date($r['entry_date'])
                 . "\nErstellt/geändert von: {$u['name']}\n\nZum Auftrag: " . request_link($id);
             if (is_staff_role($u['role'])) {
-                if (!$existing) send_mail(company_recipients($cid, $u['id']), $subject, "Für Ihre Firma wurde ein Onboarding-Auftrag angelegt.\n\n" . $body, $cid);
+                if (!$existing && post('notify') === '1') send_mail(company_recipients($cid, $u['id']), $subject, "Unser IT-Service hat für Ihre Firma einen Onboarding-Auftrag angelegt und bearbeitet ihn.\n\n" . $body, $cid);
             } else {
                 send_mail((array)cfg('mail.admin_recipients', []), $subject, $body);
             }
-            flash('success', $existing ? 'Der Auftrag wurde aktualisiert.' : 'Der Auftrag wurde eingereicht. Sie werden über Statusänderungen informiert.');
+            flash('success', $existing ? 'Der Auftrag wurde aktualisiert.' : (is_admin() ? 'Der Auftrag wurde angelegt und ist in Bearbeitung. Haken Sie die Checkliste ab und schließen Sie ihn danach ab.' : 'Der Auftrag wurde eingereicht. Sie werden über Statusänderungen informiert.'));
             redirect('request', ['id' => $id]);
         }
     } elseif (!$existing) {
@@ -387,6 +389,14 @@ function page_request_form(): void
                 <label>Weitere Informationen für die IT<textarea name="notes" rows="4"><?= e($data['notes']) ?></textarea></label>
                 <p class="muted small">Bitte keine Passwörter oder Gesundheitsdaten eintragen.</p>
             </div>
+            <?php if (!$existing && is_admin()): $hasApp = company_has_app((int)$cid, 'onboarding'); ?>
+            <div class="card staff-box">
+                <strong>Durchführung durch den IT-Service</strong>
+                <p class="muted small">Der Auftrag startet direkt mit „In Bearbeitung“. Sie können ihn anschließend abhaken und abschließen.</p>
+                <label class="check"><input type="checkbox" name="notify" value="1" <?= $hasApp ? 'checked' : '' ?>> Firma per E-Mail über den neuen Auftrag informieren</label>
+                <?php if (!$hasApp): ?><p class="muted small">Die Firma hat die App nicht freigeschaltet und sieht den Auftrag nicht im Portal.</p><?php endif; ?>
+            </div>
+            <?php endif; ?>
             <div class="buttons">
                 <button class="btn primary"><?= $existing ? 'Änderungen speichern' : 'Auftrag absenden' ?></button>
                 <a class="btn" href="<?= e($existing ? url('request', ['id' => $existing['id']]) : url('dashboard')) ?>">Abbrechen</a>
@@ -538,6 +548,13 @@ function page_request_detail(): void
                 <p class="muted small"><?php if (in_array($r['type'], ['offboarding', 'stilllegung'], true)): ?>„Durchgeführt“ = Zugänge gesperrt bzw. stillgelegt · „Abgeschlossen“ = alle Punkte erledigt, Geräte zurück.<?php else: ?>„Eingerichtet“ = technisch vorbereitet · „Freigegeben“ = Zugang ist aktiv und an die Firma übergeben. Zugangsdaten bitte nicht über das Portal versenden.<?php endif; ?></p>
                 <button class="btn primary">Status speichern</button>
             </form>
+            <?php if (!in_array($r['status'], ['freigegeben', 'storniert'], true)): ?>
+            <form method="post" action="<?= e(url('request_action', ['id' => $r['id']])) ?>" class="form complete-form">
+                <?= csrf_field() ?><input type="hidden" name="action" value="complete_all">
+                <label class="check"><input type="checkbox" name="notify" value="1" <?= company_has_app((int)$r['company_id'], 'onboarding') ? 'checked' : '' ?>> Firma per E-Mail informieren</label>
+                <button class="btn" data-confirm="Alle Punkte als erledigt markieren und den Auftrag abschließen?">Alles erledigt und abschließen</button>
+            </form>
+            <?php endif; ?>
         </div>
         <?php endif; ?>
 
@@ -630,6 +647,17 @@ function page_request_action(): void
             send_mail($firmRecipients(), 'Nachricht zu ' . request_subject($r), $msg . "\n\nZum Auftrag: " . request_link($id), (int)$r['company_id']);
             flash('success', 'Die Nachricht wurde gesendet.');
         }
+    } elseif ($action === 'complete_all') {
+        if (!is_admin() || in_array($r['status'], ['freigegeben', 'storniert'], true)) abort(403);
+        $open = rows('SELECT id FROM request_items WHERE request_id = ? AND done = 0', [$id]);
+        foreach ($open as $it) update('request_items', (int)$it['id'], ['done' => 1, 'done_by' => $u['id'], 'done_at' => now()]);
+        update('requests', $id, ['status' => 'freigegeben', 'updated_at' => now(), 'completed_at' => now()]);
+        request_log($id, 'status', 'Alle Punkte erledigt (' . count($open) . ' abgehakt)', $r['status'], 'freigegeben');
+        if (post('notify') === '1') {
+            send_mail($firmRecipients(), request_subject($r) . ': ' . status_label('freigegeben', $r['type']),
+                "Ihr Auftrag " . request_subject($r) . " wurde vollständig erledigt.\n\nZum Auftrag: " . request_link($id), (int)$r['company_id']);
+        }
+        flash('success', 'Alle Punkte sind erledigt, der Auftrag ist abgeschlossen.');
     } elseif ($action === 'comment') {
         if ($msg === '' || $r['status'] === 'storniert') redirect('request', ['id' => $id]);
         $internal = is_admin() && post('internal') === '1';
