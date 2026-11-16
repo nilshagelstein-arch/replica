@@ -77,6 +77,7 @@ function page_login(): void
     }
     render_page('Anmeldung', function () use ($error) { ?>
         <div class="card narrow">
+            <img src="assets/logo.svg" class="login-logo" width="72" height="72" alt="">
             <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
             <form method="post" class="form">
                 <?= csrf_field() ?>

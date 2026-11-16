@@ -25,7 +25,9 @@ code { background: #eef1f4; padding: 0 .3em; border-radius: 4px; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem;
   background: #16263a; color: #fff; padding: .7rem 1.5rem; flex-wrap: wrap; }
 .topbar a { color: #fff; text-decoration: none; }
-.brand a { font-weight: 700; font-size: 1.1rem; }
+.brand a { font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: .6rem; }
+.brand img { width: 30px; height: 30px; display: block; }
+.login-logo { display: block; width: 72px; height: 72px; margin: 0 0 1rem; }
 .who { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; font-size: .9rem; }
 .who .muted { color: #b8c4d2; }
 .mainnav { background: #fff; border-bottom: 1px solid var(--line); padding: 0 1.5rem; display: flex; gap: .25rem; flex-wrap: wrap; }

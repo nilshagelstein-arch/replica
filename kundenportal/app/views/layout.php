@@ -46,12 +46,16 @@ if ($user && $user['company_id']) {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title><?= e($title) ?> · <?= e($appName) ?></title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="theme-color" content="#16263a">
 <link rel="stylesheet" href="assets/style.css">
 <?php if ($user): ?><link rel="stylesheet" href="index.php?r=app_css"><?php endif; ?>
 </head>
 <body>
 <header class="topbar">
-    <div class="brand"><a href="index.php"><?= e($appName) ?></a></div>
+    <div class="brand"><a href="index.php"><img src="assets/logo.svg" width="30" height="30" alt=""><span><?= e($appName) ?></span></a></div>
     <?php if ($user): ?>
     <div class="who">
         <span><?= e($user['name']) ?></span>
