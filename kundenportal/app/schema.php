@@ -9,6 +9,7 @@ function schema_statements(string $driver): array
     $fk    = $mysql ? 'INT UNSIGNED' : 'INTEGER';
     $tail  = $mysql ? ' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci' : '';
     $ts    = 'VARCHAR(19)'; // 'Y-m-d H:i:s', von PHP gesetzt
+    $long  = $mysql ? 'MEDIUMTEXT' : 'TEXT'; // Formularinhalte und Logos (bis 16 MB)
 
     $tables = [];
 
@@ -192,7 +193,108 @@ function schema_statements(string $driver): array
         value TEXT NULL
     )$tail";
 
+    // --- App „Formulare“ -------------------------------------------------------
+    $tables[] = "CREATE TABLE IF NOT EXISTS form_folders (
+        id $pk,
+        company_id $fk NOT NULL,
+        parent_id $fk NULL,
+        name VARCHAR(190) NOT NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
+    // header_id/footer_id: 0 = Standard der Firma, -1 = keine, > 0 = bestimmte Vorlage
+    $tables[] = "CREATE TABLE IF NOT EXISTS forms (
+        id $pk,
+        company_id $fk NOT NULL,
+        folder_id $fk NULL,
+        name VARCHAR(190) NOT NULL,
+        description VARCHAR(500) NOT NULL DEFAULT '',
+        body $long,
+        header_id INT NOT NULL DEFAULT 0,
+        footer_id INT NOT NULL DEFAULT 0,
+        created_by $fk NULL,
+        updated_by $fk NULL,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS form_layouts (
+        id $pk,
+        company_id $fk NOT NULL,
+        kind VARCHAR(10) NOT NULL,
+        name VARCHAR(190) NOT NULL,
+        body $long,
+        is_default INT NOT NULL DEFAULT 0,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS form_branding (
+        id $pk,
+        company_id $fk NOT NULL UNIQUE,
+        logo_mime VARCHAR(40) NOT NULL DEFAULT '',
+        logo_data $long,
+        website VARCHAR(190) NOT NULL DEFAULT '',
+        management VARCHAR(190) NOT NULL DEFAULT '',
+        register_info VARCHAR(190) NOT NULL DEFAULT '',
+        vat_id VARCHAR(60) NOT NULL DEFAULT '',
+        tax_no VARCHAR(60) NOT NULL DEFAULT '',
+        bank VARCHAR(190) NOT NULL DEFAULT '',
+        iban VARCHAR(60) NOT NULL DEFAULT '',
+        bic VARCHAR(20) NOT NULL DEFAULT '',
+        updated_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS customer_fields (
+        id $pk,
+        company_id $fk NOT NULL,
+        field_key VARCHAR(60) NOT NULL,
+        label VARCHAR(120) NOT NULL,
+        sort INT NOT NULL DEFAULT 0
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS customers (
+        id $pk,
+        company_id $fk NOT NULL,
+        customer_no VARCHAR(60) NOT NULL DEFAULT '',
+        company_name VARCHAR(190) NOT NULL DEFAULT '',
+        salutation VARCHAR(20) NOT NULL DEFAULT '',
+        title VARCHAR(40) NOT NULL DEFAULT '',
+        first_name VARCHAR(120) NOT NULL DEFAULT '',
+        last_name VARCHAR(120) NOT NULL DEFAULT '',
+        street VARCHAR(190) NOT NULL DEFAULT '',
+        zip VARCHAR(20) NOT NULL DEFAULT '',
+        city VARCHAR(120) NOT NULL DEFAULT '',
+        country VARCHAR(80) NOT NULL DEFAULT '',
+        email VARCHAR(190) NOT NULL DEFAULT '',
+        phone VARCHAR(60) NOT NULL DEFAULT '',
+        notes TEXT,
+        extra TEXT,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS api_tokens (
+        id $pk,
+        company_id $fk NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        prefix VARCHAR(20) NOT NULL,
+        token_hash VARCHAR(64) NOT NULL,
+        can_write INT NOT NULL DEFAULT 0,
+        active INT NOT NULL DEFAULT 1,
+        created_by $fk NULL,
+        created_at $ts NOT NULL,
+        last_used_at $ts NULL
+    )$tail";
+
     $indexes = [
+        'idx_formfolders_co'  => 'form_folders (company_id, parent_id)',
+        'idx_forms_co'        => 'forms (company_id, folder_id)',
+        'idx_formlayouts_co'  => 'form_layouts (company_id, kind)',
+        'idx_custfields_co'   => 'customer_fields (company_id)',
+        'idx_customers_co'    => 'customers (company_id, last_name)',
+        'idx_customers_no'    => 'customers (company_id, customer_no)',
+        'idx_apitokens_pref'  => 'api_tokens (prefix)',
         'idx_mailacc_company' => 'mail_accounts (company_id)',
         'idx_compapps'        => 'company_apps (company_id, app_id)',
         'idx_users_company'   => 'users (company_id)',
@@ -213,12 +315,14 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
     'onboarding' => ['name' => 'On- & Offboarding', 'description' => 'Neue Mitarbeitende einrichten lassen, Austritte abwickeln und Zugänge bei Elternzeit & Co. vorübergehend stilllegen.',
         'target' => 'dashboard', 'icon' => '👤', 'color' => '#1f5fa8', 'sort' => 10],
+    'formulare' => ['name' => 'Formulare', 'description' => 'Briefe und Formulare mit eigenem Editor gestalten und mit Daten aus der Kundendatenbank ausfüllen. Mit Logo, Briefkopf und Fußzeile.',
+        'target' => 'forms', 'icon' => '📝', 'color' => '#0f7b6c', 'sort' => 20],
 ];
 
 /**

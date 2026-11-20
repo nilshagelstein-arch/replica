@@ -1,0 +1,559 @@
+<?php
+/**
+ * App „Formulare“: gemeinsame Logik für Formulare, Briefkopf/Fußzeile,
+ * Kundendatenbank, Platzhalter und API.
+ */
+declare(strict_types=1);
+
+const FORMS_APP = 'formulare';
+
+/** Standardfelder der Kundendatenbank: Schlüssel => [Bezeichnung, Spalte] */
+const CUSTOMER_STD_FIELDS = [
+    'nummer'   => ['Kundennummer', 'customer_no'],
+    'firma'    => ['Firma', 'company_name'],
+    'anrede'   => ['Anrede', 'salutation'],
+    'titel'    => ['Titel', 'title'],
+    'vorname'  => ['Vorname', 'first_name'],
+    'nachname' => ['Nachname', 'last_name'],
+    'strasse'  => ['Straße und Hausnummer', 'street'],
+    'plz'      => ['PLZ', 'zip'],
+    'ort'      => ['Ort', 'city'],
+    'land'     => ['Land', 'country'],
+    'email'    => ['E-Mail', 'email'],
+    'telefon'  => ['Telefon', 'phone'],
+    'notiz'    => ['Notiz', 'notes'],
+];
+
+const SALUTATIONS = ['', 'Herr', 'Frau', 'Divers', 'Firma'];
+
+/** Briefpapier-Angaben (form_branding) => [Bezeichnung, Platzhalter] */
+const BRANDING_FIELDS = [
+    'website'       => ['Website', 'website'],
+    'management'    => ['Geschäftsführung / Inhaber/in', 'geschaeftsfuehrung'],
+    'register_info' => ['Registergericht und -nummer', 'register'],
+    'vat_id'        => ['USt-IdNr.', 'ustid'],
+    'tax_no'        => ['Steuernummer', 'steuernummer'],
+    'bank'          => ['Bank', 'bank'],
+    'iban'          => ['IBAN', 'iban'],
+    'bic'           => ['BIC', 'bic'],
+];
+
+const LOGO_MIMES = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/gif' => 'gif', 'image/webp' => 'webp'];
+const LOGO_MAX_BYTES = 1048576;
+
+// ---------------------------------------------------------------------------
+// Firmenkontext und Rechte
+// ---------------------------------------------------------------------------
+
+/** Firma, in der gearbeitet wird; Dienstleister wählen sie per ?company= */
+function forms_company_id(): int
+{
+    $u = require_app(FORMS_APP);
+    $cid = context_company_id();
+    if (!$cid) abort(404, 'Es ist noch keine Firma angelegt.');
+    require_company_access($cid);
+    if (!row('SELECT id FROM companies WHERE id = ?', [$cid])) abort(404);
+    if (!is_staff_role($u['role']) && !company_has_app($cid, FORMS_APP)) abort(403);
+    $GLOBALS['forms_cid'] = $cid;
+    forms_ensure_defaults($cid);
+    return $cid;
+}
+
+/** Firmen-Administratoren und Dienstleister dürfen Logo, Vorlagen, Felder, Import und API verwalten */
+function forms_can_manage(): bool
+{
+    $u = current_user();
+    return $u && in_array($u['role'], ['superadmin', 'admin', 'firma_admin'], true);
+}
+
+function forms_require_manage(): void
+{
+    if (!forms_can_manage()) abort(403, 'Diese Einstellungen dürfen nur Firmen-Administratoren ändern.');
+}
+
+/** URL innerhalb der App; Dienstleister behalten die gewählte Firma */
+function furl(string $route, array $params = [], ?int $companyId = null): string
+{
+    if (is_admin()) {
+        $cid = $companyId ?? (int)($GLOBALS['forms_cid'] ?? 0);
+        if ($cid) $params = ['company' => $cid] + $params;
+    }
+    return url($route, $params);
+}
+
+function fredirect(string $route, array $params = []): never
+{
+    header('Location: ' . furl($route, $params));
+    exit;
+}
+
+// ---------------------------------------------------------------------------
+// HTML-Bereinigung (alles, was aus dem Editor kommt, läuft hier durch)
+// ---------------------------------------------------------------------------
+
+const HTML_ALLOWED = [
+    'p' => [], 'div' => [], 'h1' => [], 'h2' => [], 'h3' => [], 'h4' => [],
+    'strong' => [], 'em' => [], 'u' => [], 's' => [], 'sub' => [], 'sup' => [],
+    'br' => [], 'hr' => [], 'ul' => [], 'ol' => [], 'li' => [], 'blockquote' => [],
+    'table' => [], 'thead' => [], 'tbody' => [], 'tfoot' => [], 'tr' => [],
+    'th' => ['colspan', 'rowspan'], 'td' => ['colspan', 'rowspan'],
+    'span' => [], 'a' => ['href'], 'img' => ['src', 'alt'],
+];
+const HTML_RENAME = ['b' => 'strong', 'i' => 'em', 'strike' => 's', 'del' => 's', 'ins' => 'u', 'font' => 'span', 'h5' => 'h4', 'h6' => 'h4'];
+const HTML_DROP = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'select', 'textarea',
+    'svg', 'math', 'link', 'meta', 'base', 'noscript', 'template', 'video', 'audio', 'canvas', 'head', 'title'];
+const HTML_CLASSES = ['al-left', 'al-center', 'al-right', 'al-justify', 'fs-small', 'fs-large', 'fs-xlarge',
+    'ph', 'page-break', 'tbl-grid', 'tbl-plain', 'sig', 'img-s', 'img-m', 'img-l', 'c-muted', 'c-accent', 'v-top', 'v-bottom', 'w-50'];
+
+function sanitize_html(string $html): string
+{
+    $html = trim($html);
+    if ($html === '') return '';
+    if (strlen($html) > 8 * 1024 * 1024) $html = substr($html, 0, 8 * 1024 * 1024);
+    $doc = new DOMDocument('1.0', 'UTF-8');
+    $prev = libxml_use_internal_errors(true);
+    $doc->loadHTML('<?xml encoding="UTF-8"><div id="__root">' . $html . '</div>', LIBXML_NONET | LIBXML_HTML_NODEFDTD | LIBXML_HTML_NOIMPLIED);
+    libxml_clear_errors();
+    libxml_use_internal_errors($prev);
+    $root = $doc->getElementById('__root');
+    if (!$root) return '';
+    sanitize_children($doc, $root);
+    $out = '';
+    foreach ($root->childNodes as $c) $out .= $doc->saveHTML($c);
+    return trim($out);
+}
+
+function sanitize_children(DOMDocument $doc, DOMNode $parent): void
+{
+    $children = [];
+    foreach ($parent->childNodes as $c) $children[] = $c;
+    foreach ($children as $node) {
+        if ($node instanceof DOMText) continue;
+        if (!($node instanceof DOMElement)) { $parent->removeChild($node); continue; }
+        $tag = strtolower($node->nodeName);
+        if (in_array($tag, HTML_DROP, true)) { $parent->removeChild($node); continue; }
+        $fontSize = $tag === 'font' ? (string)$node->getAttribute('size') : '';
+        if (isset(HTML_RENAME[$tag])) {
+            $new = $doc->createElement(HTML_RENAME[$tag]);
+            foreach (['class', 'colspan', 'rowspan', 'href', 'src', 'alt', 'contenteditable'] as $a) {
+                if ($node->hasAttribute($a)) $new->setAttribute($a, $node->getAttribute($a));
+            }
+            while ($node->firstChild) $new->appendChild($node->firstChild);
+            $parent->replaceChild($new, $node);
+            $node = $new;
+            $tag = HTML_RENAME[$tag];
+            if ($fontSize !== '') {
+                $map = ['1' => 'fs-small', '2' => 'fs-small', '4' => 'fs-large', '5' => 'fs-large', '6' => 'fs-xlarge', '7' => 'fs-xlarge'];
+                if (isset($map[$fontSize])) $node->setAttribute('class', trim($node->getAttribute('class') . ' ' . $map[$fontSize]));
+            }
+        }
+        sanitize_children($doc, $node);
+        if (!isset(HTML_ALLOWED[$tag])) {
+            // unbekanntes Element: Inhalt behalten, Hülle entfernen
+            while ($node->firstChild) $parent->insertBefore($node->firstChild, $node);
+            $parent->removeChild($node);
+            continue;
+        }
+        $keepClass = implode(' ', array_values(array_intersect(
+            preg_split('/\s+/', (string)$node->getAttribute('class')) ?: [], HTML_CLASSES)));
+        $attrs = [];
+        foreach ($node->attributes as $a) $attrs[] = $a->nodeName;
+        $isPh = in_array('ph', explode(' ', $keepClass), true);
+        foreach ($attrs as $a) {
+            $an = strtolower($a);
+            $val = $node->getAttribute($a);
+            $ok = false;
+            if (in_array($an, HTML_ALLOWED[$tag], true)) {
+                if ($an === 'href') $ok = (bool)preg_match('#^(https?://|mailto:|tel:)#i', trim($val));
+                elseif ($an === 'src') $ok = (bool)preg_match('#^data:image/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=\s]+$#', $val);
+                elseif ($an === 'colspan' || $an === 'rowspan') $ok = ctype_digit($val) && (int)$val > 0 && (int)$val <= 20;
+                else $ok = true;
+            }
+            if (!$ok) $node->removeAttribute($a);
+        }
+        if ($keepClass !== '') $node->setAttribute('class', $keepClass);
+        if ($isPh && $tag === 'span') $node->setAttribute('contenteditable', 'false');
+        if ($tag === 'img' && !$node->hasAttribute('src')) { $parent->removeChild($node); continue; }
+        if ($tag === 'a' && $node->hasAttribute('href')) $node->setAttribute('rel', 'noopener');
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Platzhalter
+// ---------------------------------------------------------------------------
+
+/** Alle Platzhalter-Schlüssel in einem Text (ohne Klammern) */
+function placeholders_in(string $html): array
+{
+    preg_match_all('/\{\{\s*([^{}<>]{1,80}?)\s*\}\}/u', $html, $m);
+    return array_values(array_unique(array_map('trim', $m[1])));
+}
+
+/** Manuelle Eingaben eines Formulars: [['key'=>…, 'label'=>…, 'type'=>'text'|'textarea'|'check']] */
+function form_inputs(string $html): array
+{
+    $out = [];
+    foreach (placeholders_in($html) as $k) {
+        if (preg_match('/^(eingabe|text|ankreuzen):\s*(.+)$/iu', $k, $m)) {
+            $type = ['eingabe' => 'text', 'text' => 'textarea', 'ankreuzen' => 'check'][strtolower($m[1])];
+            $out[$k] = ['key' => $k, 'label' => trim($m[2]), 'type' => $type];
+        }
+    }
+    return array_values($out);
+}
+
+function uses_customer(string $html): bool
+{
+    foreach (placeholders_in($html) as $k) if (stripos($k, 'kunde.') === 0) return true;
+    return false;
+}
+
+/** Platzhaltergruppen für die Auswahlliste im Editor */
+function placeholder_catalog(int $companyId): array
+{
+    $kunde = [];
+    foreach (CUSTOMER_STD_FIELDS as $k => [$label]) $kunde['kunde.' . $k] = $label;
+    $kunde['kunde.name'] = 'Name (Vorname Nachname)';
+    $kunde['kunde.anschrift'] = 'Anschrift (mehrzeilig)';
+    $kunde['kunde.briefanrede'] = 'Briefanrede („Sehr geehrte Frau …“)';
+    foreach (customer_custom_fields($companyId) as $f) $kunde['kunde.' . $f['field_key']] = $f['label'];
+
+    $firma = ['firma.name' => 'Firmenname', 'firma.strasse' => 'Straße', 'firma.plz' => 'PLZ', 'firma.ort' => 'Ort',
+        'firma.telefon' => 'Telefon', 'firma.email' => 'E-Mail', 'firma.ansprechpartner' => 'Ansprechpartner/in',
+        'firma.absenderzeile' => 'Absenderzeile (eine Zeile)'];
+    foreach (BRANDING_FIELDS as [$label, $key]) $firma['firma.' . $key] = $label;
+
+    return [
+        'Kunde' => $kunde,
+        'Eigene Firma' => $firma,
+        'Allgemein' => ['logo' => 'Logo', 'datum' => 'Datum (20.11.2026)', 'datum.lang' => 'Datum ausgeschrieben',
+            'benutzer.name' => 'Name des Erstellers', 'benutzer.email' => 'E-Mail des Erstellers',
+            'seitenumbruch' => 'Seitenumbruch'],
+    ];
+}
+
+function german_date_long(int $ts): string
+{
+    $months = [1 => 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+    return date('j', $ts) . '. ' . $months[(int)date('n', $ts)] . ' ' . date('Y', $ts);
+}
+
+/** Werte eines Kunden als Platzhalter (kunde.*) */
+function customer_values(?array $c, int $companyId): array
+{
+    $v = [];
+    foreach (CUSTOMER_STD_FIELDS as $k => [, $col]) $v['kunde.' . $k] = (string)($c[$col] ?? '');
+    $extra = $c ? (json_decode((string)($c['extra'] ?? ''), true) ?: []) : [];
+    foreach (customer_custom_fields($companyId) as $f) $v['kunde.' . $f['field_key']] = (string)($extra[$f['field_key']] ?? '');
+    $person = trim(implode(' ', array_filter([$v['kunde.titel'], $v['kunde.vorname'], $v['kunde.nachname']])));
+    $v['kunde.name'] = trim($v['kunde.vorname'] . ' ' . $v['kunde.nachname']);
+    $sal = $v['kunde.anrede'];
+    $nameLine = trim((in_array($sal, ['Herr', 'Frau'], true) ? $sal . ' ' : '') . $person);
+    $lines = array_filter([$v['kunde.firma'], $nameLine, $v['kunde.strasse'],
+        trim($v['kunde.plz'] . ' ' . $v['kunde.ort']),
+        in_array(mb_strtolower($v['kunde.land']), ['', 'deutschland', 'de', 'germany'], true) ? '' : mb_strtoupper($v['kunde.land'])]);
+    $v['kunde.anschrift'] = implode("\n", $lines);
+    $last = trim(implode(' ', array_filter([$v['kunde.titel'], $v['kunde.nachname']])));
+    if ($sal === 'Herr' && $last !== '') $v['kunde.briefanrede'] = 'Sehr geehrter Herr ' . $last . ',';
+    elseif ($sal === 'Frau' && $last !== '') $v['kunde.briefanrede'] = 'Sehr geehrte Frau ' . $last . ',';
+    elseif ($sal === 'Divers' && $v['kunde.name'] !== '') $v['kunde.briefanrede'] = 'Guten Tag ' . $person . ',';
+    else $v['kunde.briefanrede'] = 'Sehr geehrte Damen und Herren,';
+    return $v;
+}
+
+/** Werte der eigenen Firma (firma.*) */
+function company_values(int $companyId): array
+{
+    $c = row('SELECT * FROM companies WHERE id = ?', [$companyId]) ?? [];
+    $b = forms_branding($companyId);
+    $v = [
+        'firma.name' => (string)($c['name'] ?? ''), 'firma.strasse' => (string)($c['street'] ?? ''),
+        'firma.plz' => (string)($c['zip'] ?? ''), 'firma.ort' => (string)($c['city'] ?? ''),
+        'firma.telefon' => (string)($c['phone'] ?? ''), 'firma.email' => (string)($c['email'] ?? ''),
+        'firma.ansprechpartner' => (string)($c['contact_name'] ?? ''),
+    ];
+    foreach (BRANDING_FIELDS as $col => [, $key]) $v['firma.' . $key] = (string)($b[$col] ?? '');
+    $v['firma.absenderzeile'] = implode(' · ', array_filter([$v['firma.name'], $v['firma.strasse'], trim($v['firma.plz'] . ' ' . $v['firma.ort'])]));
+    return $v;
+}
+
+/**
+ * Setzt Werte in ein Formular ein. Werte sind Text und werden maskiert,
+ * Zeilenumbrüche werden zu <br>. „logo“ wird zum Bild.
+ */
+function fill_placeholders(string $html, array $values, string $logoTag): string
+{
+    // Platzhalter-Markierungen aus dem Editor entfernen, nur der Text bleibt
+    $html = preg_replace('#<span class="ph"[^>]*>(.*?)</span>#su', '$1', $html) ?? $html;
+    return preg_replace_callback('/\{\{\s*([^{}<>]{1,80}?)\s*\}\}/u', function ($m) use ($values, $logoTag) {
+        $k = trim(html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        $lk = mb_strtolower($k);
+        if ($lk === 'logo') return $logoTag;
+        if ($lk === 'seitenumbruch') return '<div class="page-break"></div>';
+        if (preg_match('/^ankreuzen:/iu', $k)) {
+            return '<span class="box">' . (!empty($values[$k]) ? '☒' : '☐') . '</span>';
+        }
+        if (array_key_exists($k, $values)) return nl2br(e($values[$k]), false);
+        if (array_key_exists($lk, $values)) return nl2br(e($values[$lk]), false);
+        return '';
+    }, $html) ?? $html;
+}
+
+// ---------------------------------------------------------------------------
+// Briefpapier, Logo, Briefkopf/Fußzeile
+// ---------------------------------------------------------------------------
+
+function forms_branding(int $companyId): array
+{
+    static $cache = [];
+    if (!isset($cache[$companyId])) {
+        $cache[$companyId] = row('SELECT * FROM form_branding WHERE company_id = ?', [$companyId]) ?? [];
+    }
+    return $cache[$companyId];
+}
+
+function logo_tag(int $companyId, string $class = 'doc-logo'): string
+{
+    $b = forms_branding($companyId);
+    if (empty($b['logo_data']) || !isset(LOGO_MIMES[$b['logo_mime']])) return '';
+    return '<img class="' . e($class) . '" alt="Logo" src="data:' . e($b['logo_mime']) . ';base64,' . $b['logo_data'] . '">';
+}
+
+/** Vorgefertigte Vorlagen für Briefkopf und Fußzeile */
+function layout_presets(): array
+{
+    $ph = fn(string $k) => '<span class="ph" contenteditable="false">{{' . $k . '}}</span>';
+    return [
+        'header' => [
+            'klassisch' => ['Klassisch – Logo rechts, Anschriftfeld nach DIN 5008',
+                '<p class="al-right">' . $ph('logo') . '</p>'
+                . '<table class="tbl-plain"><tbody><tr>'
+                . '<td class="w-50 v-top"><p class="fs-small c-muted"><u>' . $ph('firma.absenderzeile') . '</u></p><p>' . $ph('kunde.anschrift') . '</p></td>'
+                . '<td class="v-top"><p class="al-right fs-small">' . $ph('firma.name') . '<br>' . $ph('firma.strasse') . '<br>' . $ph('firma.plz') . ' ' . $ph('firma.ort')
+                . '<br><br>Telefon ' . $ph('firma.telefon') . '<br>' . $ph('firma.email') . '<br>' . $ph('firma.website') . '</p></td>'
+                . '</tr></tbody></table>'
+                . '<p class="al-right">' . $ph('firma.ort') . ', ' . $ph('datum') . '</p>'],
+            'modern' => ['Modern – Logo links, Kontaktdaten rechts, Linie',
+                '<table class="tbl-plain"><tbody><tr><td class="v-top">' . $ph('logo') . '</td>'
+                . '<td class="v-top"><p class="al-right fs-small c-muted">' . $ph('firma.name') . ' · ' . $ph('firma.strasse') . ' · ' . $ph('firma.plz') . ' ' . $ph('firma.ort')
+                . '<br>' . $ph('firma.telefon') . ' · ' . $ph('firma.email') . '</p></td></tr></tbody></table><hr>'
+                . '<p class="fs-small c-muted"><u>' . $ph('firma.absenderzeile') . '</u></p><p>' . $ph('kunde.anschrift') . '</p>'
+                . '<p class="al-right">' . $ph('datum.lang') . '</p>'],
+            'zentriert' => ['Zentriert – Logo und Firmenname mittig',
+                '<p class="al-center">' . $ph('logo') . '</p><p class="al-center fs-small c-muted">' . $ph('firma.absenderzeile')
+                . ' · ' . $ph('firma.telefon') . ' · ' . $ph('firma.email') . '</p><hr><p>' . $ph('kunde.anschrift') . '</p><p class="al-right">' . $ph('datum') . '</p>'],
+            'schlicht' => ['Schlicht – nur Logo',
+                '<p class="al-right">' . $ph('logo') . '</p>'],
+        ],
+        'footer' => [
+            'spalten' => ['Drei Spalten – Anschrift, Kontakt, Bank',
+                '<hr><table class="tbl-plain fs-small c-muted"><tbody><tr>'
+                . '<td class="v-top">' . $ph('firma.name') . '<br>' . $ph('firma.strasse') . '<br>' . $ph('firma.plz') . ' ' . $ph('firma.ort') . '<br>' . $ph('firma.geschaeftsfuehrung') . '</td>'
+                . '<td class="v-top">Telefon ' . $ph('firma.telefon') . '<br>' . $ph('firma.email') . '<br>' . $ph('firma.website') . '<br>USt-IdNr. ' . $ph('firma.ustid') . '</td>'
+                . '<td class="v-top">' . $ph('firma.bank') . '<br>IBAN ' . $ph('firma.iban') . '<br>BIC ' . $ph('firma.bic') . '<br>' . $ph('firma.register') . '</td>'
+                . '</tr></tbody></table>'],
+            'einzeilig' => ['Einzeilig – zentriert',
+                '<hr><p class="al-center fs-small c-muted">' . $ph('firma.absenderzeile') . ' · ' . $ph('firma.telefon') . ' · ' . $ph('firma.email') . ' · ' . $ph('firma.website') . '</p>'],
+            'rechtlich' => ['Mit Pflichtangaben – zweizeilig',
+                '<hr><p class="al-center fs-small c-muted">' . $ph('firma.absenderzeile') . ' · ' . $ph('firma.telefon') . ' · ' . $ph('firma.email')
+                . '<br>Geschäftsführung: ' . $ph('firma.geschaeftsfuehrung') . ' · ' . $ph('firma.register') . ' · USt-IdNr. ' . $ph('firma.ustid') . ' · IBAN ' . $ph('firma.iban') . '</p>'],
+        ],
+    ];
+}
+
+/** Legt beim ersten Aufruf Standard-Briefkopf, -Fußzeile und ein Beispielformular an */
+function forms_ensure_defaults(int $companyId): void
+{
+    if (row('SELECT id FROM form_layouts WHERE company_id = ? LIMIT 1', [$companyId])) return;
+    $p = layout_presets();
+    foreach (['header' => 'klassisch', 'footer' => 'spalten'] as $kind => $key) {
+        insert('form_layouts', ['company_id' => $companyId, 'kind' => $kind,
+            'name' => $kind === 'header' ? 'Standard-Briefkopf' : 'Standard-Fußzeile',
+            'body' => $p[$kind][$key][1], 'is_default' => 1, 'created_at' => now(), 'updated_at' => now()]);
+    }
+    if (!row('SELECT id FROM forms WHERE company_id = ? LIMIT 1', [$companyId])) {
+        $ph = fn(string $k) => '<span class="ph" contenteditable="false">{{' . $k . '}}</span>';
+        $folder = insert('form_folders', ['company_id' => $companyId, 'parent_id' => null, 'name' => 'Briefe', 'created_at' => now()]);
+        insert('forms', ['company_id' => $companyId, 'folder_id' => $folder, 'name' => 'Beispiel: Anschreiben',
+            'description' => 'Einfacher Brief mit Briefkopf, Anrede aus der Kundendatenbank und einem Eingabefeld',
+            'body' => '<h2>' . $ph('eingabe:Betreff') . '</h2><p>' . $ph('kunde.briefanrede') . '</p>'
+                . '<p>' . $ph('text:Brieftext') . '</p><p>Mit freundlichen Grüßen</p><p><br></p>'
+                . '<p>' . $ph('benutzer.name') . '<br>' . $ph('firma.name') . '</p>',
+            'header_id' => 0, 'footer_id' => 0, 'created_by' => current_user()['id'] ?? null, 'updated_by' => null,
+            'created_at' => now(), 'updated_at' => now()]);
+    }
+}
+
+function layout_for(int $companyId, string $kind, int $choice): string
+{
+    if ($choice < 0) return '';
+    $l = $choice > 0
+        ? row('SELECT body FROM form_layouts WHERE id = ? AND company_id = ? AND kind = ?', [$choice, $companyId, $kind])
+        : null;
+    $l ??= row('SELECT body FROM form_layouts WHERE company_id = ? AND kind = ? ORDER BY is_default DESC, id LIMIT 1', [$companyId, $kind]);
+    return (string)($l['body'] ?? '');
+}
+
+// ---------------------------------------------------------------------------
+// Kundendatenbank
+// ---------------------------------------------------------------------------
+
+function customer_custom_fields(int $companyId, bool $refresh = false): array
+{
+    if ($refresh) unset($GLOBALS['__custfields'][$companyId]);
+    return $GLOBALS['__custfields'][$companyId] ??= rows('SELECT * FROM customer_fields WHERE company_id = ? ORDER BY sort, id', [$companyId]);
+}
+
+/** Alle Felder (Standard + eigene): key => label */
+function customer_all_fields(int $companyId): array
+{
+    $f = [];
+    foreach (CUSTOMER_STD_FIELDS as $k => [$label]) $f[$k] = $label;
+    foreach (customer_custom_fields($companyId) as $c) $f[$c['field_key']] = $c['label'];
+    return $f;
+}
+
+function field_key_from_label(string $label): string
+{
+    $s = mb_strtolower(trim($label));
+    $s = strtr($s, ['ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss']);
+    $s = iconv('UTF-8', 'ASCII//TRANSLIT', $s) ?: $s;
+    $s = trim((string)preg_replace('/[^a-z0-9]+/', '_', $s), '_');
+    return substr($s, 0, 50);
+}
+
+/** Kunde als Liste mit deutschen Schlüsseln (für CSV und API) */
+function customer_export_row(array $c, int $companyId): array
+{
+    $out = [];
+    foreach (CUSTOMER_STD_FIELDS as $k => [, $col]) $out[$k] = (string)($c[$col] ?? '');
+    $extra = json_decode((string)($c['extra'] ?? ''), true) ?: [];
+    foreach (customer_custom_fields($companyId) as $f) $out[$f['field_key']] = (string)($extra[$f['field_key']] ?? '');
+    return $out;
+}
+
+/**
+ * Speichert einen Kunden aus Werten mit deutschen Schlüsseln.
+ * $existing = vorhandener Datensatz (Aktualisierung) oder null (neu).
+ * Nur übergebene Schlüssel werden geändert. Gibt die ID zurück.
+ */
+function customer_save(int $companyId, array $values, ?array $existing): int
+{
+    $data = [];
+    foreach (CUSTOMER_STD_FIELDS as $k => [, $col]) {
+        if (!array_key_exists($k, $values)) continue;
+        $v = trim((string)$values[$k]);
+        $max = $col === 'notes' ? 5000 : ($col === 'salutation' ? 20 : 190);
+        $data[$col] = mb_substr($v, 0, $max);
+    }
+    if (isset($data['salutation'])) {
+        $s = mb_convert_case($data['salutation'], MB_CASE_TITLE);
+        $data['salutation'] = in_array($s, SALUTATIONS, true) ? $s : ($s === 'Hr.' ? 'Herr' : ($s === 'Fr.' ? 'Frau' : mb_substr($data['salutation'], 0, 20)));
+    }
+    $extra = $existing ? (json_decode((string)($existing['extra'] ?? ''), true) ?: []) : [];
+    $changedExtra = false;
+    foreach (customer_custom_fields($companyId) as $f) {
+        if (array_key_exists($f['field_key'], $values)) {
+            $extra[$f['field_key']] = mb_substr(trim((string)$values[$f['field_key']]), 0, 2000);
+            $changedExtra = true;
+        }
+    }
+    if ($changedExtra || !$existing) $data['extra'] = json_encode($extra, JSON_UNESCAPED_UNICODE);
+    $data['updated_at'] = now();
+    if ($existing) {
+        update('customers', (int)$existing['id'], $data);
+        return (int)$existing['id'];
+    }
+    $data += ['company_id' => $companyId, 'created_at' => now()];
+    return insert('customers', $data);
+}
+
+/** Kurzbezeichnung eines Kunden für Listen */
+function customer_label(array $c): string
+{
+    $name = trim($c['first_name'] . ' ' . $c['last_name']);
+    $parts = array_filter([$c['company_name'], $name]);
+    $label = implode(' – ', $parts) ?: '(ohne Namen)';
+    return ($c['customer_no'] !== '' ? $c['customer_no'] . ' · ' : '') . $label;
+}
+
+// ---------------------------------------------------------------------------
+// CSV
+// ---------------------------------------------------------------------------
+
+/** Liest eine CSV-Datei (Trennzeichen und Zeichensatz werden erkannt) */
+function csv_read(string $raw): array
+{
+    if (str_starts_with($raw, "\xEF\xBB\xBF")) $raw = substr($raw, 3);
+    if (!mb_check_encoding($raw, 'UTF-8')) $raw = mb_convert_encoding($raw, 'UTF-8', 'Windows-1252');
+    $raw = str_replace(["\r\n", "\r"], "\n", $raw);
+    $first = strtok($raw, "\n") ?: '';
+    $counts = [';' => substr_count($first, ';'), ',' => substr_count($first, ','), "\t" => substr_count($first, "\t")];
+    arsort($counts);
+    $delim = (string)array_key_first($counts);
+    $fh = fopen('php://memory', 'r+');
+    fwrite($fh, $raw);
+    rewind($fh);
+    $rowsOut = [];
+    while (($r = fgetcsv($fh, 0, $delim, '"', '')) !== false) {
+        if ($r === [null] || (count($r) === 1 && trim((string)$r[0]) === '')) continue;
+        $rowsOut[] = array_map(fn($x) => (string)$x, $r);
+    }
+    fclose($fh);
+    return $rowsOut;
+}
+
+function csv_norm(string $s): string
+{
+    $s = mb_strtolower(trim($s));
+    $s = strtr($s, ['ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'ß' => 'ss']);
+    return (string)preg_replace('/[^a-z0-9]/', '', $s);
+}
+
+/** Ordnet CSV-Spaltenüberschriften den Feldern zu: Spaltenindex => Feldschlüssel */
+function csv_map_headers(array $headers, int $companyId): array
+{
+    $aliases = [
+        'nummer' => ['kundennummer', 'kundennr', 'kdnr', 'nr', 'nummer', 'customerno', 'customernumber', 'id'],
+        'firma' => ['firma', 'firmenname', 'unternehmen', 'company', 'organisation'],
+        'anrede' => ['anrede', 'salutation'], 'titel' => ['titel', 'title'],
+        'vorname' => ['vorname', 'firstname'], 'nachname' => ['nachname', 'name', 'lastname', 'familienname'],
+        'strasse' => ['strasse', 'strasseundhausnummer', 'adresse', 'anschrift', 'street', 'address'],
+        'plz' => ['plz', 'postleitzahl', 'zip', 'zipcode', 'postalcode'], 'ort' => ['ort', 'stadt', 'city', 'wohnort'],
+        'land' => ['land', 'country'], 'email' => ['email', 'emailadresse', 'mail'],
+        'telefon' => ['telefon', 'tel', 'telefonnummer', 'phone', 'mobil'], 'notiz' => ['notiz', 'notizen', 'bemerkung', 'notes'],
+    ];
+    $lookup = [];
+    foreach ($aliases as $k => $list) foreach ($list as $a) $lookup[$a] ??= $k;
+    foreach (customer_all_fields($companyId) as $k => $label) {
+        $lookup[csv_norm($label)] = $k;
+        $lookup[csv_norm($k)] = $k;
+    }
+    $map = [];
+    foreach ($headers as $i => $h) {
+        $n = csv_norm($h);
+        if ($n !== '' && isset($lookup[$n]) && !in_array($lookup[$n], $map, true)) $map[$i] = $lookup[$n];
+    }
+    return $map;
+}
+
+// ---------------------------------------------------------------------------
+// API-Schlüssel
+// ---------------------------------------------------------------------------
+
+/** Erzeugt einen Schlüssel; zurück: [Klartext, Präfix, Hash] */
+function api_token_generate(): array
+{
+    $prefix = bin2hex(random_bytes(4));
+    $secret = rtrim(strtr(base64_encode(random_bytes(24)), '+/', '-_'), '=');
+    $plain = 'kp_' . $prefix . '_' . $secret;
+    return [$plain, $prefix, hash('sha256', $plain)];
+}
+
+function api_token_lookup(string $plain): ?array
+{
+    if (!preg_match('/^kp_([0-9a-f]{8})_[A-Za-z0-9_-]{20,}$/', $plain, $m)) return null;
+    $t = row('SELECT * FROM api_tokens WHERE prefix = ? AND active = 1', [$m[1]]);
+    if (!$t || !hash_equals($t['token_hash'], hash('sha256', $plain))) return null;
+    return $t;
+}

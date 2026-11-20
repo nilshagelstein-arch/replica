@@ -11,6 +11,11 @@ DirectoryIndex index.php
     </IfModule>
 </FilesMatch>
 
+# API: Authorization-Header an PHP weitergeben (bei FastCGI/CGI sonst verloren)
+<IfModule mod_setenvif.c>
+    SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+</IfModule>
+
 # HTTPS erzwingen (auskommentieren, falls der Hoster das bereits übernimmt)
 <IfModule mod_rewrite.c>
     RewriteEngine On

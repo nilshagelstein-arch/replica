@@ -200,3 +200,116 @@ body.print h2 { margin-top: 1.2rem; }
   .topbar, .mainnav, .toolbar, .buttons, form .btn { display: none !important; }
   body.print { padding: 0; }
 }
+
+/* ===== App „Formulare“ ===== */
+.forms-layout { display: grid; grid-template-columns: 270px 1fr; gap: 1.25rem; align-items: start; }
+.folder-nav .tree, .folder-nav .tree ul { list-style: none; margin: 0; padding: 0; }
+.folder-nav .tree ul { padding-left: 1rem; }
+.folder-nav .tree li > a { display: inline-block; padding: .25rem .4rem; border-radius: 6px; text-decoration: none; color: var(--text); }
+.folder-nav .tree li.active > a { background: #e3edfa; color: var(--accent); font-weight: 600; }
+.compact-form { margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--line); }
+.compact-form label { margin-bottom: .5rem; font-size: .9rem; }
+.breadcrumb { margin: 0 0 .8rem; color: var(--muted); }
+.folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: .7rem; margin-bottom: 1rem; }
+.folder-tile { display: flex; flex-direction: column; gap: .15rem; padding: .8rem 1rem; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); text-decoration: none; color: var(--text); font-weight: 600; }
+.folder-tile:hover { border-color: var(--accent); }
+.folder-tile > span:first-child { font-size: 1.4rem; }
+.folder-tools summary { cursor: pointer; font-weight: 600; }
+.folder-tools .inline-form { align-items: center; }
+details.more { display: inline-block; position: relative; }
+details.more summary { list-style: none; }
+details.more summary::-webkit-details-marker { display: none; }
+.more-menu { position: absolute; right: 0; z-index: 5; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: .7rem; box-shadow: 0 6px 18px rgba(22,38,58,.15); min-width: 260px; display: grid; gap: .5rem; }
+.more-menu .inline-form { margin: 0; }
+.pick-list { max-height: 420px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; padding: .4rem .6rem; }
+.pick-list label.check { margin: 0; padding: .2rem 0; border-bottom: 1px dashed var(--line); }
+.filter-input { margin-bottom: .4rem; }
+.pager { display: flex; gap: .6rem; flex-wrap: wrap; }
+.logo-preview { display: block; max-width: 260px; max-height: 120px; margin-bottom: 1rem; border: 1px dashed var(--line); padding: .5rem; background: #fff; }
+.api-doc { margin-top: 1rem; }
+.api-doc summary { cursor: pointer; font-weight: 600; }
+.code-block { background: #16263a; color: #e8eef5; padding: .8rem 1rem; border-radius: 6px; overflow-x: auto; font-size: .85rem; }
+.danger-inline { margin-top: 1rem; }
+.sticky-buttons { position: sticky; bottom: 0; background: var(--bg); padding: .7rem 0; z-index: 4; border-top: 1px solid var(--line); }
+label.mt, .mt { margin-top: 1rem; }
+span.ph { display: inline-block; background: #e6f4f1; color: #0b5e53; border: 1px solid #a8d8cf; border-radius: 4px; padding: 0 .3em; font-size: .9em; line-height: 1.35; white-space: nowrap; cursor: default; user-select: all; }
+
+/* Editor */
+.editor { margin-bottom: 1rem; }
+.ed-toolbar { position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: var(--radius) var(--radius) 0 0; padding: .45rem; }
+.ed-toolbar button { font: inherit; font-size: .85rem; padding: .25rem .5rem; border: 1px solid transparent; background: none; border-radius: 4px; cursor: pointer; color: var(--text); min-width: 1.9rem; }
+.ed-toolbar button:hover { background: #eef3f9; border-color: var(--line); }
+.ed-toolbar select { width: auto; font-size: .85rem; padding: .2rem .35rem; }
+.ed-toolbar .ed-ph-select { max-width: 240px; background: #e6f4f1; border-color: #a8d8cf; }
+.ed-group { display: inline-flex; gap: .1rem; padding-left: .35rem; border-left: 1px solid var(--line); }
+.paper-wrap { background: #e9edf1; padding: 1rem; border-radius: var(--radius); margin-bottom: 1rem; overflow-x: auto; }
+.paper-wrap > .muted { margin: 0 0 .7rem; }
+.ed-area { background: #fff; width: 210mm; max-width: 100%; min-height: 200mm; margin: 0 auto; padding: 15mm 20mm 15mm 25mm; box-shadow: 0 2px 10px rgba(22,38,58,.15); outline: none; border: 1px solid var(--line); border-top: 0; }
+.ed-area.ed-layout { min-height: 60mm; }
+.ed-area:focus { box-shadow: 0 0 0 2px rgba(31,95,168,.35), 0 2px 10px rgba(22,38,58,.15); }
+.ed-area table td, .ed-area table th { min-width: 2.5em; outline: 1px dashed #c4cdd7; }
+.ed-area img { cursor: zoom-in; }
+
+/* Inhalt von Formularen (Editor und Druck gleich) */
+.doc-content { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 11pt; line-height: 1.4; color: #111; }
+.doc-content p { margin: 0 0 .6em; }
+.doc-content h1 { font-size: 18pt; margin: 0 0 .5em; }
+.doc-content h2 { font-size: 14pt; margin: .2em 0 .5em; }
+.doc-content h3 { font-size: 12pt; margin: .2em 0 .4em; color: inherit; text-transform: none; letter-spacing: 0; }
+.doc-content h4 { font-size: 11pt; margin: .2em 0 .4em; }
+.doc-content ul, .doc-content ol { margin: 0 0 .6em; padding-left: 1.4em; }
+.doc-content hr { border: 0; border-top: 1px solid #888; margin: .6em 0; }
+.doc-content a { color: inherit; }
+.doc-content table { width: 100%; border-collapse: collapse; margin: 0 0 .6em; }
+.doc-content table td, .doc-content table th { padding: .25em .4em; vertical-align: top; text-align: left; }
+.doc-content table.tbl-grid td, .doc-content table.tbl-grid th { border: 1px solid #555; }
+.doc-content table.tbl-grid th { background: #eee; }
+.doc-content table.tbl-plain td, .doc-content table.tbl-plain th { padding-left: 0; }
+.doc-content td.w-50 { width: 55%; }
+.doc-content .v-bottom { vertical-align: bottom; }
+.doc-content .al-center { text-align: center; }
+.doc-content .al-right { text-align: right; }
+.doc-content .al-justify { text-align: justify; }
+.doc-content .fs-small { font-size: 8.5pt; }
+.doc-content .fs-large { font-size: 13pt; }
+.doc-content .fs-xlarge { font-size: 17pt; }
+.doc-content .c-muted { color: #666; }
+.doc-content .c-accent { color: #1f5fa8; }
+.doc-content img { max-width: 100%; }
+.doc-content img.img-s { max-height: 20mm; }
+.doc-content img.img-m { max-height: 40mm; }
+.doc-content img.img-l { max-height: 80mm; }
+.doc-content img.doc-logo { max-height: 22mm; max-width: 70mm; }
+.doc-content p.sig { border-top: 1px solid #333; padding-top: .2em; margin-top: 10mm; font-size: 9pt; width: 85%; }
+.doc-content table.sig td { width: 50%; }
+.doc-content .box { font-size: 1.15em; }
+.doc-content .page-break { border-top: 2px dashed #a8d8cf; margin: 1em 0; height: 0; }
+.ed-area .page-break::after { content: "Seitenumbruch"; display: block; text-align: center; font-size: 8pt; color: #0b5e53; }
+
+/* Druckansicht der Dokumente */
+body.doc-print { background: #e9edf1; margin: 0; }
+.doc-toolbar { position: sticky; top: 0; z-index: 2; display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; background: #16263a; color: #fff; padding: .6rem 1.5rem; font-family: system-ui, sans-serif; }
+.doc-toolbar .btn { margin-left: auto; }
+.doc-toolbar .btn + .btn { margin-left: 0; }
+.doc-toolbar .muted { color: #b8c4d2; }
+.sheet { background: #fff; width: 210mm; min-height: 297mm; margin: 1.2rem auto; padding: 12mm 20mm 10mm 25mm; box-shadow: 0 2px 12px rgba(22,38,58,.2); display: flex; flex-direction: column; }
+.doc-header { margin-bottom: 8mm; }
+.doc-body { flex: 1 0 auto; }
+.doc-footer { margin-top: 8mm; }
+.doc-body .page-break { border: 0; margin: 0; break-after: page; page-break-after: always; }
+@media print {
+  @page { size: A4; margin: 0; }
+  body.doc-print { background: #fff; }
+  .doc-toolbar { display: none; }
+  .sheet { margin: 0; box-shadow: none; break-after: page; page-break-after: always; }
+  .sheet:last-of-type { break-after: auto; page-break-after: auto; }
+}
+@media (max-width: 900px) {
+  .forms-layout { grid-template-columns: 1fr; }
+  .ed-area { padding: 10mm; }
+}
+.company-switch { margin-bottom: 1rem; }
+.company-switch select { width: auto; min-width: 240px; margin-left: .4rem; }
+.layout-head { display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: end; }
+.layout-head label { margin-bottom: 0; }
+.form .grid2 > .card label:not(.check) { margin-bottom: .9rem; }

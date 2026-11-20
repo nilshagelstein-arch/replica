@@ -23,6 +23,20 @@ if ($user) {
             }
         }
     }
+    $formsRoutes = ['forms', 'form_edit', 'form_layouts', 'form_settings', 'form_use', 'customers', 'customer_edit', 'customer_fields', 'customer_import'];
+    if (isset($myApps['formulare'])) {
+        $inForms = in_array($route, $formsRoutes, true);
+        $nav[] = ['forms', $myApps['formulare']['name'], $inForms];
+        if ($inForms) {
+            $fp = is_staff_role($user['role']) && !empty($GLOBALS['forms_cid']) ? ['company' => (int)$GLOBALS['forms_cid']] : [];
+            $subnav[] = ['forms', 'Formulare', $fp, in_array($route, ['forms', 'form_edit', 'form_use'], true)];
+            $subnav[] = ['customers', 'Kundendatenbank', $fp, in_array($route, ['customers', 'customer_edit', 'customer_fields', 'customer_import'], true)];
+            if (in_array($user['role'], ['superadmin', 'admin', 'firma_admin'], true)) {
+                $subnav[] = ['form_layouts', 'Briefkopf & Fußzeile', $fp, $route === 'form_layouts'];
+                $subnav[] = ['form_settings', 'Logo, Briefpapier & API', $fp, $route === 'form_settings'];
+            }
+        }
+    }
     if (is_staff_role($user['role'])) {
         $nav[] = ['companies', 'Firmen', in_array($route, ['companies', 'company_edit'], true)];
         $nav[] = ['users', 'Benutzer', in_array($route, ['users', 'user_edit'], true)];
@@ -87,5 +101,6 @@ if ($user && $user['company_id']) {
     <?php $content(); ?>
 </main>
 <script src="assets/app.js"></script>
+<?php if ($user && in_array($route, ['form_edit', 'form_layouts', 'form_use'], true)): ?><script src="assets/forms.js"></script><?php endif; ?>
 </body>
 </html>

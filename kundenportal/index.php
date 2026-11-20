@@ -27,6 +27,9 @@ require APP_DIR . '/pages/users.php';
 require APP_DIR . '/pages/masterdata.php';
 require APP_DIR . '/pages/apps.php';
 require APP_DIR . '/pages/mailsettings.php';
+require APP_DIR . '/forms_lib.php';
+require APP_DIR . '/pages/forms.php';
+require APP_DIR . '/pages/customers.php';
 
 $routes = [
     'login'          => 'page_login',
@@ -55,6 +58,20 @@ $routes = [
     'catalog'        => 'page_catalog',
     'templates'      => 'page_templates',
     'audit'          => 'page_audit',
+    // App „Formulare“
+    'forms'           => 'page_forms',
+    'form_folder'     => 'page_form_folder',
+    'form_action'     => 'page_form_action',
+    'form_edit'       => 'page_form_edit',
+    'form_layouts'    => 'page_form_layouts',
+    'form_settings'   => 'page_form_settings',
+    'form_use'        => 'page_form_use',
+    'form_print'      => 'page_form_print',
+    'customers'       => 'page_customers',
+    'customer_edit'   => 'page_customer_edit',
+    'customer_fields' => 'page_customer_fields',
+    'customer_import' => 'page_customer_import',
+    'customer_export' => 'page_customer_export',
 ];
 
 $r = (string)($_GET['r'] ?? '');

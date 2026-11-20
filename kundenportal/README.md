@@ -2,7 +2,7 @@
 
 Mandantenfähiges Webportal für Kundenfirmen eines IT-Dienstleisters. Nach der Anmeldung mit Passwort und Zwei-Faktor-Authentifizierung (Authenticator-App) sieht jede Firma eine Startseite mit den **Apps, die für sie freigeschaltet sind**.
 
-Erste eingebaute App ist **On- & Offboarding**. Darüber beauftragen die Firmen:
+Eingebaute Apps sind **On- & Offboarding** und **Formulare**. Über On- & Offboarding beauftragen die Firmen:
 
 - **Onboarding:** neue Mitarbeitende einrichten
 - **Offboarding:** Austritte abwickeln (Konto sperren, Geräte zurücknehmen, Lizenzen entziehen, Postfach und Daten regeln)
@@ -35,9 +35,37 @@ Erste eingebaute App ist **On- & Offboarding**. Darüber beauftragen die Firmen:
 - **Workflow:** Eingereicht → In Bearbeitung → Rückfrage → Eingerichtet → Freigegeben (oder Storniert). Dazu gibt es eine Checkliste, Nachrichten, interne Notizen und eine Druckansicht.
 - **E-Mail-Benachrichtigungen** bei neuen Aufträgen, Antworten und Statuswechseln
 
+### App „Formulare“
+- **Formulare und Briefe** mit eigenem Editor im Browser gestalten: Überschriften, Fett/Kursiv/Unterstrichen, Schriftgröße, Farbe, Ausrichtung, Listen, Tabellen (mit Rahmen oder unsichtbar als Spalten), Linien, Bilder, Links, Seitenumbrüche und Unterschriftsfeld. Beim Einfügen aus Word wird die Formatierung bereinigt.
+- **Ordner** zum Sortieren, beliebig verschachtelt, mit Suche. Formulare lassen sich duplizieren, verschieben und löschen.
+- **Platzhalter** für Daten aus der Kundendatenbank (`{{kunde.nachname}}`, `{{kunde.anschrift}}`, `{{kunde.briefanrede}}` …), der eigenen Firma (`{{firma.name}}`, `{{firma.iban}}` …), Datum, Ersteller und Logo
+- **Eingabe-, Text- und Ankreuzfelder**, die beim Erstellen eines Dokuments von Hand ausgefüllt werden
+- **Kundendatenbank je Firma** mit Standardfeldern und beliebig vielen eigenen Feldern. Jedes Feld ist sofort als Platzhalter verfügbar.
+- **CSV-Import und -Export:** Trennzeichen und Zeichensatz (UTF-8 oder Windows/Excel) werden erkannt, gängige Spaltennamen automatisch zugeordnet, vorhandene Kunden über die Kundennummer aktualisiert. Unbekannte Spalten können als eigene Felder angelegt werden.
+- **API-Schnittstelle (REST/JSON)** mit Schlüsseln je Firma, nur lesend oder mit Schreibrecht (siehe unten)
+- **Logo, Briefkopf und Fußzeile:** Logo hochladen, Bank- und Pflichtangaben pflegen, mehrere Briefköpfe und Fußzeilen anlegen und je Formular auswählen. Vorlagen: Briefkopf klassisch nach DIN 5008 (Logo rechts, Anschriftfeld), modern, zentriert, schlicht; Fußzeile dreispaltig, einzeilig oder mit Pflichtangaben.
+- **Dokument erstellen:** Kunden auswählen (mehrere = Serienbrief, je Kunde eine Seite), Felder ausfüllen, als A4-Dokument drucken oder als PDF speichern
+- **Rechte:** Alle Benutzer einer Firma mit Freigabe nutzen Formulare und Kundendatenbank. Logo, Briefkopf/Fußzeile, eigene Felder, CSV-Import/-Export und API-Schlüssel verwalten Firmen-Administratoren und Dienstleister.
+
+### API der Kundendatenbank
+
+Schlüssel werden in der App unter **Logo, Briefpapier & API** erzeugt (nur einmal angezeigt, gespeichert wird nur ein Hash). Aufruf mit `Authorization: Bearer kp_…` oder `X-API-Key: kp_…`.
+
+| Aufruf | Bedeutung |
+|---|---|
+| `GET /api.php/kunden?suche=&seite=1&pro_seite=100&geaendert_seit=2026-01-01` | Kunden auflisten |
+| `GET /api.php/kunden/{id}` | ein Kunde |
+| `GET /api.php/kunden/nummer/{kundennummer}` | Kunde über die Kundennummer |
+| `POST /api.php/kunden` | anlegen; mit vorhandener `nummer` aktualisieren. Ein Objekt oder eine Liste (max. 1000) |
+| `PATCH /api.php/kunden/{id}` | einzelne Felder ändern (`PUT` ersetzt alle Felder) |
+| `DELETE /api.php/kunden/{id}` | löschen |
+| `GET /api.php/felder` | alle Felder mit Bezeichnung |
+
+Feldnamen: `nummer, firma, anrede, titel, vorname, nachname, strasse, plz, ort, land, email, telefon, notiz` und die Namen der eigenen Felder. Erlaubt der Server keine Pfade hinter `api.php`, funktioniert auch `api.php?pfad=kunden/12`.
+
 ## Voraussetzungen
 
-- Webhosting mit **PHP 8.1 oder neuer** (PDO/pdo_mysql, mbstring, openssl), wie bei IONOS, Strato, All-Inkl. und ähnlichen Hostern üblich
+- Webhosting mit **PHP 8.1 oder neuer** (PDO/pdo_mysql, mbstring, openssl, dom, zip für die update.php), wie bei IONOS, Strato, All-Inkl. und ähnlichen Hostern üblich
 - eine **MySQL- oder MariaDB-Datenbank**
 - **HTTPS**
 
@@ -74,6 +102,12 @@ Am einfachsten mit der **update.php**: in den Portal-Ordner hochladen und im Bro
 2. Die Routen in `index.php` eintragen
 3. Die App in `BUILTIN_APPS` (in `app/schema.php`) ergänzen und `SCHEMA_VERSION` erhöhen; sie wird dann beim nächsten Aufruf registriert
 4. Optional die Unternavigation der App in `app/views/layout.php` ergänzen
+
+## Update-Paket bauen
+
+```bash
+php tools/build-update.php   # erzeugt build/update.php aus dem Ordner kundenportal/
+```
 
 ## Lokal testen
 

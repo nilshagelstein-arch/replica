@@ -36,6 +36,32 @@
     upd();
   });
 
+  // Formulare: Druckansicht
+  document.addEventListener('click', function (ev) {
+    if (ev.target.closest('[data-print]')) window.print();
+    if (ev.target.closest('[data-close]')) { window.close(); if (!window.closed) history.back(); }
+  });
+
+  // Listen filtern (z. B. Kundenauswahl) und alle sichtbaren an-/abwählen
+  Array.prototype.forEach.call(document.querySelectorAll('[data-filter-list]'), function (inp) {
+    var list = document.querySelector(inp.getAttribute('data-filter-list'));
+    if (!list) return;
+    inp.addEventListener('input', function () {
+      var q = inp.value.trim().toLowerCase();
+      Array.prototype.forEach.call(list.children, function (el) {
+        el.hidden = q !== '' && el.textContent.toLowerCase().indexOf(q) === -1;
+      });
+    });
+  });
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-check-all]');
+    if (!b) return;
+    var list = document.querySelector(b.getAttribute('data-check-all'));
+    var boxes = Array.prototype.filter.call(list.querySelectorAll('input[type=checkbox]'), function (x) { return !x.closest('[hidden]'); });
+    var allOn = boxes.length && boxes.every(function (x) { return x.checked; });
+    boxes.forEach(function (x) { x.checked = !allOn; });
+  });
+
   var form = document.getElementById('request-form');
   if (!form) return;
   var dataEl = document.getElementById('template-data');
