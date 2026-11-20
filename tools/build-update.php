@@ -1,6 +1,6 @@
 <?php
 /**
- * Baut build/update.php: eine einzelne Datei, die alle Programmdateien des
+ * Baut build/update.php: eine einzelne Textdatei, die alle Programmdateien des
  * Kundenportals enthält. Auf den Server in den Portal-Ordner hochladen und im
  * Browser aufrufen (als Administrator angemeldet). config.php und app/data/
  * bleiben unverändert, die Datei löscht sich danach selbst.
@@ -69,7 +69,7 @@ if (!hash_equals(csrf_token(), (string)($_POST['_csrf'] ?? ''))) upd_page('Abgel
 $tmp = $dir . '/app/data/update-' . bin2hex(random_bytes(6)) . '.zip';
 $fh = fopen(__FILE__, 'rb');
 fseek($fh, __COMPILER_HALT_OFFSET__);
-file_put_contents($tmp, stream_get_contents($fh));
+file_put_contents($tmp, base64_decode(preg_replace('/\s+/', '', (string)stream_get_contents($fh)), true) ?: '');
 fclose($fh);
 $zip = new ZipArchive();
 if ($zip->open($tmp) !== true) { @unlink($tmp); upd_page('Update fehlgeschlagen', '<p class="err">Das Update-Paket ist beschädigt. Bitte erneut hochladen.</p>'); }
@@ -96,6 +96,7 @@ __HALT_COMPILER();
 PHP;
 
 $out = $outDir . '/update.php';
-file_put_contents($out, $head . file_get_contents($zipFile));
+// Paket als Base64-Text anhängen: so übersteht die Datei auch Downloads, die sie als Text behandeln
+file_put_contents($out, $head . "\n" . chunk_split(base64_encode((string)file_get_contents($zipFile)), 76, "\n"));
 unlink($zipFile);
 echo "$out ($n Dateien, " . round(filesize($out) / 1024) . " KB)\n";
