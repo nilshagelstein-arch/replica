@@ -51,81 +51,6 @@ function load_form(int $cid, int $id): array
     return $f;
 }
 
-/** Editor mit Werkzeugleiste; der Inhalt landet beim Speichern im Feld $name */
-function render_editor(string $name, string $html, int $cid, string $mode = 'body'): void
-{
-    $catalog = placeholder_catalog($cid);
-    ?>
-    <div class="editor" data-editor="<?= e($name) ?>">
-        <div class="ed-toolbar" role="toolbar" aria-label="Formatierung">
-            <select data-block aria-label="Absatzformat">
-                <option value="p">Text</option><option value="h1">Überschrift 1</option>
-                <option value="h2">Überschrift 2</option><option value="h3">Überschrift 3</option>
-            </select>
-            <select data-size aria-label="Schriftgröße">
-                <option value="">Größe</option><option value="fs-small">klein</option><option value="normal">normal</option>
-                <option value="fs-large">groß</option><option value="fs-xlarge">sehr groß</option>
-            </select>
-            <span class="ed-group">
-                <button type="button" data-cmd="bold" title="Fett (Strg+B)"><b>F</b></button>
-                <button type="button" data-cmd="italic" title="Kursiv (Strg+I)"><i>K</i></button>
-                <button type="button" data-cmd="underline" title="Unterstrichen (Strg+U)"><u>U</u></button>
-                <button type="button" data-cmd="strikeThrough" title="Durchgestrichen"><s>S</s></button>
-                <select data-color aria-label="Textfarbe"><option value="">Farbe</option><option value="none">Standard</option><option value="c-muted">Grau</option><option value="c-accent">Akzent</option></select>
-            </span>
-            <span class="ed-group">
-                <button type="button" data-align="al-left" title="Linksbündig">⇤ links</button>
-                <button type="button" data-align="al-center" title="Zentriert">↔ mittig</button>
-                <button type="button" data-align="al-right" title="Rechtsbündig">⇥ rechts</button>
-                <button type="button" data-align="al-justify" title="Blocksatz">☰ Block</button>
-            </span>
-            <span class="ed-group">
-                <button type="button" data-cmd="insertUnorderedList" title="Aufzählung">• Liste</button>
-                <button type="button" data-cmd="insertOrderedList" title="Nummerierung">1. Liste</button>
-            </span>
-            <span class="ed-group">
-                <button type="button" data-table="insert" title="Tabelle einfügen">▦ Tabelle</button>
-                <button type="button" data-table="row" title="Zeile darunter einfügen">+ Zeile</button>
-                <button type="button" data-table="col" title="Spalte rechts einfügen">+ Spalte</button>
-                <button type="button" data-table="delrow" title="Zeile löschen">− Zeile</button>
-                <button type="button" data-table="delcol" title="Spalte löschen">− Spalte</button>
-                <button type="button" data-table="border" title="Rahmen ein/aus">Rahmen</button>
-            </span>
-            <span class="ed-group">
-                <button type="button" data-insert="hr" title="Trennlinie">― Linie</button>
-                <?php if ($mode === 'body'): ?><button type="button" data-insert="pagebreak" title="Neue Seite">⤓ Seitenumbruch</button><?php endif; ?>
-                <button type="button" data-insert="image" title="Bild einfügen (PNG, JPG, max. 500 KB)">🖼 Bild</button>
-                <button type="button" data-insert="link" title="Link">🔗</button>
-            </span>
-            <select data-placeholder aria-label="Platzhalter einfügen" class="ed-ph-select">
-                <option value="">{{ }} Platzhalter einfügen …</option>
-                <?php foreach ($catalog as $group => $items): ?>
-                    <optgroup label="<?= e($group) ?>">
-                        <?php foreach ($items as $k => $label): ?><option value="<?= e($k) ?>"><?= e($label) ?></option><?php endforeach; ?>
-                    </optgroup>
-                <?php endforeach; ?>
-            </select>
-            <?php if ($mode === 'body'): ?>
-            <span class="ed-group">
-                <button type="button" data-field="eingabe" title="Einzeiliges Feld, wird beim Erstellen ausgefüllt">▭ Eingabefeld</button>
-                <button type="button" data-field="text" title="Mehrzeiliges Feld, wird beim Erstellen ausgefüllt">▤ Textfeld</button>
-                <button type="button" data-field="ankreuzen" title="Kästchen zum Ankreuzen">☐ Ankreuzfeld</button>
-                <button type="button" data-insert="signature" title="Ort, Datum und Unterschrift">✍ Unterschrift</button>
-            </span>
-            <?php endif; ?>
-            <span class="ed-group">
-                <button type="button" data-cmd="removeFormat" title="Formatierung entfernen">⌫ Format</button>
-                <button type="button" data-cmd="undo" title="Rückgängig (Strg+Z)">↶</button>
-                <button type="button" data-cmd="redo" title="Wiederholen (Strg+Y)">↷</button>
-            </span>
-            <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" data-image-input hidden>
-        </div>
-        <div class="ed-area doc-content <?= $mode === 'body' ? '' : 'ed-layout' ?>" contenteditable="true" spellcheck="true" lang="de"><?= $html ?: '<p><br></p>' ?></div>
-        <textarea name="<?= e($name) ?>" hidden><?= e($html) ?></textarea>
-    </div>
-    <?php
-}
-
 function forms_subtitle(int $cid): string
 {
     return is_admin() ? company_switcher($cid, (string)($_GET['r'] ?? 'forms')) : '';
@@ -370,82 +295,6 @@ function layout_choice_options(int $cid, string $kind): array
     return $opts;
 }
 
-function page_form_edit(): void
-{
-    $cid = forms_company_id();
-    $u = current_user();
-    $id = query_int('id');
-    $form = $id ? load_form($cid, $id) : null;
-    $data = $form ?? ['name' => '', 'description' => '', 'body' => '', 'header_id' => 0, 'footer_id' => 0,
-        'folder_id' => query_int('folder') ?: null];
-    $errors = [];
-
-    if (is_post()) {
-        require_post_csrf();
-        $data['name'] = mb_substr(post('name'), 0, 190);
-        $data['description'] = mb_substr(post('description'), 0, 500);
-        $data['body'] = sanitize_html((string)($_POST['body'] ?? ''));
-        $folder = (int)post('folder_id', 0);
-        $data['folder_id'] = $folder && row('SELECT id FROM form_folders WHERE id = ? AND company_id = ?', [$folder, $cid]) ? $folder : null;
-        foreach (['header', 'footer'] as $kind) {
-            $v = (int)post($kind . '_id', 0);
-            if ($v > 0 && !row('SELECT id FROM form_layouts WHERE id = ? AND company_id = ? AND kind = ?', [$v, $cid, $kind])) $v = 0;
-            $data[$kind . '_id'] = max(-1, $v);
-        }
-        if ($data['name'] === '') $errors[] = 'Bitte einen Namen für das Formular angeben.';
-        if (!$errors) {
-            $save = ['name' => $data['name'], 'description' => $data['description'], 'body' => $data['body'],
-                'folder_id' => $data['folder_id'], 'header_id' => $data['header_id'], 'footer_id' => $data['footer_id'],
-                'updated_by' => $u['id'], 'updated_at' => now()];
-            if ($form) {
-                update('forms', (int)$form['id'], $save);
-                audit('form_updated', $data['name'], $cid);
-            } else {
-                $id = insert('forms', $save + ['company_id' => $cid, 'created_by' => $u['id'], 'created_at' => now()]);
-                audit('form_created', $data['name'], $cid);
-            }
-            flash('success', 'Das Formular wurde gespeichert.');
-            if (post('next') === 'use') fredirect('form_use', ['id' => $id]);
-            fredirect('form_edit', ['id' => $id]);
-        }
-    }
-
-    $title = $form ? 'Formular bearbeiten' : 'Neues Formular';
-    render_page($title, function () use ($cid, $form, $data, $errors) { ?>
-        <?php foreach ($errors as $err): ?><div class="alert error"><?= e($err) ?></div><?php endforeach; ?>
-        <form method="post" class="form" data-editor-form>
-            <?= csrf_field() ?>
-            <div class="card">
-                <div class="grid3">
-                    <label>Name<input name="name" value="<?= e($data['name']) ?>" required maxlength="190" placeholder="z. B. Auftragsbestätigung"></label>
-                    <label>Ordner<select name="folder_id"><option value="0">(ohne Ordner)</option>
-                        <?php foreach (folder_options($cid) as $fid => $label): ?><option value="<?= $fid ?>" <?= (int)$data['folder_id'] === $fid ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
-                    </select></label>
-                    <label>Kurzbeschreibung<input name="description" value="<?= e($data['description']) ?>" maxlength="500"></label>
-                    <label>Briefkopf<select name="header_id">
-                        <?php foreach (layout_choice_options($cid, 'header') as $lid => $label): ?><option value="<?= $lid ?>" <?= (int)$data['header_id'] === $lid ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
-                    </select></label>
-                    <label>Fußzeile<select name="footer_id">
-                        <?php foreach (layout_choice_options($cid, 'footer') as $lid => $label): ?><option value="<?= $lid ?>" <?= (int)$data['footer_id'] === $lid ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?>
-                    </select></label>
-                </div>
-            </div>
-            <div class="paper-wrap">
-                <p class="muted small">Briefkopf und Fußzeile werden beim Erstellen automatisch ergänzt. Platzhalter wie
-                    <span class="ph">{{kunde.nachname}}</span> füllt das Portal mit Daten aus der Kundendatenbank,
-                    Eingabe- und Ankreuzfelder beim Erstellen von Hand.</p>
-                <?php render_editor('body', (string)$data['body'], $cid); ?>
-            </div>
-            <div class="buttons sticky-buttons">
-                <button class="btn primary">Speichern</button>
-                <button class="btn" name="next" value="use">Speichern und Dokument erstellen</button>
-                <?php if ($form): ?><a class="btn" href="<?= e(furl('form_print', ['id' => $form['id'], 'preview' => 1])) ?>" target="_blank" rel="noopener">Vorschau (gespeicherter Stand)</a><?php endif; ?>
-                <a class="btn" href="<?= e(furl('forms', $data['folder_id'] ? ['folder' => (int)$data['folder_id']] : [])) ?>">Zurück</a>
-            </div>
-        </form>
-    <?php });
-}
-
 // ---------------------------------------------------------------------------
 // Briefkopf & Fußzeile
 // ---------------------------------------------------------------------------
@@ -536,7 +385,7 @@ function page_form_layouts(): void
             </aside>
             <section>
             <?php if ($current): ?>
-                <form method="post" class="form" data-editor-form>
+                <form method="post" class="form" data-editor-form id="word-form">
                     <?= csrf_field() ?><input type="hidden" name="action" value="save">
                     <input type="hidden" name="id" value="<?= (int)$current['id'] ?>"><input type="hidden" name="kind" value="<?= e($current['kind']) ?>">
                     <div class="card layout-head">
@@ -549,7 +398,8 @@ function page_form_layouts(): void
                         <p class="muted small"><?= $current['kind'] === 'header'
                             ? 'Der Briefkopf steht oben auf der ersten Seite. Platzhalter wie das Logo oder die Anschrift des Kunden werden beim Erstellen ersetzt.'
                             : 'Die Fußzeile steht unten auf jeder Seite. Halten Sie sie kurz, damit sie auf eine Zeile oder einen kleinen Block passt.' ?></p>
-                        <?php render_editor('body', (string)$current['body'], $cid, 'layout'); ?>
+                        <textarea name="body" hidden></textarea>
+                        <?php render_word_editor($cid, [['region' => 'body', 'html' => (string)$current['body']]], page_settings(null), 'layout'); ?>
                     </div>
                     <div class="buttons">
                         <button class="btn primary">Speichern</button>
@@ -726,164 +576,3 @@ function page_form_settings(): void
     <?php });
 }
 
-// ---------------------------------------------------------------------------
-// Dokument erstellen
-// ---------------------------------------------------------------------------
-
-function page_form_use(): void
-{
-    $cid = forms_company_id();
-    $form = load_form($cid, query_int('id'));
-    $full = (string)$form['body'] . layout_for($cid, 'header', (int)$form['header_id']) . layout_for($cid, 'footer', (int)$form['footer_id']);
-    $needsCustomer = uses_customer($full);
-    $inputs = form_inputs((string)$form['body']);
-    $search = trim((string)($_GET['q'] ?? ''));
-    $customers = [];
-    $total = 0;
-    if ($needsCustomer) {
-        $where = 'company_id = ?';
-        $params = [$cid];
-        if ($search !== '') {
-            $where .= ' AND (customer_no LIKE ? OR company_name LIKE ? OR first_name LIKE ? OR last_name LIKE ? OR city LIKE ? OR email LIKE ?)';
-            $params = array_merge($params, array_fill(0, 6, '%' . $search . '%'));
-        }
-        $total = (int)row("SELECT COUNT(*) AS n FROM customers WHERE $where", $params)['n'];
-        $customers = rows("SELECT * FROM customers WHERE $where ORDER BY company_name, last_name, first_name LIMIT 300", $params);
-    }
-
-    render_page('Dokument erstellen: ' . $form['name'], function () use ($cid, $form, $needsCustomer, $inputs, $search, $customers, $total) { ?>
-        <?php if ($needsCustomer): ?>
-        <form method="get" class="toolbar">
-            <input type="hidden" name="r" value="form_use"><input type="hidden" name="id" value="<?= (int)$form['id'] ?>">
-            <?php if (is_admin()): ?><input type="hidden" name="company" value="<?= (int)$cid ?>"><?php endif; ?>
-            <input type="search" name="q" value="<?= e($search) ?>" placeholder="Kunden suchen (Name, Nummer, Ort …)">
-            <button class="btn small">Suchen</button>
-        </form>
-        <?php endif; ?>
-        <form method="post" action="<?= e(furl('form_print')) ?>" target="_blank" class="form">
-            <?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$form['id'] ?>">
-            <div class="grid2">
-                <?php if ($needsCustomer): ?>
-                <div class="card">
-                    <h2>Empfänger aus der Kundendatenbank</h2>
-                    <?php if (!$customers): ?>
-                        <p class="muted"><?= $search !== '' ? 'Keine Kunden gefunden.' : 'Die Kundendatenbank ist noch leer.' ?>
-                            <a href="<?= e(furl('customer_edit')) ?>">Kunden anlegen</a> oder <a href="<?= e(furl('customer_import')) ?>">per CSV importieren</a>.</p>
-                    <?php else: ?>
-                        <p class="muted small">Mehrere Kunden auswählen ergibt einen Serienbrief: ein Dokument je Kunde, jeweils auf neuer Seite.
-                            <?= $total > count($customers) ? 'Es werden die ersten ' . count($customers) . ' von ' . $total . ' Treffern angezeigt. Grenzen Sie die Suche ein.' : '' ?></p>
-                        <input type="search" class="filter-input" data-filter-list="#customer-pick" placeholder="Liste filtern">
-                        <p><button type="button" class="linkbtn small" data-check-all="#customer-pick">alle sichtbaren auswählen / abwählen</button></p>
-                        <div id="customer-pick" class="pick-list">
-                            <?php foreach ($customers as $c): ?>
-                                <label class="check"><input type="checkbox" name="customers[]" value="<?= (int)$c['id'] ?>"> <?= e(customer_label($c)) ?>
-                                    <?php if ($c['city'] !== ''): ?><span class="muted small"><?= e($c['city']) ?></span><?php endif; ?></label>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
-                <?php endif; ?>
-                <div class="card">
-                    <h2>Angaben für dieses Dokument</h2>
-                    <label>Datum<input type="date" name="date" value="<?= date('Y-m-d') ?>"></label>
-                    <?php foreach ($inputs as $i => $in): ?>
-                        <?php if ($in['type'] === 'check'): ?>
-                            <label class="check"><input type="checkbox" name="inputs[<?= $i ?>]" value="1"> <?= e($in['label']) ?></label>
-                        <?php elseif ($in['type'] === 'textarea'): ?>
-                            <label><?= e($in['label']) ?><textarea name="inputs[<?= $i ?>]" rows="6"></textarea></label>
-                        <?php else: ?>
-                            <label><?= e($in['label']) ?><input name="inputs[<?= $i ?>]"></label>
-                        <?php endif; ?>
-                    <?php endforeach; ?>
-                    <?php if (!$inputs): ?><p class="muted small">Dieses Formular hat keine Eingabefelder.</p><?php endif; ?>
-                </div>
-            </div>
-            <div class="buttons">
-                <button class="btn primary">Dokument erstellen</button>
-                <a class="btn" href="<?= e(furl('form_edit', ['id' => $form['id']])) ?>">Formular bearbeiten</a>
-                <span class="muted small">Das Dokument öffnet sich in einem neuen Tab. Dort drucken oder als PDF speichern.</span>
-            </div>
-        </form>
-    <?php });
-}
-
-/** Beispielkunde für Vorschauen */
-function sample_customer(int $cid): array
-{
-    return row('SELECT * FROM customers WHERE company_id = ? ORDER BY id LIMIT 1', [$cid])
-        ?? ['customer_no' => '10001', 'company_name' => 'Musterfirma GmbH', 'salutation' => 'Frau', 'title' => '',
-            'first_name' => 'Erika', 'last_name' => 'Mustermann', 'street' => 'Musterstraße 1', 'zip' => '26122',
-            'city' => 'Oldenburg', 'country' => 'Deutschland', 'email' => 'erika@example.de', 'phone' => '0441 123456',
-            'notes' => '', 'extra' => '{}'];
-}
-
-function page_form_print(): void
-{
-    $cid = forms_company_id();
-    $u = current_user();
-    $preview = isset($_GET['preview']);
-    $date = time();
-    $manual = [];
-    $customerRows = [null];
-
-    if ($preview && query_int('layout')) {
-        $l = row('SELECT * FROM form_layouts WHERE id = ? AND company_id = ?', [query_int('layout'), $cid]);
-        if (!$l) abort(404);
-        $form = ['name' => 'Vorschau: ' . $l['name'], 'body' => '<p>Hier steht der Inhalt des Formulars.</p>',
-            'header_id' => $l['kind'] === 'header' ? (int)$l['id'] : 0, 'footer_id' => $l['kind'] === 'footer' ? (int)$l['id'] : 0];
-        $customerRows = [sample_customer($cid)];
-    } elseif ($preview) {
-        $form = load_form($cid, query_int('id'));
-        $customerRows = [sample_customer($cid)];
-        foreach (form_inputs((string)$form['body']) as $in) $manual[$in['key']] = $in['type'] === 'check' ? '' : '[' . $in['label'] . ']';
-    } else {
-        require_post_csrf();
-        $form = load_form($cid, (int)post('id', 0));
-        $d = strtotime((string)post('date'));
-        if ($d) $date = $d;
-        $given = (array)($_POST['inputs'] ?? []);
-        foreach (form_inputs((string)$form['body']) as $i => $in) {
-            $manual[$in['key']] = mb_substr((string)($given[$i] ?? ''), 0, 20000);
-        }
-        $ids = array_slice(array_map('intval', (array)($_POST['customers'] ?? [])), 0, 500);
-        if ($ids) {
-            $in = implode(',', array_fill(0, count($ids), '?'));
-            $customerRows = rows("SELECT * FROM customers WHERE company_id = ? AND id IN ($in) ORDER BY company_name, last_name, first_name", array_merge([$cid], $ids));
-            if (!$customerRows) $customerRows = [null];
-        }
-        audit('form_generated', $form['name'] . ' (' . ($ids ? count($customerRows) . ' Kunde(n)' : 'ohne Kunde') . ')', $cid);
-    }
-
-    $header = layout_for($cid, 'header', (int)$form['header_id']);
-    $footer = layout_for($cid, 'footer', (int)$form['footer_id']);
-    $logo = logo_tag($cid);
-    $base = company_values($cid) + [
-        'datum' => date('d.m.Y', $date), 'datum.lang' => german_date_long($date),
-        'benutzer.name' => (string)$u['name'], 'benutzer.email' => (string)$u['email'],
-    ] + $manual;
-    $title = $form['name'];
-    ?><!DOCTYPE html>
-<html lang="de"><head><meta charset="utf-8"><meta name="robots" content="noindex, nofollow">
-<title><?= e($title) ?></title>
-<link rel="stylesheet" href="assets/style.css"></head>
-<body class="doc-print">
-<div class="doc-toolbar">
-    <strong><?= e($title) ?></strong>
-    <?php if ($preview): ?><span class="tag warn">Vorschau mit Beispieldaten</span><?php endif; ?>
-    <span class="muted small"><?= count($customerRows) > 1 ? count($customerRows) . ' Dokumente' : '' ?></span>
-    <button type="button" class="btn primary" data-print>Drucken / als PDF speichern</button>
-    <button type="button" class="btn" data-close>Schließen</button>
-</div>
-<?php foreach ($customerRows as $c):
-    $values = $base + customer_values($c, $cid); ?>
-<section class="sheet">
-    <?php if ($header !== ''): ?><header class="doc-header doc-content"><?= fill_placeholders($header, $values, $logo) ?></header><?php endif; ?>
-    <div class="doc-body doc-content"><?= fill_placeholders((string)$form['body'], $values, $logo) ?></div>
-    <?php if ($footer !== ''): ?><footer class="doc-footer doc-content"><?= fill_placeholders($footer, $values, $logo) ?></footer><?php endif; ?>
-</section>
-<?php endforeach; ?>
-<script src="assets/app.js"></script>
-</body></html>
-<?php
-    exit;
-}

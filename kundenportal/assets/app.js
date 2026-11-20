@@ -36,6 +36,25 @@
     upd();
   });
 
+  // Ausklappmenüs: data-pop="id" öffnet/schließt #id, Klick daneben schließt
+  document.addEventListener('click', function (ev) {
+    var t = ev.target.closest('[data-pop]');
+    if (t) {
+      var pop = document.getElementById(t.getAttribute('data-pop'));
+      if (!pop) return;
+      var open = !pop.classList.contains('open');
+      Array.prototype.forEach.call(document.querySelectorAll('.pop.open'), function (p) { p.classList.remove('open'); });
+      pop.classList.toggle('open', open);
+      return;
+    }
+    if (!ev.target.closest('.pop')) {
+      Array.prototype.forEach.call(document.querySelectorAll('.pop.open'), function (p) { p.classList.remove('open'); });
+    }
+  });
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') Array.prototype.forEach.call(document.querySelectorAll('.pop.open'), function (p) { p.classList.remove('open'); });
+  });
+
   // Formulare: Druckansicht
   document.addEventListener('click', function (ev) {
     if (ev.target.closest('[data-print]')) window.print();

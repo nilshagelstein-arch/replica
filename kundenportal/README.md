@@ -36,15 +36,16 @@ Eingebaute Apps sind **On- & Offboarding** und **Formulare**. Über On- & Offboa
 - **E-Mail-Benachrichtigungen** bei neuen Aufträgen, Antworten und Statuswechseln
 
 ### App „Formulare“
-- **Formulare und Briefe** mit eigenem Editor im Browser gestalten: Überschriften, Fett/Kursiv/Unterstrichen, Schriftgröße, Farbe, Ausrichtung, Listen, Tabellen (mit Rahmen oder unsichtbar als Spalten), Linien, Bilder, Links, Seitenumbrüche und Unterschriftsfeld. Beim Einfügen aus Word wird die Formatierung bereinigt.
+- **Editor wie Word:** Vollbild mit Menüband (Start, Einfügen, Felder, Layout, Tabelle), Schriftart und -größe in pt, Fett/Kursiv/Unterstrichen, Hoch-/Tiefstellung, Schrift- und Markierfarbe, Ausrichtung, Einzüge, Zeilen- und Absatzabstand, Formatvorlagen, Listen, Bilder, Links, Symbole, Seitenumbruch und Unterschriftsfeld. A4-Seite mit Lineal, Seitenrändern, Grundschrift, Zoom, Seiten- und Wortzähler, Speichern mit Strg+S. Briefkopf und Fußzeile werden per Doppelklick direkt auf der Seite bearbeitet oder als neue Vorlage gespeichert.
+- **Rechentabellen wie Excel:** Zellbezüge (A1, B2:B9), Formelleiste mit Zellname, Spalten-/Zeilenköpfe, Formeln mit `=SUMME`, `MITTELWERT`, `MIN`, `MAX`, `ANZAHL`, `RUNDEN`, `AUFRUNDEN`, `ABRUNDEN`, `WENN`, `UND`, `ODER`, `ABS`, `PRODUKT`, Prozent und Rechenoperatoren; Zahlenformate (Zahl, Ganzzahl, Euro, Prozent), AutoSumme, Zellen markieren/verbinden/teilen, Spaltenbreite mit der Maus ziehen, Rahmen und Schattierung, Einfügen von Bereichen aus Excel. Beim Einfügen von Zeilen passen sich Formeln an (z. B. `=SUMME(E2:E4)` → `E2:E5`). Vorlagen: Positionen mit MwSt., Stundenzettel, leeres Rechenblatt.
 - **Ordner** zum Sortieren, beliebig verschachtelt, mit Suche. Formulare lassen sich duplizieren, verschieben und löschen.
 - **Platzhalter** für Daten aus der Kundendatenbank (`{{kunde.nachname}}`, `{{kunde.anschrift}}`, `{{kunde.briefanrede}}` …), der eigenen Firma (`{{firma.name}}`, `{{firma.iban}}` …), Datum, Ersteller und Logo
-- **Eingabe-, Text- und Ankreuzfelder**, die beim Erstellen eines Dokuments von Hand ausgefüllt werden
+- **Ausfüllfelder:** Eingabefeld, mehrzeiliges Textfeld, Zahl, Datum (mit Kalender), Ankreuzfeld und Auswahlliste; in Tabellen zusätzlich Eingabezellen und „Zeilen ergänzbar“
 - **Kundendatenbank je Firma** mit Standardfeldern und beliebig vielen eigenen Feldern. Jedes Feld ist sofort als Platzhalter verfügbar.
 - **CSV-Import und -Export:** Trennzeichen und Zeichensatz (UTF-8 oder Windows/Excel) werden erkannt, gängige Spaltennamen automatisch zugeordnet, vorhandene Kunden über die Kundennummer aktualisiert. Unbekannte Spalten können als eigene Felder angelegt werden.
 - **API-Schnittstelle (REST/JSON)** mit Schlüsseln je Firma, nur lesend oder mit Schreibrecht (siehe unten)
 - **Logo, Briefkopf und Fußzeile:** Logo hochladen, Bank- und Pflichtangaben pflegen, mehrere Briefköpfe und Fußzeilen anlegen und je Formular auswählen. Vorlagen: Briefkopf klassisch nach DIN 5008 (Logo rechts, Anschriftfeld), modern, zentriert, schlicht; Fußzeile dreispaltig, einzeilig oder mit Pflichtangaben.
-- **Dokument erstellen:** Kunden auswählen (mehrere = Serienbrief, je Kunde eine Seite), Felder ausfüllen, als A4-Dokument drucken oder als PDF speichern
+- **Ausfüllen direkt im Dokument:** Das Formular erscheint als A4-Seite, Felder und Eingabezellen werden an Ort und Stelle ausgefüllt, Rechentabellen rechnen sofort, Zeilen lassen sich ergänzen. Kunden auswählen (mehrere = Serienbrief, je Kunde eine Seite, Eingaben gelten für alle), Datum wählen, drucken oder als PDF speichern. Leere Felder erscheinen im Ausdruck als Linie zum Ausfüllen von Hand.
 - **Rechte:** Alle Benutzer einer Firma mit Freigabe nutzen Formulare und Kundendatenbank. Logo, Briefkopf/Fußzeile, eigene Felder, CSV-Import/-Export und API-Schlüssel verwalten Firmen-Administratoren und Dienstleister.
 
 ### API der Kundendatenbank

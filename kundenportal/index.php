@@ -13,7 +13,9 @@ if (!is_file(APP_DIR . '/data/installed.lock')) {
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; form-action 'self'; frame-ancestors 'none'");
+// Formular-Editor und Dokumente brauchen Inline-Stile (Schriftart, Größe, Farbe); Inhalte werden vorher serverseitig gefiltert
+$styleSrc = in_array((string)($_GET['r'] ?? ''), ['form_edit', 'form_layouts', 'form_use', 'form_print'], true) ? "'self' 'unsafe-inline'" : "'self'";
+header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src $styleSrc; script-src 'self'; form-action 'self'; frame-ancestors 'none'");
 
 require APP_DIR . '/schema.php';
 ensure_schema();
@@ -29,6 +31,7 @@ require APP_DIR . '/pages/apps.php';
 require APP_DIR . '/pages/mailsettings.php';
 require APP_DIR . '/forms_lib.php';
 require APP_DIR . '/pages/forms.php';
+require APP_DIR . '/pages/form_editor.php';
 require APP_DIR . '/pages/customers.php';
 
 $routes = [

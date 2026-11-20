@@ -315,7 +315,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -356,6 +356,9 @@ function run_migrations(): void
         ['requests', 'phone_action', "VARCHAR(190) NOT NULL DEFAULT ''"],
         ['requests', 'return_date', "VARCHAR(10) NOT NULL DEFAULT ''"],
         ['requests', 'absence_reason', "VARCHAR(60) NOT NULL DEFAULT ''"],
+        // Formulare: Seitenränder und Grundschrift (ab Version 7)
+        ['forms', 'page_settings', 'TEXT NULL'],
+        ['form_layouts', 'page_settings', 'TEXT NULL'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {

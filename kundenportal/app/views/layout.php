@@ -101,6 +101,6 @@ if ($user && $user['company_id']) {
     <?php $content(); ?>
 </main>
 <script src="assets/app.js"></script>
-<?php if ($user && in_array($route, ['form_edit', 'form_layouts', 'form_use'], true)): ?><script src="assets/forms.js"></script><?php endif; ?>
+<?php if ($user && $route === 'form_layouts'): ?><script src="assets/calc.js"></script><script src="assets/forms.js"></script><?php endif; ?>
 </body>
 </html>

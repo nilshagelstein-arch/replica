@@ -95,21 +95,90 @@ const HTML_ALLOWED = [
     'p' => [], 'div' => [], 'h1' => [], 'h2' => [], 'h3' => [], 'h4' => [],
     'strong' => [], 'em' => [], 'u' => [], 's' => [], 'sub' => [], 'sup' => [],
     'br' => [], 'hr' => [], 'ul' => [], 'ol' => [], 'li' => [], 'blockquote' => [],
-    'table' => [], 'thead' => [], 'tbody' => [], 'tfoot' => [], 'tr' => [],
-    'th' => ['colspan', 'rowspan'], 'td' => ['colspan', 'rowspan'],
+    'table' => ['data-grow'], 'thead' => [], 'tbody' => [], 'tfoot' => [], 'tr' => [],
+    'th' => ['colspan', 'rowspan', 'data-formula', 'data-format', 'data-input'],
+    'td' => ['colspan', 'rowspan', 'data-formula', 'data-format', 'data-input'],
     'span' => [], 'a' => ['href'], 'img' => ['src', 'alt'],
 ];
 const HTML_RENAME = ['b' => 'strong', 'i' => 'em', 'strike' => 's', 'del' => 's', 'ins' => 'u', 'font' => 'span', 'h5' => 'h4', 'h6' => 'h4'];
 const HTML_DROP = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'select', 'textarea',
     'svg', 'math', 'link', 'meta', 'base', 'noscript', 'template', 'video', 'audio', 'canvas', 'head', 'title'];
 const HTML_CLASSES = ['al-left', 'al-center', 'al-right', 'al-justify', 'fs-small', 'fs-large', 'fs-xlarge',
-    'ph', 'page-break', 'tbl-grid', 'tbl-plain', 'sig', 'img-s', 'img-m', 'img-l', 'c-muted', 'c-accent', 'v-top', 'v-bottom', 'w-50'];
+    'ph', 'ph-f', 'page-break', 'tbl-grid', 'tbl-plain', 'sig', 'img-s', 'img-m', 'img-l', 'c-muted', 'c-accent', 'v-top', 'v-bottom', 'w-50'];
+
+/** Schriftarten, die der Editor anbietet (überall vorhandene Systemschriften) */
+const DOC_FONTS = ['Arial', 'Calibri', 'Cambria', 'Georgia', 'Helvetica', 'Segoe UI', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana', 'Courier New'];
+const NUMBER_FORMATS = ['', 'zahl', 'ganz', 'euro', 'prozent'];
+
+/** Erlaubte CSS-Eigenschaften mit Prüfmuster für den Wert */
+function style_rules(): array
+{
+    $len = '(?:\d{1,3}(?:\.\d{1,2})?)(?:mm|pt|px|em|cm)';
+    $color = '(?:#[0-9a-f]{3}|#[0-9a-f]{6}|rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(?:,\s*(?:0|1|0?\.\d+)\s*)?\)|transparent)';
+    $border = "(?:none|0|(?:\d(?:\.\d)?px\s+(?:solid|dashed|dotted|double)\s+$color))";
+    return [
+        'font-family'      => '[A-Za-z0-9 ,"\'\-]{1,80}',
+        'font-size'        => '\d{1,2}(?:\.\d)?pt|' . $len,
+        'font-weight'      => 'bold|normal|[1-9]00',
+        'font-style'       => 'italic|normal',
+        'text-decoration'  => '(?:none|underline|line-through)(?:\s+(?:underline|line-through))?',
+        'text-decoration-line' => '(?:none|underline|line-through)(?:\s+(?:underline|line-through))?',
+        'color'            => $color,
+        'background-color' => $color,
+        'text-align'       => 'left|center|right|justify|start|end',
+        'vertical-align'   => 'top|middle|bottom|baseline|super|sub',
+        'line-height'      => '\d(?:\.\d{1,2})?|normal',
+        'margin-left'      => '0|' . $len,
+        'margin-top'       => '0|' . $len,
+        'margin-bottom'    => '0|' . $len,
+        'text-indent'      => '-?(?:0|' . $len . ')',
+        'padding-left'     => '0|' . $len,
+        'width'            => '\d{1,3}(?:\.\d{1,3})?(?:%|mm|px)',
+        'border-top'       => $border, 'border-right' => $border, 'border-bottom' => $border, 'border-left' => $border,
+        'border'           => $border,
+    ];
+}
+
+function sanitize_style(string $style): string
+{
+    $rules = style_rules();
+    $out = [];
+    // Rahmen-Einzelangaben (border-style, border-top-width …), wie Chrome sie schreibt, zusammenfassen
+    $decls = [];
+    foreach (explode(';', $style) as $decl) {
+        if (!str_contains($decl, ':')) continue;
+        [$prop, $val] = array_map('trim', explode(':', $decl, 2));
+        $decls[strtolower($prop)] = $val;
+    }
+    foreach (['', '-top', '-right', '-bottom', '-left'] as $side) {
+        $st = $decls["border{$side}-style"] ?? null;
+        if ($st === null) continue;
+        $st = strtolower(trim(explode(' ', trim($st))[0]));
+        $w = trim(explode(' ', trim($decls["border{$side}-width"] ?? '1px'))[0]);
+        $c = trim($decls["border{$side}-color"] ?? '#555555');
+        if (str_contains($c, ' ') && !str_starts_with($c, 'rgb')) $c = explode(' ', $c)[0];
+        if ($c === 'currentcolor' || $c === 'initial') $c = '#555555';
+        $decls["border{$side}"] = in_array($st, ['none', 'hidden'], true) ? 'none' : "$w $st $c";
+        foreach (['-style', '-width', '-color'] as $x) unset($decls["border{$side}{$x}"]);
+    }
+    unset($decls['border-image']);
+    if (($decls['border'] ?? '') === 'medium') $decls['border'] = 'none';
+    foreach ($decls as $prop => $val) {
+        $val = trim(preg_replace('/\s*!important$/i', '', (string)$val));
+        if (!isset($rules[$prop]) || $val === '' || strlen($val) > 120) continue;
+        if (!preg_match('/^(?:' . $rules[$prop] . ')$/i', $val)) continue;
+        if ($prop === 'text-decoration-line') $prop = 'text-decoration';
+        $out[$prop] = $prop . ': ' . $val;
+    }
+    return implode('; ', $out);
+}
 
 function sanitize_html(string $html): string
 {
     $html = trim($html);
     if ($html === '') return '';
     if (strlen($html) > 8 * 1024 * 1024) $html = substr($html, 0, 8 * 1024 * 1024);
+    $html = str_replace("\u{200B}", '', $html);
     $doc = new DOMDocument('1.0', 'UTF-8');
     $prev = libxml_use_internal_errors(true);
     $doc->loadHTML('<?xml encoding="UTF-8"><div id="__root">' . $html . '</div>', LIBXML_NONET | LIBXML_HTML_NODEFDTD | LIBXML_HTML_NOIMPLIED);
@@ -132,20 +201,22 @@ function sanitize_children(DOMDocument $doc, DOMNode $parent): void
         if (!($node instanceof DOMElement)) { $parent->removeChild($node); continue; }
         $tag = strtolower($node->nodeName);
         if (in_array($tag, HTML_DROP, true)) { $parent->removeChild($node); continue; }
-        $fontSize = $tag === 'font' ? (string)$node->getAttribute('size') : '';
+        if ($tag === 'font') {
+            // <font face/color/size> aus execCommand in Stile umwandeln
+            $st = (string)$node->getAttribute('style');
+            if ($node->hasAttribute('face')) $st .= ';font-family:' . $node->getAttribute('face');
+            if ($node->hasAttribute('color')) $st .= ';color:' . $node->getAttribute('color');
+            $sizes = ['1' => '8pt', '2' => '10pt', '3' => '11pt', '4' => '13pt', '5' => '16pt', '6' => '20pt', '7' => '28pt'];
+            if (isset($sizes[(string)$node->getAttribute('size')])) $st .= ';font-size:' . $sizes[(string)$node->getAttribute('size')];
+            $node->setAttribute('style', $st);
+        }
         if (isset(HTML_RENAME[$tag])) {
             $new = $doc->createElement(HTML_RENAME[$tag]);
-            foreach (['class', 'colspan', 'rowspan', 'href', 'src', 'alt', 'contenteditable'] as $a) {
-                if ($node->hasAttribute($a)) $new->setAttribute($a, $node->getAttribute($a));
-            }
+            foreach ($node->attributes as $a) $new->setAttribute($a->nodeName, $a->nodeValue);
             while ($node->firstChild) $new->appendChild($node->firstChild);
             $parent->replaceChild($new, $node);
             $node = $new;
             $tag = HTML_RENAME[$tag];
-            if ($fontSize !== '') {
-                $map = ['1' => 'fs-small', '2' => 'fs-small', '4' => 'fs-large', '5' => 'fs-large', '6' => 'fs-xlarge', '7' => 'fs-xlarge'];
-                if (isset($map[$fontSize])) $node->setAttribute('class', trim($node->getAttribute('class') . ' ' . $map[$fontSize]));
-            }
         }
         sanitize_children($doc, $node);
         if (!isset(HTML_ALLOWED[$tag])) {
@@ -156,6 +227,7 @@ function sanitize_children(DOMDocument $doc, DOMNode $parent): void
         }
         $keepClass = implode(' ', array_values(array_intersect(
             preg_split('/\s+/', (string)$node->getAttribute('class')) ?: [], HTML_CLASSES)));
+        $style = sanitize_style((string)$node->getAttribute('style'));
         $attrs = [];
         foreach ($node->attributes as $a) $attrs[] = $a->nodeName;
         $isPh = in_array('ph', explode(' ', $keepClass), true);
@@ -166,37 +238,78 @@ function sanitize_children(DOMDocument $doc, DOMNode $parent): void
             if (in_array($an, HTML_ALLOWED[$tag], true)) {
                 if ($an === 'href') $ok = (bool)preg_match('#^(https?://|mailto:|tel:)#i', trim($val));
                 elseif ($an === 'src') $ok = (bool)preg_match('#^data:image/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=\s]+$#', $val);
-                elseif ($an === 'colspan' || $an === 'rowspan') $ok = ctype_digit($val) && (int)$val > 0 && (int)$val <= 20;
+                elseif ($an === 'colspan' || $an === 'rowspan') $ok = ctype_digit($val) && (int)$val > 0 && (int)$val <= 50;
+                elseif ($an === 'data-formula') $ok = (bool)preg_match('/^=[A-Za-z0-9ÄÖÜäöü_+\-*\/^%&(),;:.<>="\' ]{1,300}$/u', $val);
+                elseif ($an === 'data-format') $ok = in_array($val, NUMBER_FORMATS, true) && $val !== '';
+                elseif ($an === 'data-input' || $an === 'data-grow') $ok = $val === '1';
                 else $ok = true;
             }
             if (!$ok) $node->removeAttribute($a);
         }
         if ($keepClass !== '') $node->setAttribute('class', $keepClass);
+        if ($style !== '') $node->setAttribute('style', $style);
         if ($isPh && $tag === 'span') $node->setAttribute('contenteditable', 'false');
         if ($tag === 'img' && !$node->hasAttribute('src')) { $parent->removeChild($node); continue; }
         if ($tag === 'a' && $node->hasAttribute('href')) $node->setAttribute('rel', 'noopener');
+        if ($tag === 'span' && !$node->attributes->length && $node->parentNode) {
+            // nackte <span> ohne Wirkung entfernen
+            while ($node->firstChild) $parent->insertBefore($node->firstChild, $node);
+            $parent->removeChild($node);
+        }
     }
 }
 
 // ---------------------------------------------------------------------------
-// Platzhalter
+// Seiteneinstellungen je Formular (Ränder, Grundschrift)
 // ---------------------------------------------------------------------------
+
+const PAGE_DEFAULTS = ['m' => [20, 20, 15, 25], 'font' => 'Arial', 'size' => 11, 'ls' => 1.4];
+
+function page_settings(?string $json): array
+{
+    $p = json_decode((string)$json, true);
+    $p = is_array($p) ? $p : [];
+    $m = isset($p['m']) && is_array($p['m']) && count($p['m']) === 4 ? array_map(fn($x) => max(0, min(60, (float)$x)), array_values($p['m'])) : PAGE_DEFAULTS['m'];
+    $font = in_array($p['font'] ?? '', DOC_FONTS, true) ? $p['font'] : PAGE_DEFAULTS['font'];
+    $size = (float)($p['size'] ?? PAGE_DEFAULTS['size']);
+    $size = $size >= 6 && $size <= 30 ? $size : PAGE_DEFAULTS['size'];
+    $ls = (float)($p['ls'] ?? PAGE_DEFAULTS['ls']);
+    $ls = $ls >= 0.8 && $ls <= 3 ? $ls : PAGE_DEFAULTS['ls'];
+    return ['m' => $m, 'font' => $font, 'size' => $size, 'ls' => $ls];
+}
+
+/** Inline-Stil für ein Blatt: Ränder und Grundschrift */
+function page_style(array $p): string
+{
+    [$t, $r, $b, $l] = $p['m'];
+    $font = $p['font'] === 'Times New Roman' || $p['font'] === 'Georgia' || $p['font'] === 'Cambria' ? "'{$p['font']}', serif" : "'{$p['font']}', Arial, sans-serif";
+    return "padding: {$t}mm {$r}mm {$b}mm {$l}mm; font-family: $font; font-size: {$p['size']}pt; line-height: {$p['ls']}";
+}
+
+// ---------------------------------------------------------------------------
+// Platzhalter und Felder
+// ---------------------------------------------------------------------------
+
+const PH_REGEX = '/\{\{\s*([^{}<>]{1,200}?)\s*\}\}/u';
+/** Feldtypen, die beim Ausfüllen eingegeben werden */
+const FIELD_TYPES = ['eingabe' => 'Eingabefeld', 'text' => 'Textfeld (mehrzeilig)', 'zahl' => 'Zahlenfeld', 'datum' => 'Datumsfeld',
+    'ankreuzen' => 'Ankreuzfeld', 'auswahl' => 'Auswahlliste'];
 
 /** Alle Platzhalter-Schlüssel in einem Text (ohne Klammern) */
 function placeholders_in(string $html): array
 {
-    preg_match_all('/\{\{\s*([^{}<>]{1,80}?)\s*\}\}/u', $html, $m);
-    return array_values(array_unique(array_map('trim', $m[1])));
+    preg_match_all(PH_REGEX, $html, $m);
+    return array_values(array_unique(array_map(fn($k) => trim(html_entity_decode($k, ENT_QUOTES | ENT_HTML5, 'UTF-8')), $m[1])));
 }
 
-/** Manuelle Eingaben eines Formulars: [['key'=>…, 'label'=>…, 'type'=>'text'|'textarea'|'check']] */
+/** Manuelle Felder eines Formulars: [['key'=>…, 'label'=>…, 'type'=>…, 'options'=>[…]]] */
 function form_inputs(string $html): array
 {
     $out = [];
     foreach (placeholders_in($html) as $k) {
-        if (preg_match('/^(eingabe|text|ankreuzen):\s*(.+)$/iu', $k, $m)) {
-            $type = ['eingabe' => 'text', 'text' => 'textarea', 'ankreuzen' => 'check'][strtolower($m[1])];
-            $out[$k] = ['key' => $k, 'label' => trim($m[2]), 'type' => $type];
+        if (preg_match('/^(eingabe|text|zahl|datum|ankreuzen|auswahl):\s*(.+)$/iu', $k, $m)) {
+            $parts = array_map('trim', explode('|', $m[2]));
+            $out[$k] = ['key' => $k, 'type' => strtolower($m[1]), 'label' => array_shift($parts), 'options' => array_values(array_filter($parts, 'strlen'))];
         }
     }
     return array_values($out);
@@ -208,7 +321,7 @@ function uses_customer(string $html): bool
     return false;
 }
 
-/** Platzhaltergruppen für die Auswahlliste im Editor */
+/** Platzhaltergruppen für die Auswahl im Editor */
 function placeholder_catalog(int $companyId): array
 {
     $kunde = [];
@@ -227,8 +340,7 @@ function placeholder_catalog(int $companyId): array
         'Kunde' => $kunde,
         'Eigene Firma' => $firma,
         'Allgemein' => ['logo' => 'Logo', 'datum' => 'Datum (20.11.2026)', 'datum.lang' => 'Datum ausgeschrieben',
-            'benutzer.name' => 'Name des Erstellers', 'benutzer.email' => 'E-Mail des Erstellers',
-            'seitenumbruch' => 'Seitenumbruch'],
+            'benutzer.name' => 'Name des Erstellers', 'benutzer.email' => 'E-Mail des Erstellers'],
     ];
 }
 
@@ -280,18 +392,45 @@ function company_values(int $companyId): array
 /**
  * Setzt Werte in ein Formular ein. Werte sind Text und werden maskiert,
  * Zeilenumbrüche werden zu <br>. „logo“ wird zum Bild.
+ * $interactive = true: Eingabefelder werden zu ausfüllbaren Elementen (Ausfüllen im Dokument),
+ * sonst werden sie mit den Werten aus $values ersetzt.
  */
-function fill_placeholders(string $html, array $values, string $logoTag): string
+function fill_placeholders(string $html, array $values, string $logoTag, bool $interactive = false): string
 {
     // Platzhalter-Markierungen aus dem Editor entfernen, nur der Text bleibt
-    $html = preg_replace('#<span class="ph"[^>]*>(.*?)</span>#su', '$1', $html) ?? $html;
-    return preg_replace_callback('/\{\{\s*([^{}<>]{1,80}?)\s*\}\}/u', function ($m) use ($values, $logoTag) {
+    $html = preg_replace('#<span class="ph(?: ph-f)?"[^>]*>(.*?)</span>#su', '$1', $html) ?? $html;
+    return preg_replace_callback(PH_REGEX, function ($m) use ($values, $logoTag, $interactive) {
         $k = trim(html_entity_decode($m[1], ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         $lk = mb_strtolower($k);
         if ($lk === 'logo') return $logoTag;
-        if ($lk === 'seitenumbruch') return '<div class="page-break"></div>';
-        if (preg_match('/^ankreuzen:/iu', $k)) {
-            return '<span class="box">' . (!empty($values[$k]) ? '☒' : '☐') . '</span>';
+        if ($lk === 'seitenumbruch') return '<span class="page-break-inline"></span>';
+        if ($interactive && ($lk === 'datum' || $lk === 'datum.lang')) {
+            return '<span class="fill-auto" data-auto="' . e($lk) . '">' . e($values[$lk] ?? '') . '</span>';
+        }
+        if (preg_match('/^(eingabe|text|zahl|datum|ankreuzen|auswahl):\s*(.+)$/iu', $k, $f)) {
+            $type = strtolower($f[1]);
+            $parts = array_map('trim', explode('|', $f[2]));
+            $label = array_shift($parts);
+            $val = (string)($values[$k] ?? '');
+            if (!$interactive) {
+                if ($type === 'ankreuzen') return '<span class="box">' . ($val !== '' ? '☒' : '☐') . '</span>';
+                return nl2br(e($val), false);
+            }
+            $key = e($k);
+            switch ($type) {
+                case 'ankreuzen':
+                    return '<button type="button" class="fill-check" data-key="' . $key . '" aria-pressed="false" aria-label="' . e($label) . '">☐</button>';
+                case 'auswahl':
+                    $o = '<option value=""></option>';
+                    foreach ($parts as $opt) if ($opt !== '') $o .= '<option>' . e($opt) . '</option>';
+                    return '<select class="fill-select" data-key="' . $key . '" aria-label="' . e($label) . '">' . $o . '</select><span class="fill-print"></span>';
+                case 'datum':
+                    return '<input type="date" class="fill-date" data-key="' . $key . '" aria-label="' . e($label) . '"><span class="fill-print"></span>';
+                default:
+                    $cls = 'fill' . ($type === 'text' ? ' fill-multi' : '') . ($type === 'zahl' ? ' fill-num' : '');
+                    return '<span class="' . $cls . '" contenteditable="true" spellcheck="true" data-key="' . $key . '" data-label="' . e($label) . '"'
+                        . ($type === 'zahl' ? ' inputmode="decimal"' : '') . '></span>';
+            }
         }
         if (array_key_exists($k, $values)) return nl2br(e($values[$k]), false);
         if (array_key_exists($lk, $values)) return nl2br(e($values[$lk]), false);
@@ -373,11 +512,12 @@ function forms_ensure_defaults(int $companyId): void
     }
     if (!row('SELECT id FROM forms WHERE company_id = ? LIMIT 1', [$companyId])) {
         $ph = fn(string $k) => '<span class="ph" contenteditable="false">{{' . $k . '}}</span>';
+        $phf = fn(string $k) => '<span class="ph ph-f" contenteditable="false">{{' . $k . '}}</span>';
         $folder = insert('form_folders', ['company_id' => $companyId, 'parent_id' => null, 'name' => 'Briefe', 'created_at' => now()]);
         insert('forms', ['company_id' => $companyId, 'folder_id' => $folder, 'name' => 'Beispiel: Anschreiben',
             'description' => 'Einfacher Brief mit Briefkopf, Anrede aus der Kundendatenbank und einem Eingabefeld',
-            'body' => '<h2>' . $ph('eingabe:Betreff') . '</h2><p>' . $ph('kunde.briefanrede') . '</p>'
-                . '<p>' . $ph('text:Brieftext') . '</p><p>Mit freundlichen Grüßen</p><p><br></p>'
+            'body' => '<h2>' . $phf('eingabe:Betreff') . '</h2><p>' . $ph('kunde.briefanrede') . '</p>'
+                . '<p>' . $phf('text:Brieftext') . '</p><p>Mit freundlichen Grüßen</p><p><br></p>'
                 . '<p>' . $ph('benutzer.name') . '<br>' . $ph('firma.name') . '</p>',
             'header_id' => 0, 'footer_id' => 0, 'created_by' => current_user()['id'] ?? null, 'updated_by' => null,
             'created_at' => now(), 'updated_at' => now()]);
