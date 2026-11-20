@@ -130,7 +130,7 @@ function render_word_editor(int $cid, array $regions, array $page, string $mode,
         <div class="rb-tabs" role="tablist">
             <button type="button" class="rb-tab active" data-tab="start" role="tab">Start</button>
             <button type="button" class="rb-tab" data-tab="insert" role="tab">Einfügen</button>
-            <?php if ($isForm): ?><button type="button" class="rb-tab" data-tab="fields" role="tab">Felder</button><?php endif; ?>
+            <button type="button" class="rb-tab" data-tab="fields" role="tab">Felder</button>
             <?php if ($isForm): ?><button type="button" class="rb-tab" data-tab="layout" role="tab">Layout</button><?php endif; ?>
             <button type="button" class="rb-tab rb-tab-ctx" data-tab="table" role="tab" hidden>Tabelle</button>
         </div>
@@ -216,7 +216,6 @@ function render_word_editor(int $cid, array $regions, array $page, string $mode,
                 </div><div class="rb-label">Text</div></div>
             </div>
 
-            <?php if ($isForm): ?>
             <!-- Felder -->
             <div class="rb-panel" data-panel="fields">
                 <div class="rb-group"><div class="rb-items">
@@ -227,6 +226,7 @@ function render_word_editor(int $cid, array $regions, array $page, string $mode,
                             </div></span>
                     <?php endforeach; ?>
                 </div><div class="rb-label">Daten einsetzen</div></div>
+                <?php if ($isForm): ?>
                 <?= rb_group('Ausfüllfelder',
                     rb_btn('f-text', 'Eingabefeld', ['field' => 'eingabe'], true, 'Einzeiliges Feld zum Ausfüllen')
                     . rb_btn('f-multi', 'Textfeld', ['field' => 'text'], true, 'Mehrzeiliges Feld zum Ausfüllen')
@@ -234,9 +234,9 @@ function render_word_editor(int $cid, array $regions, array $page, string $mode,
                     . rb_btn('f-date', 'Datum', ['field' => 'datum'], true, 'Datumsfeld mit Kalender')
                     . rb_btn('f-check', 'Ankreuzfeld', ['field' => 'ankreuzen'], true, 'Kästchen zum Ankreuzen')
                     . rb_btn('f-select', 'Auswahlliste', ['field' => 'auswahl'], true, 'Liste mit festen Antworten')) ?>
-                <div class="rb-group rb-hint"><div class="rb-items"><p>Grüne Felder werden beim Ausfüllen mit Daten aus der Kundendatenbank ersetzt.<br>Gelbe Felder füllt man direkt im Dokument aus.</p></div><div class="rb-label">Hinweis</div></div>
+                <?php endif; ?>
+                <div class="rb-group rb-hint"><div class="rb-items"><p>Grüne Felder werden beim Ausfüllen mit Daten aus der Kundendatenbank ersetzt.<?= $isForm ? '<br>Gelbe Felder füllt man direkt im Dokument aus.' : '' ?></p></div><div class="rb-label">Hinweis</div></div>
             </div>
-            <?php endif; ?>
 
             <!-- Layout -->
             <div class="rb-panel" data-panel="layout">

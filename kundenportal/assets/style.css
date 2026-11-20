@@ -489,3 +489,4 @@ td.fill-cell:focus { box-shadow: inset 0 0 0 2px #f0d58a; background: #fff0a8; }
 .word[data-mode=layout] .canvas { max-height: 70vh; padding-bottom: 1rem; }
 .word[data-mode=layout] .page { min-height: 80mm; background-image: none; }
 .paper-wrap .word { margin: 0; }
+.pop.ph-menu { min-width: 340px; }
