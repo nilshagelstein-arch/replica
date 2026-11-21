@@ -55,7 +55,7 @@ main { max-width: 1250px; margin: 0 auto; padding: 1.5rem; }
 .form .grid2 { margin-bottom: 1rem; }
 input, select, textarea { font: inherit; padding: .5rem .6rem; border: 1px solid #c4cdd7; border-radius: 6px; background: #fff; color: var(--text); width: 100%; }
 input:focus, select:focus, textarea:focus { outline: 2px solid rgba(31, 95, 168, .3); border-color: var(--accent); }
-input[type=checkbox] { width: auto; }
+input[type=checkbox], input[type=radio] { width: auto; }
 input.tiny { width: 5rem; }
 input.code { font-size: 1.5rem; letter-spacing: .3em; text-align: center; font-variant-numeric: tabular-nums; }
 label.check, .form label.check { flex-direction: row; align-items: center; gap: .5rem; font-weight: 400; margin-bottom: .4rem; }
@@ -627,3 +627,10 @@ fieldset[disabled] { opacity: .85; }
 .img-sug.selected .img-sug-cap { color: var(--accent); font-weight: 600; }
 .img-sug.selected .img-sug-cap::before { content: "✓ "; }
 .link-preview { background: #fff; object-fit: contain; aspect-ratio: 16 / 9; width: 280px; padding: 4%; box-sizing: border-box; }
+
+/* Rechte der Verwaltungsadmins */
+fieldset.rights { margin-top: 1rem; }
+.rights-detail { margin: .4rem 0 .8rem 1.6rem; }
+.rights-presets { margin: .3rem 0 .5rem; }
+.rights-table td.center, .rights-table th.center { text-align: center; width: 7.5rem; }
+.rights-table td { vertical-align: middle; }

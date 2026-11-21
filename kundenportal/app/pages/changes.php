@@ -122,13 +122,13 @@ function page_change_form(): void
     elseif ($source) $cid = (int)$source['company_id'];
     elseif (is_staff_role($u['role'])) $cid = query_int('company') ?: (int)post('company_id', 0);
     else $cid = (int)$u['company_id'];
-    $company = $cid ? row('SELECT * FROM companies WHERE id = ? AND active = 1', [$cid]) : null;
+    $company = $cid && can_access_company($cid) ? row('SELECT * FROM companies WHERE id = ? AND active = 1', [$cid]) : null;
     if ($company && !is_admin() && !company_has_app($cid, 'onboarding')) $company = null;
     $typeLabel = REQUEST_TYPES[$type];
 
     if (!$company) {
         if (!is_staff_role($u['role'])) abort(403);
-        $companies = rows('SELECT id, name FROM companies WHERE active = 1 ORDER BY name');
+        $companies = rows('SELECT id, name FROM companies WHERE active = 1' . company_scope_sql('id') . ' ORDER BY name');
         render_page('Neue ' . $typeLabel, function () use ($companies, $type) { ?>
             <form method="get" class="card form narrow">
                 <input type="hidden" name="r" value="change_new"><input type="hidden" name="type" value="<?= e($type) ?>">

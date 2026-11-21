@@ -103,11 +103,43 @@ $routes = [
     'link_suggest'    => 'page_link_suggest',
 ];
 
+/**
+ * Bereiche der Verwaltung je Seite: [Bereich, nötiges Recht beim Aufruf].
+ * Speichern (POST) braucht immer „bearbeiten“. Gilt nur für Verwaltungsadmins; Firmenrollen prüft jede Seite selbst.
+ */
+const ROUTE_AREAS = [
+    'companies' => ['companies', PERM_VIEW], 'company_edit' => ['companies', PERM_VIEW],
+    'users' => ['users', PERM_VIEW], 'user_edit' => ['users', PERM_VIEW],
+    'apps' => ['apps', PERM_VIEW],
+    'mail_settings' => ['mail', PERM_VIEW], 'oauth_start' => ['mail', PERM_EDIT], 'oauth_callback' => ['mail', PERM_EDIT],
+    'audit' => ['audit', PERM_VIEW],
+    'updates' => ['updates', PERM_VIEW],
+    'backups' => ['backups', PERM_VIEW], 'backup_download' => ['backups', PERM_VIEW],
+    'company_backups' => ['backups', PERM_VIEW], 'company_backup_download' => ['backups', PERM_VIEW],
+    'dashboard' => ['onboarding', PERM_VIEW], 'request' => ['onboarding', PERM_VIEW], 'request_print' => ['onboarding', PERM_VIEW],
+    'request_new' => ['onboarding', PERM_EDIT], 'change_new' => ['onboarding', PERM_EDIT], 'request_edit' => ['onboarding', PERM_EDIT],
+    'request_action' => ['onboarding', PERM_EDIT],
+    'employees' => ['onboarding', PERM_VIEW], 'employee_edit' => ['onboarding', PERM_VIEW],
+    'structure' => ['onboarding', PERM_VIEW], 'catalog' => ['onboarding', PERM_VIEW], 'templates' => ['onboarding', PERM_VIEW],
+    'forms' => ['forms', PERM_VIEW], 'form_use' => ['forms', PERM_VIEW], 'form_print' => ['forms', PERM_VIEW],
+    'form_folder' => ['forms', PERM_EDIT], 'form_action' => ['forms', PERM_EDIT], 'form_edit' => ['forms', PERM_EDIT],
+    'form_layouts' => ['forms', PERM_VIEW], 'form_settings' => ['forms', PERM_VIEW],
+    'customers' => ['forms', PERM_VIEW], 'customer_edit' => ['forms', PERM_VIEW], 'customer_export' => ['forms', PERM_VIEW],
+    'customer_fields' => ['forms', PERM_VIEW], 'customer_import' => ['forms', PERM_EDIT],
+    'links' => ['links', PERM_VIEW], 'link_image' => ['links', PERM_VIEW],
+    'link_edit' => ['links', PERM_EDIT], 'link_action' => ['links', PERM_EDIT], 'link_suggest' => ['links', PERM_EDIT],
+];
+
 $r = (string)($_GET['r'] ?? '');
 if ($r === '') {
     redirect(current_user() ? 'home' : 'login');
 }
 if (!isset($routes[$r])) abort(404);
+
+if (isset(ROUTE_AREAS[$r]) && is_admin()) {
+    [$area, $level] = ROUTE_AREAS[$r];
+    require_area($area, is_post() || $level === PERM_EDIT);
+}
 
 try {
     $routes[$r]();

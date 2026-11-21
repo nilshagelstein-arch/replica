@@ -29,11 +29,29 @@
   // Felder nur bei bestimmter Auswahl anzeigen: data-show-if="feldname=wert"
   Array.prototype.forEach.call(document.querySelectorAll('[data-show-if]'), function (el) {
     var parts = el.getAttribute('data-show-if').split('=');
-    var ctrl = document.querySelector('[name="' + parts[0] + '"]');
-    if (!ctrl) return;
-    function upd() { el.hidden = ctrl.value !== parts[1]; }
-    ctrl.addEventListener('change', upd);
+    var ctrls = document.querySelectorAll('[name="' + parts[0] + '"]');
+    if (!ctrls.length) return;
+    function current() {
+      if (ctrls[0].type !== 'radio') return ctrls[0].value;
+      var on = Array.prototype.filter.call(ctrls, function (c) { return c.checked; })[0];
+      return on ? on.value : '';
+    }
+    function upd() { el.hidden = current() !== parts[1]; }
+    Array.prototype.forEach.call(ctrls, function (c) { c.addEventListener('change', upd); });
     upd();
+  });
+
+  // Rechte der Verwaltungsadmins: Schnellauswahl für alle Bereiche
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-perm-preset]');
+    if (!b) return;
+    var want = parseInt(b.getAttribute('data-perm-preset'), 10);
+    var rows = b.closest('.rights-detail').querySelectorAll('tbody tr');
+    Array.prototype.forEach.call(rows, function (tr) {
+      var radios = Array.prototype.slice.call(tr.querySelectorAll('input[type=radio]'));
+      var pick = radios.filter(function (r) { return parseInt(r.value, 10) <= want; }).pop();
+      if (pick) pick.checked = true;
+    });
   });
 
   // Ausklappmenüs: data-pop="id" öffnet/schließt #id, Klick daneben schließt

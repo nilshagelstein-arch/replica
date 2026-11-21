@@ -145,7 +145,7 @@ function page_structure(): void
 // ---------------------------------------------------------------------------
 function can_edit_catalog_item(array $item): bool
 {
-    if ($item['company_id'] === null) return is_admin();
+    if ($item['company_id'] === null) return admin_all_companies();
     return can_access_company((int)$item['company_id']);
 }
 
@@ -160,7 +160,7 @@ function page_catalog(): void
         $desc = mb_substr(post('description'), 0, 500);
         if ($a === 'add') {
             $type = post('type');
-            $global = is_admin() && post('scope') === 'global';
+            $global = admin_all_companies() && post('scope') === 'global';
             if (isset(ITEM_TYPES[$type]) && $name !== '') {
                 insert('catalog_items', ['company_id' => $global ? null : $cid, 'type' => $type, 'name' => $name,
                     'description' => $desc, 'active' => 1, 'sort' => (int)post('sort', 0)]);
@@ -217,7 +217,7 @@ function page_catalog(): void
                 <input type="hidden" name="company_id" value="<?= $cid ?>">
                 <input name="name" placeholder="<?= $type === 'drive' ? 'z. B. S: Gemeinsam' : 'Bezeichnung' ?>" required maxlength="190">
                 <input name="description" placeholder="<?= $type === 'drive' ? '\\\\server\\freigabe' : 'Beschreibung (optional)' ?>" maxlength="500">
-                <?php if (is_admin()): ?>
+                <?php if (admin_all_companies()): ?>
                     <select name="scope"><option value="company">nur diese Firma</option><option value="global">alle Firmen</option></select>
                 <?php endif; ?>
                 <button class="btn primary">Hinzufügen</button>
@@ -326,6 +326,7 @@ function page_audit(): void
     require_admin();
     $list = rows('SELECT a.*, u.name AS user_name, u.email AS user_email, c.name AS company_name
         FROM audit_log a LEFT JOIN users u ON u.id = a.user_id LEFT JOIN companies c ON c.id = a.company_id
+        WHERE 1 = 1' . company_scope_sql('a.company_id') . '
         ORDER BY a.id DESC LIMIT 500');
     render_page('Protokoll', function () use ($list) { ?>
         <div class="card">

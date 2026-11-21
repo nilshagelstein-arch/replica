@@ -397,7 +397,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 13;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -451,6 +451,9 @@ function run_migrations(): void
         ['companies', 'registration_status', "VARCHAR(20) NOT NULL DEFAULT ''"],
         ['companies', 'requested_apps', "VARCHAR(500) NOT NULL DEFAULT ''"],
         ['companies', 'registered_at', 'VARCHAR(19) NULL'],
+        // Rechte der Verwaltungsadmins (ab Version 13); leer = uneingeschränkt
+        ['users', 'admin_perms', 'TEXT NULL'],
+        ['users', 'admin_companies', "VARCHAR(2000) NOT NULL DEFAULT ''"],
         // Linksammlung: Bild einpassen oder ausfüllen (ab Version 12)
         ['links', 'image_fit', "VARCHAR(10) NOT NULL DEFAULT 'contain'"],
     ];
@@ -499,7 +502,7 @@ function ensure_schema(): void
     // Sicherheitsnetz: fehlen Tabellen/Spalten der aktuellen Version (z. B. weil schema.version
     // schon einen höheren Stand hatte), Migration trotzdem ausführen
     try {
-        db()->query('SELECT u.email_verified, u.totp_reset_requested_at FROM users u LIMIT 1');
+        db()->query('SELECT u.email_verified, u.totp_reset_requested_at, u.admin_perms, u.admin_companies FROM users u LIMIT 1');
         db()->query('SELECT registration_status, requested_apps, registered_at FROM companies LIMIT 1');
         db()->query('SELECT id FROM user_tokens LIMIT 1');
         db()->query('SELECT id FROM employees LIMIT 1');

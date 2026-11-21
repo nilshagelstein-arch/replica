@@ -15,10 +15,12 @@ if ($user && company_pending($user)) {
             $curType = (string)($_GET['type'] ?? '');
             $subnav[] = ['dashboard', 'Aufträge', [], $route === 'dashboard'];
             $subnav[] = ['employees', 'Mitarbeiter', [], in_array($route, ['employees', 'employee_edit'], true)];
-            $subnav[] = ['request_new', '+ Onboarding', [], $route === 'request_new'];
-            $subnav[] = ['change_new', '+ Offboarding', ['type' => 'offboarding'], $route === 'change_new' && $curType === 'offboarding'];
-            $subnav[] = ['change_new', '+ Stilllegung', ['type' => 'stilllegung'], $route === 'change_new' && $curType === 'stilllegung'];
-            $subnav[] = ['change_new', '+ Reaktivierung', ['type' => 'reaktivierung'], $route === 'change_new' && $curType === 'reaktivierung'];
+            if (!is_staff_role($user['role']) || admin_can('onboarding', true)) {
+                $subnav[] = ['request_new', '+ Onboarding', [], $route === 'request_new'];
+                $subnav[] = ['change_new', '+ Offboarding', ['type' => 'offboarding'], $route === 'change_new' && $curType === 'offboarding'];
+                $subnav[] = ['change_new', '+ Stilllegung', ['type' => 'stilllegung'], $route === 'change_new' && $curType === 'stilllegung'];
+                $subnav[] = ['change_new', '+ Reaktivierung', ['type' => 'reaktivierung'], $route === 'change_new' && $curType === 'reaktivierung'];
+            }
             if (in_array($user['role'], ['superadmin', 'admin', 'firma_admin'], true)) {
                 $subnav[] = ['structure', 'Abteilungen & Positionen', [], $route === 'structure'];
                 $subnav[] = ['catalog', 'Katalog', [], $route === 'catalog'];
@@ -47,13 +49,16 @@ if ($user && company_pending($user)) {
         $nav[] = ['company_backups', $myApps['datensicherung']['name'], $route === 'company_backups'];
     }
     if (is_staff_role($user['role'])) {
-        $nav[] = ['companies', 'Firmen', in_array($route, ['companies', 'company_edit'], true)];
-        $nav[] = ['users', 'Benutzer', in_array($route, ['users', 'user_edit'], true)];
-        $nav[] = ['apps', 'Apps & Freigaben', $route === 'apps'];
-        $nav[] = ['mail_settings', 'E-Mail-Versand', $route === 'mail_settings'];
-        $nav[] = ['audit', 'Protokoll', $route === 'audit'];
-        $nav[] = ['backups', 'Datensicherung', in_array($route, ['backups', 'company_backups'], true)];
-        $nav[] = ['updates', 'Updates', $route === 'updates'];
+        $adminNav = [
+            'companies' => ['companies', 'Firmen', in_array($route, ['companies', 'company_edit'], true)],
+            'users'     => ['users', 'Benutzer', in_array($route, ['users', 'user_edit'], true)],
+            'apps'      => ['apps', 'Apps & Freigaben', $route === 'apps'],
+            'mail'      => ['mail_settings', 'E-Mail-Versand', $route === 'mail_settings'],
+            'audit'     => ['audit', 'Protokoll', $route === 'audit'],
+            'backups'   => ['backups', 'Datensicherung', in_array($route, ['backups', 'company_backups'], true)],
+            'updates'   => ['updates', 'Updates', $route === 'updates'],
+        ];
+        foreach ($adminNav as $area => $item) if (admin_can($area)) $nav[] = $item;
     } elseif ($user['role'] === 'firma_admin') {
         $nav[] = ['company_edit', 'Firmenprofil', $route === 'company_edit'];
         $nav[] = ['users', 'Benutzer', in_array($route, ['users', 'user_edit'], true)];

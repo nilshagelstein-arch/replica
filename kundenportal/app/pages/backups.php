@@ -7,6 +7,8 @@
 function page_backups(): void
 {
     require_admin();
+    // Portal-Sicherungen enthalten alle Firmen: nur mit Zugriff auf alle Firmen
+    if (!admin_all_companies()) redirect('company_backups');
     if (is_post()) {
         require_post_csrf();
         $action = post('action');
@@ -154,6 +156,7 @@ function page_backups(): void
 function page_backup_download(): void
 {
     require_admin();
+    require_all_companies();
     $f = backup_path((string)($_GET['name'] ?? ''));
     if (!$f) abort(404, 'Sicherung nicht gefunden.');
     audit('backup.download', basename($f));

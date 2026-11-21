@@ -23,13 +23,13 @@ function page_companies(): void
     $list = rows("SELECT c.*,
             (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.active = 1) AS user_count,
             (SELECT COUNT(*) FROM requests r WHERE r.company_id = c.id AND r.status IN ('eingereicht','in_bearbeitung','rueckfrage','eingerichtet')) AS open_count
-        FROM companies c ORDER BY CASE c.registration_status WHEN 'pending' THEN 0 ELSE 1 END, c.active DESC, c.name");
+        FROM companies c WHERE 1 = 1" . company_scope_sql('c.id') . " ORDER BY CASE c.registration_status WHEN 'pending' THEN 0 ELSE 1 END, c.active DESC, c.name");
     $appNames = [];
     foreach (rows('SELECT ca.company_id, a.name FROM company_apps ca JOIN apps a ON a.id = ca.app_id ORDER BY a.sort, a.name') as $g) {
         $appNames[(int)$g['company_id']][] = $g['name'];
     }
     render_page('Firmen', function () use ($list, $appNames) { ?>
-        <p><a class="btn primary" href="<?= e(url('company_edit', ['new' => 1])) ?>">+ Neue Firma anlegen</a></p>
+        <?php if (admin_all_companies() && admin_can('companies', true)): ?><p><a class="btn primary" href="<?= e(url('company_edit', ['new' => 1])) ?>">+ Neue Firma anlegen</a></p><?php endif; ?>
         <div class="card">
         <?php if (!$list): ?>
             <p class="muted">Noch keine Firmen angelegt.</p>
@@ -48,9 +48,9 @@ function page_companies(): void
                         <td><?php if ($c['registration_status'] === 'pending'): ?><a class="badge st-rueckfrage" href="<?= e(url('company_edit', ['id' => $c['id']])) ?>">Freischaltung offen</a><?php elseif ($c['registration_status'] === 'rejected'): ?>abgelehnt<?php else: ?><?= (int)$c['active'] ? 'aktiv' : 'inaktiv' ?><?php endif; ?></td>
                         <td class="actions">
                             <a href="<?= e(url('company_edit', ['id' => $c['id']])) ?>">Profil</a>
-                            <a href="<?= e(url('users', ['company' => $c['id']])) ?>">Benutzer</a>
-                            <a href="<?= e(url('dashboard', ['company' => $c['id']])) ?>">Aufträge</a>
-                            <?php if ((int)$c['active']): ?>
+                            <?php if (admin_can('users')): ?><a href="<?= e(url('users', ['company' => $c['id']])) ?>">Benutzer</a><?php endif; ?>
+                            <?php if (admin_can('onboarding')): ?><a href="<?= e(url('dashboard', ['company' => $c['id']])) ?>">Aufträge</a><?php endif; ?>
+                            <?php if ((int)$c['active'] && admin_can('onboarding', true)): ?>
                             <a href="<?= e(url('request_new', ['company' => $c['id']])) ?>">+ Onboarding</a>
                             <a href="<?= e(url('change_new', ['type' => 'offboarding', 'company' => $c['id']])) ?>">+ Offboarding</a>
                             <?php endif; ?>
@@ -72,6 +72,7 @@ function page_company_edit(): void
         $id = query_int('id');
         $isNew = !$id && isset($_GET['new']);
         if (!$id && !$isNew) redirect('companies');
+        if ($isNew) require_all_companies();
     } else {
         $id = (int)$u['company_id'];
     }

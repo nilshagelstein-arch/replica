@@ -54,7 +54,7 @@ function page_users(): void
                     <tr class="<?= (int)$row['active'] ? '' : 'inactive' ?>">
                         <td><?= e($row['name']) ?></td>
                         <td><?= e($row['email']) ?></td>
-                        <td><?= e(ROLES[$row['role']] ?? $row['role']) ?></td>
+                        <td><?= e(ROLES[$row['role']] ?? $row['role']) ?><?php if ($row['role'] === 'admin'): ?><br><span class="muted small"><?= e(admin_rights_summary($row)) ?></span><?php endif; ?></td>
                         <td><?= (int)$row['totp_enabled'] ? '✓ eingerichtet' : '<span class="muted">bei nächster Anmeldung</span>' ?><?= $row['totp_reset_requested_at'] ? ' <span class="badge st-rueckfrage">Reset beantragt</span>' : '' ?><?= (int)$row['email_verified'] ? '' : ' <span class="badge">E-Mail unbestätigt</span>' ?></td>
                         <td><?= fmt_dt($row['last_login']) ?></td>
                         <td><?= (int)$row['active'] ? 'aktiv' : 'deaktiviert' ?><?= $row['locked_until'] && strtotime($row['locked_until']) > time() ? ' · <strong>gesperrt</strong>' : '' ?></td>
@@ -118,10 +118,37 @@ function page_user_edit(): void
             if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) $errors[] = 'Bitte eine gültige E-Mail-Adresse angeben.';
             $dup = row('SELECT id FROM users WHERE email = ? AND id <> ?', [$data['email'], $id ?: 0]);
             if ($dup) $errors[] = 'Diese E-Mail-Adresse wird bereits verwendet.';
+            // Rechte eines Verwaltungsadmins (nur der Superadmin legt sie fest)
+            $permSave = [];
+            if ($companyId === null && $data['role'] === 'admin' && $me['role'] === 'superadmin') {
+                if (post('perm_mode') === 'full') {
+                    $permSave = ['admin_perms' => null, 'admin_companies' => ''];
+                } else {
+                    $perms = [];
+                    foreach (array_keys(ADMIN_AREAS) as $area) {
+                        $perms[$area] = max(PERM_NONE, min(PERM_EDIT, (int)(($_POST['perm'] ?? [])[$area] ?? PERM_NONE)));
+                    }
+                    if ($perms['audit'] > PERM_VIEW) $perms['audit'] = PERM_VIEW;
+                    if ($perms['updates'] > PERM_VIEW) $perms['updates'] = PERM_VIEW;
+                    $permSave = ['admin_perms' => json_encode($perms)];
+                }
+                if (post('company_mode') === 'some') {
+                    $valid = array_map('intval', array_column(rows('SELECT id FROM companies'), 'id'));
+                    $ids = array_values(array_intersect($valid, array_map('intval', (array)($_POST['companies'] ?? []))));
+                    if (!$ids) $errors[] = 'Bitte mindestens eine Firma auswählen oder „alle Firmen“ wählen.';
+                    $permSave['admin_companies'] = implode(',', $ids);
+                } else {
+                    $permSave['admin_companies'] = '';
+                }
+                $data = array_merge($data, $permSave);
+            }
             if (!$errors) {
-                $save = ['name' => $data['name'], 'email' => $data['email'], 'role' => $data['role'], 'active' => $data['active']];
+                $save = ['name' => $data['name'], 'email' => $data['email'], 'role' => $data['role'], 'active' => $data['active']] + $permSave;
                 if ($target) {
                     update('users', $id, $save);
+                    if ($permSave && (($target['admin_perms'] ?? null) !== ($save['admin_perms'] ?? null) || ($target['admin_companies'] ?? '') !== ($save['admin_companies'] ?? ''))) {
+                        audit('admin_rights_changed', $save['email'] . ': ' . admin_rights_summary($save), null);
+                    }
                     audit('user_updated', $save['email'] . ($target['role'] !== $save['role'] ? ' (Rolle: ' . ROLES[$target['role']] . ' → ' . ROLES[$save['role']] . ')' : ''), $companyId);
                     flash('success', 'Der Benutzer wurde gespeichert.');
                 } else {
@@ -190,7 +217,8 @@ function page_user_edit(): void
     }
 
     $backParams = $companyId === null ? ['admins' => 1] : (is_staff_role($me['role']) ? ['company' => $companyId] : []);
-    render_page($target ? 'Benutzer bearbeiten' : 'Neuer Benutzer', function () use ($data, $errors, $target, $allowedRoles, $isSelf, $newPassword, $backParams, $companyId) {
+    $showRights = $companyId === null && ($data['role'] ?? '') === 'admin' && $me['role'] === 'superadmin';
+    render_page($target ? 'Benutzer bearbeiten' : 'Neuer Benutzer', function () use ($data, $errors, $target, $allowedRoles, $isSelf, $newPassword, $backParams, $companyId, $showRights) {
         foreach ($errors as $err) echo '<div class="alert error">' . e($err) . '</div>';
         if ($newPassword): ?>
             <div class="alert success">
@@ -217,7 +245,8 @@ function page_user_edit(): void
                 </label>
             </div>
             <?php if ($companyId === null): ?>
-            <p class="muted small">Verwaltungsadmins verwalten alle Firmen, deren Benutzer, Apps und Aufträge. Es gibt genau einen Superadmin; nur er verwaltet die Administratoren-Konten und kann seine Rolle an einen Verwaltungsadmin übertragen.</p>
+            <p class="muted small">Was ein Verwaltungsadmin darf, legen Sie unten unter „Rechte“ fest. Es gibt genau einen Superadmin; er darf immer alles, verwaltet die Administratoren-Konten und kann seine Rolle an einen Verwaltungsadmin übertragen.</p>
+            <?php if ($showRights) render_admin_rights_fields($data); ?>
             <?php else: ?>
             <p class="muted small">Firmen-Benutzer können Aufträge erstellen und verfolgen. Firmen-Administratoren pflegen zusätzlich Firmenprofil, Benutzer, Abteilungen, Positionen, Katalog und Vorlagen der Firma.</p>
             <?php endif; ?>
@@ -277,3 +306,67 @@ function page_user_edit(): void
         <?php endif; ?>
     <?php });
 }
+
+/** Kurzbeschreibung der Rechte eines Verwaltungsadmins */
+function admin_rights_summary(array $u): string
+{
+    $u['role'] = 'admin';
+    $perms = admin_perms_of($u);
+    $ids = admin_company_ids($u);
+    $firms = $ids === null ? 'alle Firmen' : (count($ids) === 1 ? '1 Firma' : count($ids) . ' Firmen');
+    if ($perms === null) return 'alle Bereiche bearbeiten · ' . $firms;
+    $edit = count(array_filter($perms, fn($v) => (int)$v === PERM_EDIT));
+    $view = count(array_filter($perms, fn($v) => (int)$v === PERM_VIEW));
+    $parts = [];
+    if ($edit) $parts[] = $edit . ' Bereich' . ($edit === 1 ? '' : 'e') . ' bearbeiten';
+    if ($view) $parts[] = $view . ' ansehen';
+    return ($parts ? implode(', ', $parts) : 'keine Bereiche') . ' · ' . $firms;
+}
+
+/** Eingabefelder für die Rechte eines Verwaltungsadmins (im Formular „Benutzer bearbeiten“) */
+function render_admin_rights_fields(array $data): void
+{
+    $perms = admin_perms_of(['role' => 'admin'] + $data);
+    $full = $perms === null;
+    $ids = admin_company_ids(['role' => 'admin'] + $data);
+    $companies = rows('SELECT id, name, active FROM companies ORDER BY active DESC, name'); ?>
+    <fieldset class="rights">
+        <legend>Rechte</legend>
+        <label class="check"><input type="radio" name="perm_mode" value="full" <?= $full ? 'checked' : '' ?>> <strong>Uneingeschränkt</strong> – darf alle Bereiche ansehen und bearbeiten</label>
+        <label class="check"><input type="radio" name="perm_mode" value="custom" <?= $full ? '' : 'checked' ?>> <strong>Eingeschränkt</strong> – Rechte je Bereich festlegen</label>
+        <div class="rights-detail" data-show-if="perm_mode=custom">
+            <div class="btn-row rights-presets">
+                <span class="muted small">Schnellauswahl:</span>
+                <button type="button" class="btn small" data-perm-preset="2">alles bearbeiten</button>
+                <button type="button" class="btn small" data-perm-preset="1">alles nur ansehen</button>
+                <button type="button" class="btn small" data-perm-preset="0">nichts</button>
+            </div>
+            <table class="table compact rights-table">
+                <thead><tr><th>Bereich</th><?php foreach (PERM_LABELS as $lv => $lbl): ?><th class="center"><?= e($lbl) ?></th><?php endforeach; ?></tr></thead>
+                <tbody>
+                <?php foreach (ADMIN_AREAS as $area => [$name, $hint]):
+                    $cur = $full ? PERM_EDIT : (int)($perms[$area] ?? PERM_NONE);
+                    $maxLv = in_array($area, ['audit', 'updates'], true) ? PERM_VIEW : PERM_EDIT;
+                    if ($cur > $maxLv) $cur = $maxLv; ?>
+                    <tr><td><strong><?= e($name) ?></strong><br><span class="muted small"><?= e($hint) ?></span></td>
+                        <?php foreach (PERM_LABELS as $lv => $lbl): ?>
+                            <td class="center"><?php if ($lv <= $maxLv): ?><input type="radio" name="perm[<?= e($area) ?>]" value="<?= $lv ?>" <?= $cur === $lv ? 'checked' : '' ?> aria-label="<?= e($name . ': ' . $lbl) ?>"><?php else: ?><span class="muted">–</span><?php endif; ?></td>
+                        <?php endforeach; ?></tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <h3>Firmen</h3>
+        <label class="check"><input type="radio" name="company_mode" value="all" <?= $ids === null ? 'checked' : '' ?>> Alle Firmen (auch neu hinzukommende)</label>
+        <label class="check"><input type="radio" name="company_mode" value="some" <?= $ids !== null ? 'checked' : '' ?>> Nur ausgewählte Firmen</label>
+        <div data-show-if="company_mode=some">
+            <input type="search" class="filter-input" placeholder="Firmen filtern …" data-filter-list="#rights-companies">
+            <div class="pick-list" id="rights-companies">
+                <?php foreach ($companies as $c): ?>
+                    <label class="check"><input type="checkbox" name="companies[]" value="<?= (int)$c['id'] ?>" <?= $ids !== null && in_array((int)$c['id'], $ids, true) ? 'checked' : '' ?>> <?= e($c['name']) ?><?= (int)$c['active'] ? '' : ' <span class="tag">inaktiv</span>' ?></label>
+                <?php endforeach; ?>
+            </div>
+            <p class="muted small">Mit ausgewählten Firmen sieht der Administrator nur deren Daten. Firmenübergreifendes (neue Firmen, eigene Apps, zentrales Postfach, Portal-Sicherungen, Katalogeinträge für alle Firmen) bleibt Administratoren mit Zugriff auf alle Firmen vorbehalten.</p>
+        </div>
+    </fieldset>
+<?php }

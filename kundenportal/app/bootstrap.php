@@ -400,6 +400,94 @@ function is_company_admin(): bool
     return (current_user()['role'] ?? '') === 'firma_admin';
 }
 
+// ---------------------------------------------------------------------------
+// Rechte der Verwaltungsadmins: je Bereich kein Zugriff / ansehen / bearbeiten,
+// dazu alle oder ausgewählte Firmen. Superadmins dürfen immer alles.
+// Verwaltungsadmins ohne gespeicherte Rechte (Altbestand) dürfen alles.
+// ---------------------------------------------------------------------------
+const PERM_NONE = 0;
+const PERM_VIEW = 1;
+const PERM_EDIT = 2;
+const PERM_LABELS = [PERM_NONE => 'kein Zugriff', PERM_VIEW => 'ansehen', PERM_EDIT => 'bearbeiten'];
+const ADMIN_AREAS = [
+    'companies'  => ['Firmen', 'Firmenprofile ansehen und pflegen, Registrierungen freischalten'],
+    'users'      => ['Benutzer der Firmen', 'Benutzerkonten der Firmen anlegen, ändern, sperren'],
+    'apps'       => ['Apps & Freigaben', 'Freischalten von Apps je Firma; eigene Apps anlegen nur mit Zugriff auf alle Firmen'],
+    'mail'       => ['E-Mail-Versand', 'Postfächer der Firmen; das zentrale Postfach nur mit Zugriff auf alle Firmen'],
+    'onboarding' => ['On- & Offboarding', 'Aufträge, Mitarbeiterliste, Abteilungen, Katalog und Vorlagen'],
+    'forms'      => ['Formulare', 'Formulare, Kundendatenbank, Briefkopf, Logo und API'],
+    'links'      => ['Linksammlung', 'Reiter, Überschriften und Links der Firmen'],
+    'backups'    => ['Datensicherung', 'Sicherungen der Firmen; Portal-Sicherungen nur mit Zugriff auf alle Firmen'],
+    'audit'      => ['Protokoll', 'Protokoll der Aktionen (nur ansehen)'],
+    'updates'    => ['Updates', 'Update-Pakete ansehen und herunterladen (einspielen nur Superadmin)'],
+];
+/** Welche App zu welchem Bereich gehört */
+const APP_AREAS = ['onboarding' => 'onboarding', 'formulare' => 'forms', 'links' => 'links', 'datensicherung' => 'backups'];
+
+/** Gespeicherte Bereichsrechte eines Verwaltungsadmins (null = uneingeschränkt) */
+function admin_perms_of(array $u): ?array
+{
+    if (($u['role'] ?? '') !== 'admin') return null;
+    $p = json_decode((string)($u['admin_perms'] ?? ''), true);
+    return is_array($p) ? $p : null;
+}
+
+/** Recht des angemeldeten (oder übergebenen) Benutzers in einem Bereich der Verwaltung */
+function admin_perm(string $area, ?array $u = null): int
+{
+    $u ??= current_user();
+    if (!$u || !is_staff_role($u['role'])) return PERM_NONE;
+    if ($u['role'] === 'superadmin') return PERM_EDIT;
+    $p = admin_perms_of($u);
+    if ($p === null) return PERM_EDIT;
+    return max(PERM_NONE, min(PERM_EDIT, (int)($p[$area] ?? PERM_NONE)));
+}
+
+function admin_can(string $area, bool $edit = false): bool
+{
+    return admin_perm($area) >= ($edit ? PERM_EDIT : PERM_VIEW);
+}
+
+/** Für Dienstleister: Bereich prüfen (Firmenrollen werden hier nicht eingeschränkt) */
+function require_area(string $area, bool $edit = false): void
+{
+    if (!is_admin() || admin_can($area, $edit)) return;
+    $name = ADMIN_AREAS[$area][0] ?? $area;
+    abort(403, $edit && admin_can($area)
+        ? "Sie dürfen den Bereich „{$name}“ nur ansehen, nicht ändern."
+        : "Sie haben keinen Zugriff auf den Bereich „{$name}“.");
+}
+
+/** Firmen, die ein Verwaltungsadmin betreuen darf; null = alle */
+function admin_company_ids(?array $u = null): ?array
+{
+    $u ??= current_user();
+    if (!$u || ($u['role'] ?? '') !== 'admin') return null;
+    $raw = trim((string)($u['admin_companies'] ?? ''));
+    if ($raw === '') return null;
+    return array_values(array_unique(array_filter(array_map('intval', explode(',', $raw)))));
+}
+
+/** Darf der Dienstleister firmenübergreifende Einstellungen ändern (alle Firmen)? */
+function admin_all_companies(): bool
+{
+    return is_admin() && admin_company_ids() === null;
+}
+
+function require_all_companies(): void
+{
+    if (!admin_all_companies()) abort(403, 'Diese Einstellung gilt für alle Firmen und ist nur für Administratoren mit Zugriff auf alle Firmen möglich.');
+}
+
+/** SQL-Bedingung für Listen des Dienstleisters, z. B. " AND c.id IN (3,5)" (leer = alle Firmen) */
+function company_scope_sql(string $col, bool $allowNull = false): string
+{
+    $ids = admin_company_ids();
+    if ($ids === null) return '';
+    $in = $ids ? implode(',', $ids) : '0';
+    return $allowNull ? " AND ($col IN ($in) OR $col IS NULL)" : " AND $col IN ($in)";
+}
+
 function require_login(): array
 {
     $u = current_user();
@@ -439,7 +527,11 @@ function can_access_company(int $companyId): bool
 {
     $u = current_user();
     if (!$u) return false;
-    return is_staff_role($u['role']) || $u['company_id'] === $companyId;
+    if (is_staff_role($u['role'])) {
+        $ids = admin_company_ids($u);
+        return $ids === null || in_array($companyId, $ids, true);
+    }
+    return $u['company_id'] === $companyId;
 }
 
 function require_company_access(int $companyId): void
@@ -453,8 +545,8 @@ function context_company_id(): int
     $u = require_login();
     if (is_staff_role($u['role'])) {
         $id = query_int('company') ?: (int)post('company_id', 0);
-        if (!$id) {
-            $first = row('SELECT id FROM companies ORDER BY name LIMIT 1');
+        if (!$id || !can_access_company($id)) {
+            $first = row('SELECT id FROM companies WHERE 1 = 1' . company_scope_sql('id') . ' ORDER BY name LIMIT 1');
             $id = (int)($first['id'] ?? 0);
         }
         return $id;
@@ -476,7 +568,10 @@ function apps_for_user(): array
 {
     $u = current_user();
     if (!$u) return [];
-    if (is_staff_role($u['role'])) return rows('SELECT * FROM apps WHERE active = 1 ORDER BY sort, name');
+    if (is_staff_role($u['role'])) {
+        return array_values(array_filter(rows('SELECT * FROM apps WHERE active = 1 ORDER BY sort, name'),
+            fn($a) => !isset(APP_AREAS[$a['slug']]) || admin_perm(APP_AREAS[$a['slug']], $u) >= PERM_VIEW));
+    }
     return rows('SELECT a.* FROM apps a JOIN company_apps ca ON ca.app_id = a.id
         WHERE ca.company_id = ? AND a.active = 1 ORDER BY a.sort, a.name', [$u['company_id']]);
 }
@@ -493,7 +588,11 @@ function company_pending(?array $u): bool
 function require_app(string $slug): array
 {
     $u = require_login();
-    if (!is_staff_role($u['role']) && !company_has_app((int)$u['company_id'], $slug)) {
+    if (is_staff_role($u['role'])) {
+        if (isset(APP_AREAS[$slug])) require_area(APP_AREAS[$slug]);
+        return $u;
+    }
+    if (!company_has_app((int)$u['company_id'], $slug)) {
         abort(403, 'Diese App ist für Ihre Firma nicht freigeschaltet. Bitte wenden Sie sich an Ihren IT-Dienstleister.');
     }
     return $u;
@@ -503,12 +602,12 @@ function require_app(string $slug): array
 function companies_with_app(string $slug): array
 {
     return rows('SELECT c.id, c.name, c.active FROM companies c JOIN company_apps ca ON ca.company_id = c.id
-        JOIN apps a ON a.id = ca.app_id WHERE a.slug = ? ORDER BY c.name', [$slug]);
+        JOIN apps a ON a.id = ca.app_id WHERE a.slug = ?' . company_scope_sql('c.id') . ' ORDER BY c.name', [$slug]);
 }
 
 function companies_for_select(): array
 {
-    if (is_admin()) return rows('SELECT id, name, active FROM companies ORDER BY name');
+    if (is_admin()) return rows('SELECT id, name, active FROM companies WHERE 1 = 1' . company_scope_sql('id') . ' ORDER BY name');
     $u = current_user();
     return rows('SELECT id, name, active FROM companies WHERE id = ?', [$u['company_id']]);
 }

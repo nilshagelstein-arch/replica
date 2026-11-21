@@ -63,7 +63,8 @@ function forms_company_id(): int
 function forms_can_manage(): bool
 {
     $u = current_user();
-    return $u && in_array($u['role'], ['superadmin', 'admin', 'firma_admin'], true);
+    if ($u && is_staff_role($u['role'])) return admin_can('forms', true);
+    return $u && $u['role'] === 'firma_admin';
 }
 
 function forms_require_manage(): void

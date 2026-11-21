@@ -39,7 +39,8 @@ function links_company_id(): int
 function links_can_manage(): bool
 {
     $u = current_user();
-    return $u && in_array($u['role'], ['superadmin', 'admin', 'firma_admin'], true);
+    if ($u && is_staff_role($u['role'])) return admin_can('links', true);
+    return $u && $u['role'] === 'firma_admin';
 }
 
 function links_require_manage(): void
