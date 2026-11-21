@@ -10,8 +10,10 @@ declare(strict_types=1);
 
 const LINKS_APP = 'links';
 const LINK_IMAGE_MIMES = ['image/png' => 'png', 'image/jpeg' => 'jpg', 'image/gif' => 'gif', 'image/webp' => 'webp'];
-const LINK_IMAGE_MAX_BYTES = 3145728;   // Upload bis 3 MB, gespeichert wird auf höchstens 900 px Breite verkleinert
-const LINK_IMAGE_MAX_WIDTH = 900;
+const LINK_IMAGE_MAX_BYTES = 3145728;   // Upload bis 3 MB; gespeichert wird passend in den Rahmen (800 × 450 px) verkleinert
+const LINK_FRAME_W = 800;
+const LINK_FRAME_H = 450;
+const LINK_FITS = ['contain' => 'Einpassen – ganzes Bild sichtbar', 'cover' => 'Ausfüllen – Rahmen ganz gefüllt, Ränder werden abgeschnitten'];
 const LINK_COLORS = [1 => 'Blau', 2 => 'Petrol', 3 => 'Grün', 4 => 'Orange', 5 => 'Rot', 6 => 'Lila', 7 => 'Grau', 8 => 'Nachtblau'];
 const LINK_LAYOUTS = ['tiles' => 'Kacheln mit Bild', 'compact' => 'Kompakte Kacheln', 'list' => 'Liste'];
 
@@ -90,24 +92,35 @@ function link_is_web(string $url): bool
     return (bool)preg_match('#^https?://#i', $url);
 }
 
-/** Bild für eine Kachel prüfen und verkleinern. Liefert [mime, base64] oder eine Fehlermeldung. */
+/** Hochgeladenes Bild prüfen und aufbereiten. Liefert [mime, base64] oder eine Fehlermeldung. */
 function links_read_image(array $f): array|string
 {
     if ($f['error'] !== UPLOAD_ERR_OK) return 'Das Bild konnte nicht hochgeladen werden.';
     if ($f['size'] > LINK_IMAGE_MAX_BYTES) return 'Das Bild ist zu groß (höchstens 3 MB).';
-    $info = @getimagesize($f['tmp_name']);
+    return links_prepare_image((string)file_get_contents($f['tmp_name']));
+}
+
+/**
+ * Bilddaten prüfen und in den einheitlichen Rahmen bringen: höchstens 800 × 450 px (16:9),
+ * Seitenverhältnis bleibt erhalten, Transparenz bleibt erhalten. Liefert [mime, base64] oder eine Fehlermeldung.
+ */
+function links_prepare_image(string $raw, int $maxW = LINK_FRAME_W, int $maxH = LINK_FRAME_H): array|string
+{
+    if ($raw === '' || strlen($raw) > LINK_IMAGE_MAX_BYTES) return 'Das Bild ist zu groß (höchstens 3 MB).';
+    $info = @getimagesizefromstring($raw);
     $mime = $info['mime'] ?? '';
-    if (!isset(LINK_IMAGE_MIMES[$mime])) return 'Bitte ein Bild im Format PNG, JPG, GIF oder WebP hochladen.';
-    $raw = (string)file_get_contents($f['tmp_name']);
-    // Große Bilder verkleinern, wenn der Server die GD-Erweiterung hat (spart Platz und Ladezeit)
-    if ($info[0] > LINK_IMAGE_MAX_WIDTH && $mime !== 'image/gif' && function_exists('imagecreatefromstring')) {
+    if (!isset(LINK_IMAGE_MIMES[$mime])) return 'Bitte ein Bild im Format PNG, JPG, GIF oder WebP verwenden.';
+    if ($info[0] < 16 || $info[1] < 16) return 'Das Bild ist zu klein.';
+    $scale = min(1, $maxW / $info[0], $maxH / $info[1]);
+    if ($scale < 1 && $mime !== 'image/gif' && function_exists('imagecreatefromstring')) {
         $src = @imagecreatefromstring($raw);
         if ($src) {
-            $w = LINK_IMAGE_MAX_WIDTH;
-            $h = max(1, (int)round($info[1] * $w / $info[0]));
+            $w = max(1, (int)round($info[0] * $scale));
+            $h = max(1, (int)round($info[1] * $scale));
             $dst = imagecreatetruecolor($w, $h);
             imagealphablending($dst, false);
             imagesavealpha($dst, true);
+            imagefill($dst, 0, 0, imagecolorallocatealpha($dst, 255, 255, 255, 127));
             imagecopyresampled($dst, $src, 0, 0, 0, 0, $w, $h, $info[0], $info[1]);
             ob_start();
             $ok = match ($mime) {
@@ -116,10 +129,182 @@ function links_read_image(array $f): array|string
                 default      => imagepng($dst, null, 7),
             };
             $out = (string)ob_get_clean();
-            if ($ok && $out !== '' && strlen($out) < strlen($raw)) $raw = $out;
+            if ($ok && $out !== '') $raw = $out;
         }
     }
     return [$mime, base64_encode($raw)];
+}
+
+// ---------------------------------------------------------------------------
+// Fremde Webseiten abrufen (für Bild-, Titel- und Beschreibungsvorschläge)
+// Nur öffentliche Adressen (http/https), keine internen Netze; Weiterleitungen werden einzeln geprüft.
+// ---------------------------------------------------------------------------
+
+/** Öffentliche IP-Adresse des Hosts oder null */
+function links_public_ip(string $host): ?string
+{
+    $host = trim($host, '[]');
+    $ips = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : (@gethostbynamel($host) ?: []);
+    if (!$ips) return null;
+    $allowPrivate = (bool)cfg('links.allow_private_fetch', false); // nur zum lokalen Testen
+    foreach ($ips as $ip) {
+        if (!$allowPrivate && !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return null;
+    }
+    return $ips[0];
+}
+
+/** Lädt eine Adresse. Liefert ['body' => …, 'type' => Content-Type, 'url' => End-Adresse] oder null. */
+function links_fetch(string $url, int $maxBytes, float $timeout = 5.0): ?array
+{
+    if (!function_exists('curl_init')) return null;
+    for ($hop = 0; $hop < 4; $hop++) {
+        if (!preg_match('#^https?://#i', $url) || strlen($url) > 2000) return null;
+        $p = parse_url($url);
+        if (!$p || empty($p['host'])) return null;
+        $port = (int)($p['port'] ?? (strtolower($p['scheme']) === 'https' ? 443 : 80));
+        if (!in_array($port, [80, 443, 8080, 8443], true)) return null;
+        $ip = links_public_ip($p['host']);
+        if ($ip === null) return null;
+        $body = '';
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RESOLVE => [$p['host'] . ':' . $port . ':' . $ip],  // keine zweite DNS-Abfrage (DNS-Rebinding)
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_CONNECTTIMEOUT => 4,
+            CURLOPT_TIMEOUT => (int)ceil($timeout),
+            CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; Kundenportal-Linkvorschau/1.0)',
+            CURLOPT_HTTPHEADER => ['Accept: text/html,application/xhtml+xml,image/*;q=0.9,*/*;q=0.5', 'Accept-Language: de,en;q=0.7'],
+            CURLOPT_ENCODING => '',
+            CURLOPT_PROXY => '',
+            CURLOPT_WRITEFUNCTION => function ($ch, $chunk) use (&$body, $maxBytes) {
+                $body .= $chunk;
+                return strlen($body) > $maxBytes ? 0 : strlen($chunk);
+            },
+        ]);
+        $ok = curl_exec($ch);
+        $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $type = (string)curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+        $loc = (string)curl_getinfo($ch, CURLINFO_REDIRECT_URL);
+        curl_close($ch);
+        if ($code >= 300 && $code < 400 && $loc !== '') { $url = $loc; continue; }
+        if ($ok === false && strlen($body) <= $maxBytes) return null;
+        if ($code !== 200) return null;
+        return ['body' => $body, 'type' => strtolower($type), 'url' => $url];
+    }
+    return null;
+}
+
+/** Relative Adresse gegen eine Basis-Adresse auflösen */
+function links_resolve_url(string $base, string $rel): string
+{
+    $rel = trim(html_entity_decode($rel, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    if ($rel === '' || str_starts_with($rel, 'data:')) return '';
+    if (preg_match('#^https?://#i', $rel)) return $rel;
+    $b = parse_url($base);
+    $origin = $b['scheme'] . '://' . $b['host'] . (isset($b['port']) ? ':' . $b['port'] : '');
+    if (str_starts_with($rel, '//')) return $b['scheme'] . ':' . $rel;
+    if (str_starts_with($rel, '/')) return $origin . $rel;
+    if (preg_match('#^[a-z][a-z0-9+.-]*:#i', $rel)) return '';
+    $dir = preg_replace('#/[^/]*$#', '/', $b['path'] ?? '/');
+    return $origin . $dir . $rel;
+}
+
+/** Titel, Beschreibung und mögliche Bilder einer Webseite (Bilder nach Eignung sortiert) */
+function links_page_meta(string $url): array
+{
+    $res = links_fetch($url, 1500000);
+    $out = ['title' => '', 'description' => '', 'images' => []];
+    $add = function (string $src, string $kind) use (&$out, &$base) {
+        $abs = links_resolve_url($base, $src);
+        if ($abs !== '' && !preg_match('/\.svg(\?|$)/i', $abs) && !isset($out['images'][$abs])) $out['images'][$abs] = $kind;
+    };
+    $base = $url;
+    if ($res && str_contains($res['type'], 'html')) {
+        $base = $res['url'];
+        $html = $res['body'];
+        if (!preg_match('/charset=["\']?utf-?8/i', $res['type'] . substr($html, 0, 2000))) $html = mb_convert_encoding($html, 'UTF-8', 'Windows-1252');
+        $doc = new DOMDocument();
+        libxml_use_internal_errors(true);
+        $doc->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+        libxml_clear_errors();
+        $xp = new DOMXPath($doc);
+        $baseTag = $xp->query('//base[@href]')->item(0);
+        if ($baseTag) { $b2 = links_resolve_url($base, $baseTag->getAttribute('href')); if ($b2 !== '') $base = $b2; }
+        $meta = [];
+        foreach ($xp->query('//meta[@content]') as $m) {
+            $k = strtolower($m->getAttribute('property') ?: $m->getAttribute('name'));
+            if ($k !== '' && !isset($meta[$k])) $meta[$k] = trim($m->getAttribute('content'));
+        }
+        $titleNode = $xp->query('//title')->item(0);
+        $out['title'] = $meta['og:title'] ?? $meta['twitter:title'] ?? ($titleNode ? trim(preg_replace('/\s+/u', ' ', $titleNode->textContent)) : '');
+        $out['description'] = $meta['og:description'] ?? $meta['description'] ?? $meta['twitter:description'] ?? '';
+        foreach (['og:image:secure_url', 'og:image', 'og:image:url', 'twitter:image', 'twitter:image:src'] as $k) {
+            if (!empty($meta[$k])) $add($meta[$k], 'Vorschaubild der Seite');
+        }
+        $icons = [];
+        foreach ($xp->query('//link[@href and @rel]') as $l) {
+            $rel = strtolower($l->getAttribute('rel'));
+            if (!preg_match('/(^|\s)(apple-touch-icon(-precomposed)?|icon|shortcut icon|mask-icon)(\s|$)/', $rel) || str_contains($rel, 'mask-icon')) continue;
+            $size = (int)preg_replace('/x.*/', '', strtolower($l->getAttribute('sizes')));
+            if (str_contains($rel, 'apple-touch-icon')) $size = max($size, 180);
+            $icons[] = [$size, $l->getAttribute('href')];
+        }
+        usort($icons, fn($a, $b) => $b[0] <=> $a[0]);
+        foreach ($icons as [$size, $href]) $add($href, 'Logo / App-Symbol');
+        $n = 0;
+        foreach ($xp->query('//img') as $img) {
+            $src = $img->getAttribute('src') ?: $img->getAttribute('data-src');
+            if ($src === '' || preg_match('/(sprite|pixel|spacer|tracking|1x1)/i', $src)) continue;
+            $add($src, 'Bild von der Seite');
+            if (++$n >= 6) break;
+        }
+        $out['title'] = mb_substr(html_entity_decode($out['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8'), 0, 190);
+        $out['description'] = mb_substr(html_entity_decode($out['description'], ENT_QUOTES | ENT_HTML5, 'UTF-8'), 0, 300);
+    }
+    $host = (string)parse_url($base, PHP_URL_HOST);
+    if ($host !== '') {
+        $add('/apple-touch-icon.png', 'Logo / App-Symbol');
+        $add('https://www.google.com/s2/favicons?sz=256&domain=' . rawurlencode($host), 'Symbol der Website');
+    }
+    return $out;
+}
+
+/**
+ * Vorschläge für den Link-Dialog (JSON): Titel, Beschreibung und bis zu 8 Bilder als kleine Vorschau.
+ * Die Bilder werden hier geladen, weil die Seite aus Sicherheitsgründen keine fremden Bilder anzeigt.
+ */
+function page_link_suggest(): void
+{
+    links_company_id();
+    links_require_manage();
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    @set_time_limit(40);
+    $url = links_normalize_url((string)($_GET['url'] ?? ''));
+    if ($url === null || !link_is_web($url)) { echo json_encode(['ok' => false, 'error' => 'Keine Webadresse.']); exit; }
+    if (!function_exists('curl_init')) { echo json_encode(['ok' => false, 'error' => 'Der Server kann keine Webseiten abrufen (PHP-Erweiterung curl fehlt).']); exit; }
+    $started = microtime(true);
+    $meta = links_page_meta($url);
+    $images = [];
+    $seen = [];
+    foreach ($meta['images'] as $src => $kind) {
+        if (count($images) >= 8 || microtime(true) - $started > 20) break;
+        $r = links_fetch($src, LINK_IMAGE_MAX_BYTES, 4.0);
+        if (!$r) continue;
+        $info = @getimagesizefromstring($r['body']);
+        if (!$info || !isset(LINK_IMAGE_MIMES[$info['mime']]) || $info[0] < 48 || $info[1] < 48) continue;
+        $hash = md5($r['body']);
+        if (isset($seen[$hash])) continue;
+        $seen[$hash] = true;
+        $thumb = links_prepare_image($r['body'], 320, 180);
+        if (!is_array($thumb)) continue;
+        $images[] = ['src' => $src, 'kind' => $kind, 'size' => $info[0] . ' × ' . $info[1] . ' px',
+            'thumb' => 'data:' . $thumb[0] . ';base64,' . $thumb[1]];
+    }
+    echo json_encode(['ok' => true, 'url' => $url, 'title' => $meta['title'], 'description' => $meta['description'], 'images' => $images],
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
 }
 
 /** Reihenfolge neu durchnummerieren und optional einen Eintrag um eine Stelle verschieben */
@@ -160,7 +345,7 @@ function page_links(): void
     $edit = links_can_manage() && query_int('edit') === 1;
     $search = trim((string)($_GET['q'] ?? ''));
 
-    $linkCols = 'l.id, l.section_id, l.title, l.url, l.description, l.icon, l.color, l.new_window, l.sort, l.updated_at,
+    $linkCols = 'l.id, l.section_id, l.title, l.url, l.description, l.icon, l.color, l.new_window, l.image_fit, l.sort, l.updated_at,
         CASE WHEN l.image_mime <> \'\' THEN 1 ELSE 0 END AS has_image';
     if ($search !== '') {
         $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_substr($search, 0, 100)) . '%';
@@ -344,7 +529,7 @@ function links_tile(array $l, bool $edit, string $where = ''): void
     <div class="lt-wrap">
         <a class="link-tile lc-<?= $color ?>" href="<?= e($l['url']) ?>" <?= $newWin ? 'target="_blank" rel="noopener noreferrer"' : 'rel="noreferrer"' ?> title="<?= e($l['url']) ?>">
             <?php if ((int)$l['has_image']): ?>
-                <span class="lt-img"><img src="<?= e(lurl('link_image', ['id' => $id, 'v' => substr(md5((string)$l['updated_at']), 0, 8)])) ?>" alt="" loading="lazy"></span>
+                <span class="lt-img fit-<?= ($l['image_fit'] ?? 'contain') === 'cover' ? 'cover' : 'contain' ?>"><img src="<?= e(lurl('link_image', ['id' => $id, 'v' => substr(md5((string)$l['updated_at']), 0, 8)])) ?>" alt="" loading="lazy"></span>
             <?php else: ?>
                 <span class="lt-img lt-ph"><span><?= e($initial) ?></span></span>
             <?php endif; ?>
@@ -390,7 +575,7 @@ function page_link_edit(): void
         lredirect('links', ['edit' => 1]);
     }
 
-    $form = $link ?: ['title' => '', 'url' => '', 'description' => '', 'icon' => '', 'color' => 1, 'new_window' => 1, 'section_id' => $sectionId, 'image_mime' => ''];
+    $form = $link ?: ['title' => '', 'url' => mb_substr(trim((string)($_GET['url'] ?? '')), 0, 1000), 'description' => '', 'icon' => '', 'color' => 1, 'new_window' => 1, 'image_fit' => 'contain', 'section_id' => $sectionId, 'image_mime' => ''];
     $error = '';
     if (is_post()) {
         require_post_csrf();
@@ -407,13 +592,19 @@ function page_link_edit(): void
             'icon' => mb_substr(trim(post('icon')), 0, 4),
             'color' => isset(LINK_COLORS[(int)post('color', 1)]) ? (int)post('color', 1) : 1,
             'new_window' => post('new_window') === '1' ? 1 : 0,
+            'image_fit' => isset(LINK_FITS[post('image_fit')]) ? post('image_fit') : 'contain',
             'section_id' => (int)post('section_id', 0),
         ]);
         $url = links_normalize_url($form['url']);
         $validSection = in_array($form['section_id'], array_map('intval', array_column($sections, 'id')), true);
         $img = null;
         $f = $_FILES['image'] ?? null;
-        if ($f && $f['error'] !== UPLOAD_ERR_NO_FILE) $img = links_read_image($f);
+        if ($f && $f['error'] !== UPLOAD_ERR_NO_FILE) {
+            $img = links_read_image($f);
+        } elseif (($pick = trim(post('image_pick'))) !== '') {
+            $r = preg_match('#^https?://#i', $pick) ? links_fetch($pick, LINK_IMAGE_MAX_BYTES) : null;
+            $img = $r ? links_prepare_image($r['body']) : 'Das vorgeschlagene Bild konnte nicht geladen werden. Bitte ein anderes wählen oder selbst hochladen.';
+        }
 
         if ($form['title'] === '') $error = 'Bitte einen Titel angeben.';
         elseif ($url === null) $error = 'Bitte eine gültige Adresse angeben, z. B. https://www.beispiel.de, eine E-Mail-Adresse oder tel:+49…';
@@ -421,7 +612,7 @@ function page_link_edit(): void
         elseif (is_string($img)) $error = $img;
         else {
             $data = ['title' => $form['title'], 'url' => $url, 'description' => $form['description'], 'icon' => $form['icon'],
-                'color' => $form['color'], 'new_window' => $form['new_window'], 'section_id' => $form['section_id'], 'updated_at' => now()];
+                'color' => $form['color'], 'new_window' => $form['new_window'], 'image_fit' => $form['image_fit'], 'section_id' => $form['section_id'], 'updated_at' => now()];
             if (is_array($img)) { $data['image_mime'] = $img[0]; $data['image_data'] = $img[1]; }
             elseif (post('remove_image') === '1') { $data['image_mime'] = ''; $data['image_data'] = null; }
             if ($link) {
@@ -449,7 +640,10 @@ function page_link_edit(): void
             <?= csrf_field() ?>
             <?php if ($link): ?><input type="hidden" name="id" value="<?= (int)$link['id'] ?>"><?php endif; ?>
             <label>Titel<input name="title" value="<?= e($form['title']) ?>" required maxlength="190" autofocus placeholder="z. B. DATEV Unternehmen online"></label>
-            <label>Adresse<input name="url" value="<?= e($form['url']) ?>" required maxlength="1000" placeholder="https://… , E-Mail-Adresse oder tel:+49…"></label>
+            <label>Adresse
+                <span class="url-row"><input name="url" id="link-url" value="<?= e($form['url']) ?>" required maxlength="1000" placeholder="https://… , E-Mail-Adresse oder tel:+49…"
+                    data-suggest="<?= e(lurl('link_suggest')) ?>" autocomplete="off">
+                <button type="button" class="btn" id="link-suggest-btn" title="Bild, Titel und Beschreibung von der Webseite holen">Vorschläge holen</button></span></label>
             <label>Beschreibung<textarea name="description" rows="3" maxlength="1000" placeholder="Wofür ist der Link? Kurz und knapp, z. B. „Belege hochladen und Auswertungen ansehen“"><?= e($form['description']) ?></textarea></label>
             <label>Bereich (Überschrift)
                 <select name="section_id" required>
@@ -461,13 +655,20 @@ function page_link_edit(): void
             </label>
             <fieldset>
                 <legend>Bild</legend>
+                <div id="link-suggest" class="img-suggest" hidden>
+                    <p class="small muted" id="link-suggest-status"></p>
+                    <div class="img-suggest-grid" id="link-suggest-grid"></div>
+                </div>
+                <input type="hidden" name="image_pick" id="image-pick" value="">
                 <?php if ($link && $link['image_mime'] !== ''): ?>
                     <img class="link-preview" src="<?= e(lurl('link_image', ['id' => $link['id'], 'v' => substr(md5((string)$link['updated_at']), 0, 8)])) ?>" alt="Aktuelles Bild">
                     <label class="check"><input type="checkbox" name="remove_image" value="1"> Bild entfernen</label>
                 <?php endif; ?>
                 <label><?= $link && $link['image_mime'] !== '' ? 'Neues Bild hochladen' : 'Bild hochladen' ?> (PNG, JPG, GIF oder WebP, max. 3 MB)
                     <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp"></label>
-                <p class="muted small">Am besten ein Querformat (16:9), z. B. ein Screenshot oder Logo. Ohne Bild zeigt die Kachel Symbol und Farbe.</p>
+                <label>Bild im Rahmen
+                    <select name="image_fit"><?php foreach (LINK_FITS as $k => $v): ?><option value="<?= $k ?>" <?= ($form['image_fit'] ?? 'contain') === $k ? 'selected' : '' ?>><?= e($v) ?></option><?php endforeach; ?></select></label>
+                <p class="muted small">Alle Bilder erscheinen im gleichen Rahmen (16:9, weißer Hintergrund). „Einpassen“ eignet sich für Logos, „Ausfüllen“ für Fotos und Screenshots. Ohne Bild zeigt die Kachel Symbol und Farbe.</p>
                 <div class="grid2">
                     <label>Symbol ohne Bild<input name="icon" value="<?= e($form['icon']) ?>" maxlength="4" placeholder="z. B. 📊 oder DV"></label>
                     <div>

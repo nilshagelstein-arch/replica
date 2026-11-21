@@ -100,6 +100,7 @@ $routes = [
     'link_edit'       => 'page_link_edit',
     'link_action'     => 'page_link_action',
     'link_image'      => 'page_link_image',
+    'link_suggest'    => 'page_link_suggest',
 ];
 
 $r = (string)($_GET['r'] ?? '');

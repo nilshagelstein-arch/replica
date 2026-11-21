@@ -56,7 +56,9 @@ Eingebaute Apps sind **On- & Offboarding**, **Formulare**, **Datensicherung** un
 - **Intranet-Startseite im Stil von SharePoint** je Firma: **Reiter** oben (z. B. Start, Personal, IT), darauf **Überschriften/Kategorien** und darunter die **Links als Kacheln mit Bild, Titel und Beschreibung**
 - **Darstellung je Überschrift:** Kacheln mit Bild (16:9), kompakte Kacheln (Bild/Symbol links) oder Liste
 - **Links:** Webadressen (`www.…` wird automatisch zu `https://…`), E-Mail-Adressen und Telefonnummern (`tel:`); wahlweise in neuem Fenster. Ohne Bild zeigt die Kachel ein Symbol (Emoji oder Buchstaben) in einer von acht Farben.
-- **Bilder** (PNG, JPG, GIF, WebP bis 3 MB) werden in der Datenbank gespeichert, auf 900 px Breite verkleinert (wenn GD vorhanden) und nur an angemeldete Benutzer der Firma ausgeliefert
+- **Bildvorschläge:** Nach Eingabe der Adresse holt das Portal von der Webseite Vorschaubild (Open Graph/Twitter), App-Symbol, Favicon und große Bilder der Seite und zeigt sie zum Anklicken an. Leere Felder für Titel und Beschreibung werden ebenfalls vorgeschlagen. Abgerufen werden nur öffentliche Adressen (keine internen Netze, jede Weiterleitung wird geprüft); nötig ist die PHP-Erweiterung curl.
+- **Einheitlicher Bildrahmen:** Alle Bilder erscheinen im gleichen 16:9-Rahmen mit weißem Hintergrund, wahlweise „Einpassen“ (ganzes Bild, ideal für Logos) oder „Ausfüllen“ (für Fotos/Screenshots)
+- **Bilder** (PNG, JPG, GIF, WebP bis 3 MB) werden in der Datenbank gespeichert, passend zum Rahmen auf höchstens 800 × 450 px verkleinert (wenn GD vorhanden) und nur an angemeldete Benutzer der Firma ausgeliefert
 - **Bearbeiten-Modus** („Seite bearbeiten“): Reiter anlegen, umbenennen, verschieben, löschen; Überschriften anlegen, bearbeiten, auf andere Reiter verschieben; Reihenfolge mit ◀ ▶ / ▲ ▼
 - **Suche** über alle Reiter (Titel, Beschreibung, Adresse, Überschrift)
 - **Rechte:** Alle Benutzer einer Firma mit Freigabe sehen die Seite. Bearbeiten dürfen Firmen-Administratoren und der Dienstleister (wählt die Firma oben aus).

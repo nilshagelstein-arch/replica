@@ -138,6 +138,7 @@ if ($user && $user['company_id']) {
     <?php $content(); ?>
 </main>
 <script src="assets/app.js"></script>
+<?php if ($user && $route === 'link_edit'): ?><script src="assets/links.js"></script><?php endif; ?>
 <?php if ($user && $route === 'form_layouts'): ?><script src="assets/calc.js"></script><script src="assets/forms.js"></script><?php endif; ?>
 </body>
 </html>

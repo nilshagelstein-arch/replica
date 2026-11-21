@@ -195,6 +195,7 @@ function schema_statements(string $driver): array
         color INT NOT NULL DEFAULT 1,
         image_mime VARCHAR(40) NOT NULL DEFAULT '',
         image_data $long,
+        image_fit VARCHAR(10) NOT NULL DEFAULT 'contain',
         new_window INT NOT NULL DEFAULT 1,
         sort INT NOT NULL DEFAULT 0,
         created_by $fk NULL,
@@ -396,7 +397,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -450,6 +451,8 @@ function run_migrations(): void
         ['companies', 'registration_status', "VARCHAR(20) NOT NULL DEFAULT ''"],
         ['companies', 'requested_apps', "VARCHAR(500) NOT NULL DEFAULT ''"],
         ['companies', 'registered_at', 'VARCHAR(19) NULL'],
+        // Linksammlung: Bild einpassen oder ausfüllen (ab Version 12)
+        ['links', 'image_fit', "VARCHAR(10) NOT NULL DEFAULT 'contain'"],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -500,7 +503,7 @@ function ensure_schema(): void
         db()->query('SELECT registration_status, requested_apps, registered_at FROM companies LIMIT 1');
         db()->query('SELECT id FROM user_tokens LIMIT 1');
         db()->query('SELECT id FROM employees LIMIT 1');
-        db()->query('SELECT id FROM links LIMIT 1');
+        db()->query('SELECT image_fit FROM links LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }
