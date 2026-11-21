@@ -4,7 +4,9 @@ $appName = cfg('app_name', 'Kundenportal');
 $nav = [];
 $subnav = [];
 $onboardingRoutes = ['dashboard', 'request_new', 'change_new', 'request_edit', 'request', 'structure', 'catalog', 'templates'];
-if ($user) {
+if ($user && company_pending($user)) {
+    $nav[] = ['home', 'Start', $route === 'home'];
+} elseif ($user) {
     $nav[] = ['home', 'Start', $route === 'home'];
     $myApps = array_column(apps_for_user(), null, 'slug');
     if (isset($myApps['onboarding'])) {

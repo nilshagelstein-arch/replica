@@ -408,6 +408,11 @@ function require_login(): array
         flash('info', 'Bitte vergeben Sie zuerst ein eigenes Passwort.');
         redirect('account');
     }
+    // Selbst registrierte Firma vor der Freischaltung: nur Startseite und eigenes Konto
+    if (company_pending($u) && !in_array($_GET['r'] ?? '', ['home', 'account', 'setup_2fa'], true)) {
+        flash('info', 'Ihre Registrierung wird noch geprüft. Nach der Freischaltung stehen Ihnen die Module zur Verfügung.');
+        redirect('home');
+    }
     return $u;
 }
 
@@ -474,6 +479,14 @@ function apps_for_user(): array
     if (is_staff_role($u['role'])) return rows('SELECT * FROM apps WHERE active = 1 ORDER BY sort, name');
     return rows('SELECT a.* FROM apps a JOIN company_apps ca ON ca.app_id = a.id
         WHERE ca.company_id = ? AND a.active = 1 ORDER BY a.sort, a.name', [$u['company_id']]);
+}
+
+/** Firma wartet auf Freischaltung durch den Dienstleister */
+function company_pending(?array $u): bool
+{
+    if (!$u || !$u['company_id']) return false;
+    $c = row('SELECT registration_status FROM companies WHERE id = ?', [$u['company_id']]);
+    return $c && $c['registration_status'] === 'pending';
 }
 
 /** Bricht ab, wenn die Firma des Benutzers die App nicht freigeschaltet hat */

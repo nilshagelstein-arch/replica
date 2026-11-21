@@ -22,6 +22,7 @@ ensure_schema();
 start_session();
 
 require APP_DIR . '/pages/auth.php';
+require APP_DIR . '/pages/selfservice.php';
 require APP_DIR . '/pages/requests.php';
 require APP_DIR . '/pages/changes.php';
 require APP_DIR . '/pages/companies.php';
@@ -42,6 +43,10 @@ $routes = [
     'login_2fa'      => 'page_login_2fa',
     'setup_2fa'      => 'page_setup_2fa',
     'logout'         => 'page_logout',
+    'register'        => 'page_register',
+    'verify_email'    => 'page_verify_email',
+    'forgot_password' => 'page_forgot_password',
+    'reset_password'  => 'page_reset_password',
     'account'        => 'page_account',
     'home'           => 'page_home',
     'apps'           => 'page_apps',

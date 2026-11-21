@@ -498,3 +498,9 @@ td.fill-cell:focus { box-shadow: inset 0 0 0 2px #f0d58a; background: #fff0a8; }
 .table .actions .linklike { color: #b3261e; text-decoration: none; }
 .table .actions .linklike:hover { text-decoration: underline; }
 textarea.code { width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: .78rem; margin: .4rem 0 .6rem; }
+
+/* Selbstregistrierung */
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.zipcity { grid-template-columns: 7rem 1fr; gap: 1rem; margin-bottom: 0 !important; }
+.card.review { border-color: #f0c27b; background: #fffaf0; }
+details summary { cursor: pointer; }
