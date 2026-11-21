@@ -287,7 +287,47 @@ function schema_statements(string $driver): array
         last_used_at $ts NULL
     )$tail";
 
+    // Mitarbeiterliste je Firma (App On- & Offboarding)
+    $tables[] = "CREATE TABLE IF NOT EXISTS employees (
+        id $pk,
+        company_id $fk NOT NULL,
+        employee_no VARCHAR(60) NOT NULL,
+        salutation VARCHAR(20) NOT NULL DEFAULT '',
+        first_name VARCHAR(120) NOT NULL,
+        last_name VARCHAR(120) NOT NULL,
+        department_id $fk NULL,
+        position_id $fk NULL,
+        department_name VARCHAR(190) NOT NULL DEFAULT '',
+        position_name VARCHAR(190) NOT NULL DEFAULT '',
+        email VARCHAR(190) NOT NULL DEFAULT '',
+        phone VARCHAR(60) NOT NULL DEFAULT '',
+        location VARCHAR(190) NOT NULL DEFAULT '',
+        manager_name VARCHAR(190) NOT NULL DEFAULT '',
+        entry_date VARCHAR(10) NOT NULL DEFAULT '',
+        exit_date VARCHAR(10) NOT NULL DEFAULT '',
+        status VARCHAR(20) NOT NULL DEFAULT 'aktiv',
+        notes TEXT,
+        last_request_id $fk NULL,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
+    // Einmal-Links: E-Mail-Bestätigung (verify) und Passwort zurücksetzen (reset); gespeichert wird nur der Hash
+    $tables[] = "CREATE TABLE IF NOT EXISTS user_tokens (
+        id $pk,
+        user_id $fk NOT NULL,
+        purpose VARCHAR(20) NOT NULL,
+        token_hash VARCHAR(64) NOT NULL,
+        expires_at $ts NOT NULL,
+        used_at $ts NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
     $indexes = [
+        'idx_employees_co'    => 'employees (company_id, employee_no)',
+        'idx_usertokens_hash' => 'user_tokens (token_hash)',
+        'idx_usertokens_user' => 'user_tokens (user_id, purpose)',
+        'idx_audit_ip'        => 'audit_log (action, ip, created_at)',
         'idx_formfolders_co'  => 'form_folders (company_id, parent_id)',
         'idx_forms_co'        => 'forms (company_id, folder_id)',
         'idx_formlayouts_co'  => 'form_layouts (company_id, kind)',
@@ -315,7 +355,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 10;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -323,6 +363,8 @@ const BUILTIN_APPS = [
         'target' => 'dashboard', 'icon' => '👤', 'color' => '#1f5fa8', 'sort' => 10],
     'formulare' => ['name' => 'Formulare', 'description' => 'Briefe und Formulare mit eigenem Editor gestalten und mit Daten aus der Kundendatenbank ausfüllen. Mit Logo, Briefkopf und Fußzeile.',
         'target' => 'forms', 'icon' => '📝', 'color' => '#0f7b6c', 'sort' => 20],
+    'datensicherung' => ['name' => 'Datensicherung', 'description' => 'Tägliche Sicherung aller Daten Ihrer Firma – auf Wunsch automatisch in Ihr eigenes Google Drive.',
+        'target' => 'company_backups', 'icon' => '💾', 'color' => '#6b4fbb', 'sort' => 30],
 ];
 
 /**
@@ -359,6 +401,12 @@ function run_migrations(): void
         // Formulare: Seitenränder und Grundschrift (ab Version 7)
         ['forms', 'page_settings', 'TEXT NULL'],
         ['form_layouts', 'page_settings', 'TEXT NULL'],
+        // Selbstregistrierung, E-Mail-Bestätigung, 2FA-Antrag (ab Version 8); bestehende Konten gelten als bestätigt
+        ['users', 'email_verified', 'INT NOT NULL DEFAULT 1'],
+        ['users', 'totp_reset_requested_at', 'VARCHAR(19) NULL'],
+        ['companies', 'registration_status', "VARCHAR(20) NOT NULL DEFAULT ''"],
+        ['companies', 'requested_apps', "VARCHAR(500) NOT NULL DEFAULT ''"],
+        ['companies', 'registered_at', 'VARCHAR(19) NULL'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -390,12 +438,26 @@ function run_migrations(): void
     }
     $file = APP_DIR . '/data/schema.version';
     if (!is_dir(dirname($file))) mkdir(dirname($file), 0770, true);
-    file_put_contents($file, (string)SCHEMA_VERSION);
+    $old = is_file($file) ? (int)file_get_contents($file) : 0;
+    file_put_contents($file, (string)max($old, SCHEMA_VERSION));
 }
 
 function ensure_schema(): void
 {
     $file = APP_DIR . '/data/schema.version';
     $v = is_file($file) ? (int)file_get_contents($file) : 1;
-    if ($v < SCHEMA_VERSION) run_migrations();
+    if ($v < SCHEMA_VERSION) {
+        run_migrations();
+        return;
+    }
+    // Sicherheitsnetz: fehlen Tabellen/Spalten der aktuellen Version (z. B. weil schema.version
+    // schon einen höheren Stand hatte), Migration trotzdem ausführen
+    try {
+        db()->query('SELECT u.email_verified, u.totp_reset_requested_at FROM users u LIMIT 1');
+        db()->query('SELECT registration_status, requested_apps, registered_at FROM companies LIMIT 1');
+        db()->query('SELECT id FROM user_tokens LIMIT 1');
+        db()->query('SELECT id FROM employees LIMIT 1');
+    } catch (PDOException $ex) {
+        run_migrations();
+    }
 }

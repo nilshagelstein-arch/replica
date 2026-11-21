@@ -416,10 +416,13 @@ body.word-app, body.fill-app { margin: 0; background: #e8eaed; height: 100vh; di
 .region.locked { opacity: .55; cursor: default; }
 .region.locked:hover { opacity: .75; box-shadow: 0 0 0 1px #9fbfe6; }
 .region.hf-empty { min-height: 0; opacity: 1; }
-.hf-tag { font-size: .7rem; color: #7a8796; border-bottom: 1px dashed #b9c4d0; margin: 0 0 2mm; padding-bottom: 1px; user-select: none; }
+.hf-tag { font-size: .7rem; color: #7a8796; border-bottom: 1px dashed #b9c4d0; margin: 0 0 2mm; padding-bottom: 1px; user-select: none; cursor: pointer; }
 .hf-tag-footer { order: 0; }
 .page.hf-editing .region-body { opacity: .4; }
 .page.hf-editing .region.hf-active { opacity: 1; box-shadow: 0 0 0 2px #2b7de9; }
+.hf-pick { display: inline-flex; gap: .35rem; align-items: center; }
+.hf-pick select { font: inherit; padding: .15rem .3rem; }
+.hf-note { color: #6b5a1e; }
 .hf-bar { position: sticky; top: 0; z-index: 5; width: 210mm; max-width: 100%; margin: .6rem auto 0; background: #fff8e1; border: 1px solid #f0d58a; border-radius: 4px; padding: .45rem .7rem; font-size: .88rem; display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
 .page.col-resize, .page.col-resize td, body.dragging-col, body.dragging-col * { cursor: col-resize !important; }
 .page.selecting-cells ::selection { background: transparent; }
@@ -490,3 +493,26 @@ td.fill-cell:focus { box-shadow: inset 0 0 0 2px #f0d58a; background: #fff0a8; }
 .word[data-mode=layout] .page { min-height: 80mm; background-image: none; }
 .paper-wrap .word { margin: 0; }
 .pop.ph-menu { min-width: 340px; }
+
+/* Datensicherung */
+.table .actions .linklike { color: #b3261e; text-decoration: none; }
+.table .actions .linklike:hover { text-decoration: underline; }
+textarea.code { width: 100%; font-family: ui-monospace, Consolas, monospace; font-size: .78rem; margin: .4rem 0 .6rem; }
+
+/* Selbstregistrierung */
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.zipcity { grid-template-columns: 7rem 1fr; gap: 1rem; margin-bottom: 0 !important; }
+.card.review { border-color: #f0c27b; background: #fffaf0; }
+details summary { cursor: pointer; }
+
+/* Updates */
+.nowrap { white-space: nowrap; }
+.table.updates td .prewrap { max-width: 60ch; }
+details.update-tools { display: inline-block; vertical-align: top; }
+details.update-tools[open] { display: block; margin-top: .5rem; min-width: 260px; }
+details.update-tools .form { margin: .5rem 0; padding: .6rem; border: 1px solid var(--line); border-radius: var(--radius); }
+
+/* Mitarbeiterliste */
+.toolbar .grow { flex: 1 1 auto; }
+.table.employees td.actions .btn { margin: 0 .2rem .2rem 0; }
+fieldset[disabled] { opacity: .85; }

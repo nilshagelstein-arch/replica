@@ -23,7 +23,7 @@ function page_companies(): void
     $list = rows("SELECT c.*,
             (SELECT COUNT(*) FROM users u WHERE u.company_id = c.id AND u.active = 1) AS user_count,
             (SELECT COUNT(*) FROM requests r WHERE r.company_id = c.id AND r.status IN ('eingereicht','in_bearbeitung','rueckfrage','eingerichtet')) AS open_count
-        FROM companies c ORDER BY c.active DESC, c.name");
+        FROM companies c ORDER BY CASE c.registration_status WHEN 'pending' THEN 0 ELSE 1 END, c.active DESC, c.name");
     $appNames = [];
     foreach (rows('SELECT ca.company_id, a.name FROM company_apps ca JOIN apps a ON a.id = ca.app_id ORDER BY a.sort, a.name') as $g) {
         $appNames[(int)$g['company_id']][] = $g['name'];
@@ -45,7 +45,7 @@ function page_companies(): void
                         <td><?= $appNames[(int)$c['id']] ?? null ? e(implode(', ', $appNames[(int)$c['id']])) : '<span class="muted">keine</span>' ?></td>
                         <td class="num"><?= (int)$c['user_count'] ?></td>
                         <td class="num"><?= (int)$c['open_count'] ?></td>
-                        <td><?= (int)$c['active'] ? 'aktiv' : 'inaktiv' ?></td>
+                        <td><?php if ($c['registration_status'] === 'pending'): ?><a class="badge st-rueckfrage" href="<?= e(url('company_edit', ['id' => $c['id']])) ?>">Freischaltung offen</a><?php elseif ($c['registration_status'] === 'rejected'): ?>abgelehnt<?php else: ?><?= (int)$c['active'] ? 'aktiv' : 'inaktiv' ?><?php endif; ?></td>
                         <td class="actions">
                             <a href="<?= e(url('company_edit', ['id' => $c['id']])) ?>">Profil</a>
                             <a href="<?= e(url('users', ['company' => $c['id']])) ?>">Benutzer</a>
@@ -84,6 +84,10 @@ function page_company_edit(): void
 
     if (is_post()) {
         require_post_csrf();
+        if ($company && is_staff_role($u['role']) && $company['registration_status'] === 'pending'
+            && in_array(post('action'), ['approve_registration', 'reject_registration'], true)) {
+            handle_registration_decision($company, $u);
+        }
         foreach (COMPANY_FIELDS as $f => [$label, $type, $required]) {
             $data[$f] = mb_substr(post($f), 0, 190);
             if ($required && $data[$f] === '') $errors[] = "Bitte „{$label}“ ausfüllen.";
@@ -127,8 +131,9 @@ function page_company_edit(): void
     }
 
     $title = $isNew ? 'Neue Firma' : 'Firmenprofil: ' . $data['name'];
-    render_page($title, function () use ($data, $errors, $u, $isNew, $id) {
-        foreach ($errors as $err) echo '<div class="alert error">' . e($err) . '</div>'; ?>
+    render_page($title, function () use ($data, $errors, $u, $isNew, $id, $company) {
+        foreach ($errors as $err) echo '<div class="alert error">' . e($err) . '</div>';
+        if ($company && is_staff_role($u['role']) && $company['registration_status'] === 'pending') render_registration_review($company); ?>
         <form method="post" class="card form">
             <?= csrf_field() ?>
             <div class="grid2">

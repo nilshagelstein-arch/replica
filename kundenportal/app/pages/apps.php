@@ -45,7 +45,26 @@ function page_home(): void
     if (is_staff_role($u['role'])) {
         foreach (rows('SELECT app_id, COUNT(*) AS n FROM company_apps GROUP BY app_id') as $g) $grantCounts[(int)$g['app_id']] = (int)$g['n'];
     }
-    render_page('Willkommen, ' . $u['name'], function () use ($u, $apps, $grantCounts) { ?>
+    $pendingCompany = company_pending($u) ? row('SELECT * FROM companies WHERE id = ?', [$u['company_id']]) : null;
+    $openRegs = is_staff_role($u['role']) ? rows("SELECT id, name, registered_at FROM companies WHERE registration_status = 'pending' ORDER BY registered_at") : [];
+    $open2fa = $u['role'] === 'superadmin' ? rows('SELECT id, name, email FROM users WHERE totp_reset_requested_at IS NOT NULL AND active = 1 ORDER BY totp_reset_requested_at') : [];
+    render_page('Willkommen, ' . $u['name'], function () use ($u, $apps, $grantCounts, $pendingCompany, $openRegs, $open2fa) {
+        if ($pendingCompany): ?>
+            <div class="card">
+                <h2>Ihre Registrierung wird geprüft</h2>
+                <p>Vielen Dank für die Registrierung von <strong><?= e($pendingCompany['name']) ?></strong>. Ihr Zugang und die Zwei-Faktor-Anmeldung sind eingerichtet.
+                    Sobald wir die Module freigeschaltet haben, erhalten Sie eine E-Mail und sehen die Apps hier.</p>
+                <p class="muted">Angefragte Module: <?= e(implode(', ', app_names_by_ids(requested_app_ids($pendingCompany))) ?: '–') ?></p>
+            </div>
+        <?php return; endif;
+        if ($openRegs): ?>
+            <div class="alert info"><strong><?= count($openRegs) ?> Registrierung(en) warten auf Freischaltung:</strong>
+                <?php foreach ($openRegs as $i => $c): ?><?= $i ? ', ' : ' ' ?><a href="<?= e(url('company_edit', ['id' => $c['id']])) ?>"><?= e($c['name']) ?></a><?php endforeach; ?></div>
+        <?php endif;
+        if ($open2fa): ?>
+            <div class="alert info"><strong>2FA-Zurücksetzung beantragt:</strong>
+                <?php foreach ($open2fa as $i => $x): ?><?= $i ? ', ' : ' ' ?><a href="<?= e(url('user_edit', ['id' => $x['id']])) ?>"><?= e($x['name']) ?></a><?php endforeach; ?></div>
+        <?php endif; ?>
         <p class="muted">Wählen Sie eine Anwendung.</p>
         <?php if (!$apps): ?>
             <div class="card"><p>Für Ihre Firma sind noch keine Apps freigeschaltet. Bitte wenden Sie sich an Ihren IT-Dienstleister.</p></div>

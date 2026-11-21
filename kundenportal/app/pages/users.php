@@ -55,7 +55,7 @@ function page_users(): void
                         <td><?= e($row['name']) ?></td>
                         <td><?= e($row['email']) ?></td>
                         <td><?= e(ROLES[$row['role']] ?? $row['role']) ?></td>
-                        <td><?= (int)$row['totp_enabled'] ? '✓ eingerichtet' : '<span class="muted">bei nächster Anmeldung</span>' ?></td>
+                        <td><?= (int)$row['totp_enabled'] ? '✓ eingerichtet' : '<span class="muted">bei nächster Anmeldung</span>' ?><?= $row['totp_reset_requested_at'] ? ' <span class="badge st-rueckfrage">Reset beantragt</span>' : '' ?><?= (int)$row['email_verified'] ? '' : ' <span class="badge">E-Mail unbestätigt</span>' ?></td>
                         <td><?= fmt_dt($row['last_login']) ?></td>
                         <td><?= (int)$row['active'] ? 'aktiv' : 'deaktiviert' ?><?= $row['locked_until'] && strtotime($row['locked_until']) > time() ? ' · <strong>gesperrt</strong>' : '' ?></td>
                         <td class="actions"><?php if (!is_staff_role($row['role']) || is_superadmin()): ?><a href="<?= e(url('user_edit', ['id' => $row['id']])) ?>">Bearbeiten</a><?php elseif ((int)$row['id'] === $u['id']): ?><a href="<?= e(url('account')) ?>">Mein Konto</a><?php endif; ?></td>
@@ -140,8 +140,12 @@ function page_user_edit(): void
                 'must_change_password' => 1, 'failed_attempts' => 0, 'locked_until' => null]);
             audit('user_password_reset', $target['email'], $companyId);
         } elseif ($target && !$isSelf && $action === 'reset_2fa') {
-            update('users', $id, ['totp_enabled' => 0, 'totp_secret' => null, 'totp_last_step' => 0]);
+            if ($me['role'] !== 'superadmin') abort(403, 'Die Zwei-Faktor-Anmeldung kann nur der Superadmin zurücksetzen.');
+            update('users', $id, ['totp_enabled' => 0, 'totp_secret' => null, 'totp_last_step' => 0, 'totp_reset_requested_at' => null]);
             audit('user_2fa_reset', $target['email'], $companyId);
+            send_mail([$target['email']], 'Zwei-Faktor-Anmeldung zurückgesetzt',
+                "Guten Tag " . $target['name'] . ",\n\nIhre Zwei-Faktor-Anmeldung wurde zurückgesetzt. Melden Sie sich mit Ihrem Passwort an und richten Sie die Authenticator-App neu ein:\n\n"
+                . portal_link('login') . "\n\nWaren Sie das nicht? Bitte melden Sie sich sofort bei Ihrem IT-Dienstleister.", $companyId);
             flash('success', 'Die Zwei-Faktor-Authentifizierung wurde zurückgesetzt. Der Benutzer richtet sie bei der nächsten Anmeldung neu ein.');
             redirect('user_edit', ['id' => $id]);
         } elseif ($target && !$isSelf && $action === 'delete') {
@@ -165,6 +169,17 @@ function page_user_edit(): void
                 flash('success', 'Die Superadmin-Rolle wurde an ' . $target['name'] . ' übertragen. Sie sind jetzt Verwaltungsadmin.');
                 redirect('users', ['admins' => 1]);
             }
+        } elseif ($target && $action === 'verify_email') {
+            update('users', $id, ['email_verified' => 1]);
+            q("DELETE FROM user_tokens WHERE user_id = ? AND purpose = 'verify'", [$id]);
+            audit('email_verified_by_admin', $target['email'], $companyId);
+            flash('success', 'Die E-Mail-Adresse wurde als bestätigt markiert. Der Benutzer kann sich jetzt anmelden.');
+            redirect('user_edit', ['id' => $id]);
+        } elseif ($target && $action === 'resend_verification') {
+            send_verification_mail($target);
+            audit('verification_resent', $target['email'], $companyId);
+            flash('success', 'Der Bestätigungslink wurde erneut an ' . $target['email'] . ' gesendet. Kommt nichts an, prüfen Sie unter „E-Mail-Versand“ das Postfach und senden Sie eine Testmail.');
+            redirect('user_edit', ['id' => $id]);
         } elseif ($target && $action === 'unlock') {
             update('users', $id, ['failed_attempts' => 0, 'locked_until' => null]);
             audit('user_unlocked', $target['email'], $companyId);
@@ -212,19 +227,37 @@ function page_user_edit(): void
                 <a class="btn" href="<?= e(url('users', $backParams)) ?>">Zurück zur Liste</a>
             </div>
         </form>
+        <?php if ($target && !(int)$target['email_verified']): ?>
+        <div class="card review">
+            <h2>E-Mail-Adresse noch nicht bestätigt</h2>
+            <p class="muted">Ohne Bestätigung ist keine Anmeldung möglich. Ist die Bestätigungsmail nicht angekommen, können Sie sie erneut senden oder die Adresse selbst bestätigen.</p>
+            <div class="buttons">
+                <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="resend_verification">
+                    <button class="btn">Bestätigungslink erneut senden</button></form>
+                <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="verify_email">
+                    <button class="btn primary" data-confirm="E-Mail-Adresse <?= e($target['email']) ?> als bestätigt markieren?">Als bestätigt markieren</button></form>
+            </div>
+        </div>
+        <?php endif; ?>
         <?php if ($target && !$isSelf): ?>
         <div class="card">
             <h2>Zugang zurücksetzen</h2>
             <div class="buttons">
                 <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="reset_password">
                     <button class="btn" data-confirm="Neues Startpasswort erzeugen? Das bisherige Passwort wird ungültig.">Neues Startpasswort</button></form>
+                <?php if (is_superadmin()): ?>
                 <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="reset_2fa">
-                    <button class="btn" data-confirm="Zwei-Faktor-Authentifizierung zurücksetzen?">2FA zurücksetzen</button></form>
+                    <button class="btn" data-confirm="Zwei-Faktor-Authentifizierung zurücksetzen? Bitte vorher die Identität prüfen (z. B. Rückruf).">2FA zurücksetzen</button></form>
+                <?php endif; ?>
                 <?php if ($target['locked_until'] && strtotime($target['locked_until']) > time()): ?>
                 <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="unlock">
                     <button class="btn">Sperre aufheben</button></form>
                 <?php endif; ?>
             </div>
+            <?php if ($target['totp_reset_requested_at']): ?>
+                <p class="alert info small">Zurücksetzen der 2FA beantragt am <?= fmt_dt($target['totp_reset_requested_at']) ?>. Bitte Identität prüfen (z. B. telefonischer Rückruf).</p>
+            <?php endif; ?>
+            <?php if (!is_superadmin()): ?><p class="muted small">Die Zwei-Faktor-Anmeldung kann nur der Superadmin zurücksetzen.</p><?php endif; ?>
         </div>
         <?php endif; ?>
         <?php if ($target && !$isSelf && is_superadmin() && $target['role'] === 'admin'): ?>

@@ -22,8 +22,11 @@ ensure_schema();
 start_session();
 
 require APP_DIR . '/pages/auth.php';
+require APP_DIR . '/pages/selfservice.php';
 require APP_DIR . '/pages/requests.php';
 require APP_DIR . '/pages/changes.php';
+require APP_DIR . '/employees.php';
+require APP_DIR . '/pages/employees.php';
 require APP_DIR . '/pages/companies.php';
 require APP_DIR . '/pages/users.php';
 require APP_DIR . '/pages/masterdata.php';
@@ -33,12 +36,21 @@ require APP_DIR . '/forms_lib.php';
 require APP_DIR . '/pages/forms.php';
 require APP_DIR . '/pages/form_editor.php';
 require APP_DIR . '/pages/customers.php';
+require APP_DIR . '/backup.php';
+require APP_DIR . '/pages/backups.php';
+require APP_DIR . '/pages/company_backups.php';
+require APP_DIR . '/updates.php';
+require APP_DIR . '/pages/updates.php';
 
 $routes = [
     'login'          => 'page_login',
     'login_2fa'      => 'page_login_2fa',
     'setup_2fa'      => 'page_setup_2fa',
     'logout'         => 'page_logout',
+    'register'        => 'page_register',
+    'verify_email'    => 'page_verify_email',
+    'forgot_password' => 'page_forgot_password',
+    'reset_password'  => 'page_reset_password',
     'account'        => 'page_account',
     'home'           => 'page_home',
     'apps'           => 'page_apps',
@@ -61,6 +73,13 @@ $routes = [
     'catalog'        => 'page_catalog',
     'templates'      => 'page_templates',
     'audit'          => 'page_audit',
+    'updates'        => 'page_updates',
+    'employees'      => 'page_employees',
+    'employee_edit'  => 'page_employee_edit',
+    'backups'        => 'page_backups',
+    'backup_download' => 'page_backup_download',
+    'company_backups' => 'page_company_backups',
+    'company_backup_download' => 'page_company_backup_download',
     // App „Formulare“
     'forms'           => 'page_forms',
     'form_folder'     => 'page_form_folder',

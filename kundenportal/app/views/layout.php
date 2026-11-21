@@ -3,8 +3,10 @@
 $appName = cfg('app_name', 'Kundenportal');
 $nav = [];
 $subnav = [];
-$onboardingRoutes = ['dashboard', 'request_new', 'change_new', 'request_edit', 'request', 'structure', 'catalog', 'templates'];
-if ($user) {
+$onboardingRoutes = ['employees', 'employee_edit', 'dashboard', 'request_new', 'change_new', 'request_edit', 'request', 'structure', 'catalog', 'templates'];
+if ($user && company_pending($user)) {
+    $nav[] = ['home', 'Start', $route === 'home'];
+} elseif ($user) {
     $nav[] = ['home', 'Start', $route === 'home'];
     $myApps = array_column(apps_for_user(), null, 'slug');
     if (isset($myApps['onboarding'])) {
@@ -12,6 +14,7 @@ if ($user) {
         if (in_array($route, $onboardingRoutes, true)) {
             $curType = (string)($_GET['type'] ?? '');
             $subnav[] = ['dashboard', 'Aufträge', [], $route === 'dashboard'];
+            $subnav[] = ['employees', 'Mitarbeiter', [], in_array($route, ['employees', 'employee_edit'], true)];
             $subnav[] = ['request_new', '+ Onboarding', [], $route === 'request_new'];
             $subnav[] = ['change_new', '+ Offboarding', ['type' => 'offboarding'], $route === 'change_new' && $curType === 'offboarding'];
             $subnav[] = ['change_new', '+ Stilllegung', ['type' => 'stilllegung'], $route === 'change_new' && $curType === 'stilllegung'];
@@ -37,12 +40,17 @@ if ($user) {
             }
         }
     }
+    if (isset($myApps['datensicherung']) && $user['role'] === 'firma_admin') {
+        $nav[] = ['company_backups', $myApps['datensicherung']['name'], $route === 'company_backups'];
+    }
     if (is_staff_role($user['role'])) {
         $nav[] = ['companies', 'Firmen', in_array($route, ['companies', 'company_edit'], true)];
         $nav[] = ['users', 'Benutzer', in_array($route, ['users', 'user_edit'], true)];
         $nav[] = ['apps', 'Apps & Freigaben', $route === 'apps'];
         $nav[] = ['mail_settings', 'E-Mail-Versand', $route === 'mail_settings'];
         $nav[] = ['audit', 'Protokoll', $route === 'audit'];
+        $nav[] = ['backups', 'Datensicherung', in_array($route, ['backups', 'company_backups'], true)];
+        $nav[] = ['updates', 'Updates', $route === 'updates'];
     } elseif ($user['role'] === 'firma_admin') {
         $nav[] = ['company_edit', 'Firmenprofil', $route === 'company_edit'];
         $nav[] = ['users', 'Benutzer', in_array($route, ['users', 'user_edit'], true)];

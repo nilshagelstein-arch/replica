@@ -301,6 +301,7 @@ function page_request_form(): void
             }
             request_log($id, 'system', $existing ? 'Auftrag geändert' : (is_admin() ? 'Vom IT-Service angelegt und in Bearbeitung genommen' : 'Auftrag eingereicht'));
             db()->commit();
+            employee_sync_request($id);
 
             $r = load_request($id);
             $subject = ($existing ? 'Onboarding-Auftrag geändert: ' : 'Neuer Onboarding-Auftrag: ') . request_title($r) . ' (' . $r['company_name'] . ')';
@@ -684,6 +685,7 @@ function page_request_action(): void
     } else {
         abort(400);
     }
+    employee_sync_request($id);
     redirect('request', ['id' => $id]);
 }
 
