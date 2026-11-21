@@ -287,6 +287,31 @@ function schema_statements(string $driver): array
         last_used_at $ts NULL
     )$tail";
 
+    // Mitarbeiterliste je Firma (App On- & Offboarding)
+    $tables[] = "CREATE TABLE IF NOT EXISTS employees (
+        id $pk,
+        company_id $fk NOT NULL,
+        employee_no VARCHAR(60) NOT NULL,
+        salutation VARCHAR(20) NOT NULL DEFAULT '',
+        first_name VARCHAR(120) NOT NULL,
+        last_name VARCHAR(120) NOT NULL,
+        department_id $fk NULL,
+        position_id $fk NULL,
+        department_name VARCHAR(190) NOT NULL DEFAULT '',
+        position_name VARCHAR(190) NOT NULL DEFAULT '',
+        email VARCHAR(190) NOT NULL DEFAULT '',
+        phone VARCHAR(60) NOT NULL DEFAULT '',
+        location VARCHAR(190) NOT NULL DEFAULT '',
+        manager_name VARCHAR(190) NOT NULL DEFAULT '',
+        entry_date VARCHAR(10) NOT NULL DEFAULT '',
+        exit_date VARCHAR(10) NOT NULL DEFAULT '',
+        status VARCHAR(20) NOT NULL DEFAULT 'aktiv',
+        notes TEXT,
+        last_request_id $fk NULL,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
     // Einmal-Links: E-Mail-Bestätigung (verify) und Passwort zurücksetzen (reset); gespeichert wird nur der Hash
     $tables[] = "CREATE TABLE IF NOT EXISTS user_tokens (
         id $pk,
@@ -299,6 +324,7 @@ function schema_statements(string $driver): array
     )$tail";
 
     $indexes = [
+        'idx_employees_co'    => 'employees (company_id, employee_no)',
         'idx_usertokens_hash' => 'user_tokens (token_hash)',
         'idx_usertokens_user' => 'user_tokens (user_id, purpose)',
         'idx_audit_ip'        => 'audit_log (action, ip, created_at)',
@@ -329,7 +355,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -430,6 +456,7 @@ function ensure_schema(): void
         db()->query('SELECT u.email_verified, u.totp_reset_requested_at FROM users u LIMIT 1');
         db()->query('SELECT registration_status, requested_apps, registered_at FROM companies LIMIT 1');
         db()->query('SELECT id FROM user_tokens LIMIT 1');
+        db()->query('SELECT id FROM employees LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

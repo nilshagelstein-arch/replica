@@ -83,21 +83,13 @@ function sync_request_items(int $id, array $selected, array $itemNotes, array $e
     }
 }
 
-/** Mitarbeitende mit abgeschlossenem Auftrag, die für Folgeaufträge gewählt werden können */
-function employees_for_followup(int $companyId): array
+/** Mitarbeitende aus der Liste, die für die Auftragsart in Frage kommen */
+function employees_for_change(int $companyId, string $type): array
 {
-    $list = rows("SELECT id, type, first_name, last_name, employee_no, completed_at FROM requests
-        WHERE company_id = ? AND status = 'freigegeben' ORDER BY id DESC", [$companyId]);
-    $seen = [];
-    $out = [];
-    foreach ($list as $r) {
-        if (isset($seen[$r['employee_no']])) continue;
-        $seen[$r['employee_no']] = true;
-        if ($r['type'] === 'offboarding') continue; // bereits ausgeschieden
-        $out[] = $r;
-    }
-    usort($out, fn($a, $b) => strcmp($a['last_name'] . $a['first_name'], $b['last_name'] . $b['first_name']));
-    return $out;
+    employees_ensure_backfill();
+    $status = $type === 'reaktivierung' ? ['stillgelegt'] : ($type === 'stilllegung' ? ['aktiv'] : ['aktiv', 'stillgelegt']);
+    $in = "'" . implode("','", $status) . "'";
+    return rows("SELECT * FROM employees WHERE company_id = ? AND status IN ($in) ORDER BY last_name, first_name", [$companyId]);
 }
 
 function page_change_form(): void
@@ -114,13 +106,19 @@ function page_change_form(): void
     }
 
     $source = null;
-    if (!$existing && query_int('from')) {
+    $employee = null;
+    if (!$existing && query_int('employee')) {
+        employees_ensure_backfill();
+        $employee = load_employee(query_int('employee'));
+        $source = employee_latest_request($employee);
+    } elseif (!$existing && query_int('from')) {
         $source = load_request(query_int('from'));
     } elseif ($existing && $existing['source_request_id']) {
         $source = row('SELECT * FROM requests WHERE id = ?', [$existing['source_request_id']]);
     }
 
     if ($existing) $cid = (int)$existing['company_id'];
+    elseif ($employee) $cid = (int)$employee['company_id'];
     elseif ($source) $cid = (int)$source['company_id'];
     elseif (is_staff_role($u['role'])) $cid = query_int('company') ?: (int)post('company_id', 0);
     else $cid = (int)$u['company_id'];
@@ -169,6 +167,16 @@ function page_change_form(): void
             $data[$f] = is_int($fields[$f]) ? (int)$prefill[$f] : (string)($prefill[$f] ?? '');
         }
         if (!$existing && $type === 'reaktivierung' && $source && $source['type'] === 'stilllegung') $data['entry_date'] = (string)$source['return_date'];
+    }
+    // Stammdaten aus der Mitarbeiterliste haben Vorrang (können außerhalb des Portals gepflegt sein)
+    if ($employee) {
+        foreach (['salutation', 'first_name', 'last_name', 'employee_no', 'location', 'manager_name'] as $f) {
+            if ((string)$employee[$f] !== '') $data[$f] = (string)$employee[$f];
+        }
+        foreach (['department_id', 'position_id'] as $f) if ((int)$employee[$f]) $data[$f] = (int)$employee[$f];
+        if ($type === 'offboarding' && $employee['exit_date'] !== '') $data['entry_date'] = $employee['exit_date'];
+    }
+    if ($prefill) {
         foreach (rows('SELECT * FROM request_items WHERE request_id = ?', [$prefill['id']]) as $it) {
             if ($it['catalog_item_id'] && isset($catalogIds[(int)$it['catalog_item_id']])) {
                 $selected[] = (int)$it['catalog_item_id'];
@@ -242,6 +250,7 @@ function page_change_form(): void
             sync_request_items($id, $selected, $itemNotes, $extras, $catalogIds, change_tasks($type, $data));
             request_log($id, 'system', $existing ? 'Auftrag geändert' : (is_admin() ? $typeLabel . ' vom IT-Service angelegt und in Bearbeitung genommen' : $typeLabel . ' eingereicht'));
             db()->commit();
+            employee_sync_request($id);
 
             $r = load_request($id);
             $subject = ($existing ? 'Geändert: ' : 'Neu: ') . request_subject($r) . ' (' . $r['company_name'] . ')';
@@ -263,7 +272,7 @@ function page_change_form(): void
     $posDept = [];
     foreach ($poss as $p) $posDept[(int)$p['id']] = (int)$p['department_id'];
     $jsData = ['dep' => $tpl['dep'], 'pos' => $tpl['pos'], 'posDept' => $posDept, 'isNew' => !$existing, 'domain' => ''];
-    $people = (!$existing && !$source) ? employees_for_followup($cid) : [];
+    $people = (!$existing && !$source && !$employee) ? employees_for_change($cid, $type) : [];
 
     $hints = [
         'offboarding'   => 'Markieren Sie alles, was zurückgegeben bzw. entzogen werden muss. Aus einem früheren Auftrag übernommene Einträge sind bereits ausgewählt.',
@@ -271,25 +280,27 @@ function page_change_form(): void
         'reaktivierung' => 'Markieren Sie, was zur Rückkehr wieder bereitgestellt werden soll. Aus der Stilllegung übernommene Einträge sind bereits ausgewählt.',
     ];
     $title = $existing ? 'Bearbeiten: ' . request_subject($existing) : 'Neue ' . $typeLabel;
-    render_page($title, function () use ($type, $typeLabel, $company, $cid, $data, $errors, $deps, $poss, $catalog, $selected, $itemNotes, $extras, $jsData, $existing, $source, $people, $hints) {
+    render_page($title, function () use ($type, $typeLabel, $company, $cid, $data, $errors, $deps, $poss, $catalog, $selected, $itemNotes, $extras, $jsData, $existing, $source, $people, $hints, $employee) {
         foreach ($errors as $err) echo '<div class="alert error">' . e($err) . '</div>'; ?>
         <p class="muted">Firma: <strong><?= e($company['name']) ?></strong> · <?= e(REQUEST_TYPE_HINTS[$type]) ?></p>
-        <?php if ($source && !$existing): ?>
+        <?php if ($employee && !$existing): ?>
+            <div class="alert info">Daten aus der <a href="<?= e(url('employee_edit', ['id' => $employee['id']] + (is_admin() ? ['company' => $cid] : []))) ?>">Mitarbeiterliste</a> übernommen<?= $source ? ', Ausstattung aus <a href="' . e(url('request', ['id' => $source['id']])) . '">' . e(REQUEST_TYPES[$source['type']]) . ' #' . (int)$source['id'] . '</a>' : ' (kein früherer Auftrag im Portal – bitte Ausstattung unten auswählen)' ?>. Bitte prüfen und ergänzen.</div>
+        <?php elseif ($source && !$existing): ?>
             <div class="alert info">Daten und Ausstattung wurden aus <a href="<?= e(url('request', ['id' => $source['id']])) ?>"><?= e(REQUEST_TYPES[$source['type']]) ?> #<?= (int)$source['id'] ?></a> übernommen. Bitte prüfen und ergänzen.</div>
         <?php elseif ($people): ?>
             <form method="get" class="card form inline-form">
                 <input type="hidden" name="r" value="change_new"><input type="hidden" name="type" value="<?= e($type) ?>">
                 <?php if (is_admin()): ?><input type="hidden" name="company" value="<?= (int)$cid ?>"><?php endif; ?>
-                <label class="grow">Mitarbeiter/in aus bisherigen Aufträgen übernehmen
-                    <select name="from" required><option value="">– bitte wählen –</option>
-                    <?php foreach ($people as $p): ?><option value="<?= (int)$p['id'] ?>"><?= e($p['last_name'] . ', ' . $p['first_name'] . ' (Pers.-Nr. ' . $p['employee_no'] . ', ' . REQUEST_TYPES[$p['type']] . ' #' . $p['id'] . ')') ?></option><?php endforeach; ?>
+                <label class="grow">Mitarbeiter/in aus der Mitarbeiterliste wählen
+                    <select name="employee" required><option value="">– bitte wählen –</option>
+                    <?php foreach ($people as $p): ?><option value="<?= (int)$p['id'] ?>"><?= e($p['last_name'] . ', ' . $p['first_name'] . ' (Pers.-Nr. ' . $p['employee_no'] . ', ' . (EMPLOYEE_STATUSES[$p['status']] ?? $p['status']) . ')') ?></option><?php endforeach; ?>
                     </select></label>
                 <button class="btn">Übernehmen</button>
             </form>
-            <p class="muted small">Oder füllen Sie die Angaben unten manuell aus, z. B. für Mitarbeitende, die nicht über das Portal eingerichtet wurden.</p>
+            <p class="muted small">Oder füllen Sie die Angaben unten manuell aus. Tipp: Unter <a href="<?= e(url('employees', is_admin() ? ['company' => $cid] : [])) ?>">Mitarbeiter</a> können Sie auch Personen ergänzen, die nicht über das Portal eingerichtet wurden.</p>
         <?php endif; ?>
         <form method="post" class="form request-form" id="request-form"
-              action="<?= e($existing ? url('request_edit', ['id' => $existing['id']]) : url('change_new', ['type' => $type] + ($source ? ['from' => $source['id']] : []) + (is_admin() ? ['company' => $cid] : []))) ?>">
+              action="<?= e($existing ? url('request_edit', ['id' => $existing['id']]) : url('change_new', ['type' => $type] + ($employee ? ['employee' => $employee['id']] : ($source ? ['from' => $source['id']] : [])) + (is_admin() ? ['company' => $cid] : []))) ?>">
             <?= csrf_field() ?><input type="hidden" name="company_id" value="<?= (int)$cid ?>">
             <script type="application/json" id="template-data"><?= json_encode($jsData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
             <div class="card">

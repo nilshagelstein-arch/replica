@@ -605,6 +605,7 @@ function cbackup_data(int $cid): array
         'catalog_items'  => rows('SELECT * FROM catalog_items WHERE company_id = ?', [$cid]),
         'template_items' => rows('SELECT * FROM template_items WHERE company_id = ?', [$cid]),
         'requests'       => rows('SELECT * FROM requests WHERE company_id = ?', [$cid]),
+        'employees'      => rows('SELECT * FROM employees WHERE company_id = ?', [$cid]),
         'request_items'  => rows("SELECT * FROM request_items WHERE request_id IN ($in)"),
         'request_log'    => rows("SELECT * FROM request_log WHERE request_id IN ($in)"),
         'form_folders'   => rows('SELECT * FROM form_folders WHERE company_id = ?', [$cid]),

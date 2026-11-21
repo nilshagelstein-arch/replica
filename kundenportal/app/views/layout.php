@@ -3,7 +3,7 @@
 $appName = cfg('app_name', 'Kundenportal');
 $nav = [];
 $subnav = [];
-$onboardingRoutes = ['dashboard', 'request_new', 'change_new', 'request_edit', 'request', 'structure', 'catalog', 'templates'];
+$onboardingRoutes = ['employees', 'employee_edit', 'dashboard', 'request_new', 'change_new', 'request_edit', 'request', 'structure', 'catalog', 'templates'];
 if ($user && company_pending($user)) {
     $nav[] = ['home', 'Start', $route === 'home'];
 } elseif ($user) {
@@ -14,6 +14,7 @@ if ($user && company_pending($user)) {
         if (in_array($route, $onboardingRoutes, true)) {
             $curType = (string)($_GET['type'] ?? '');
             $subnav[] = ['dashboard', 'Aufträge', [], $route === 'dashboard'];
+            $subnav[] = ['employees', 'Mitarbeiter', [], in_array($route, ['employees', 'employee_edit'], true)];
             $subnav[] = ['request_new', '+ Onboarding', [], $route === 'request_new'];
             $subnav[] = ['change_new', '+ Offboarding', ['type' => 'offboarding'], $route === 'change_new' && $curType === 'offboarding'];
             $subnav[] = ['change_new', '+ Stilllegung', ['type' => 'stilllegung'], $route === 'change_new' && $curType === 'stilllegung'];

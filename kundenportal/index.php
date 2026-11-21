@@ -25,6 +25,8 @@ require APP_DIR . '/pages/auth.php';
 require APP_DIR . '/pages/selfservice.php';
 require APP_DIR . '/pages/requests.php';
 require APP_DIR . '/pages/changes.php';
+require APP_DIR . '/employees.php';
+require APP_DIR . '/pages/employees.php';
 require APP_DIR . '/pages/companies.php';
 require APP_DIR . '/pages/users.php';
 require APP_DIR . '/pages/masterdata.php';
@@ -72,6 +74,8 @@ $routes = [
     'templates'      => 'page_templates',
     'audit'          => 'page_audit',
     'updates'        => 'page_updates',
+    'employees'      => 'page_employees',
+    'employee_edit'  => 'page_employee_edit',
     'backups'        => 'page_backups',
     'backup_download' => 'page_backup_download',
     'company_backups' => 'page_company_backups',
