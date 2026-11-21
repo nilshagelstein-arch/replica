@@ -599,3 +599,10 @@ fieldset[disabled] { opacity: .85; }
   .link-search input { width: 100%; }
   .links-tools { width: 100%; }
 }
+
+/* Großes App-Symbol links oben auf den Seiten einer App */
+.page-head { display: flex; align-items: center; gap: 1rem; margin: 0 0 1.25rem; }
+.page-head h1 { margin: 0; }
+.app-icon.app-icon-lg { width: 64px; height: 64px; border-radius: 16px; font-size: 2.1rem; flex: 0 0 64px; box-shadow: 0 4px 12px rgba(22, 38, 58, .15); }
+.page-app { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: .1rem; }
+@media print { .page-head .app-icon-lg { display: none; } }

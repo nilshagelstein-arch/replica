@@ -60,6 +60,22 @@ if ($user && company_pending($user)) {
         $nav[] = ['mail_settings', 'E-Mail-Versand', $route === 'mail_settings'];
     }
 }
+// App, zu der die aktuelle Seite gehört (für das große Symbol links oben)
+$pageApp = null;
+if ($user && !company_pending($user)) {
+    $routeApps = [
+        'onboarding'     => array_merge($onboardingRoutes, ['request_print']),
+        'formulare'      => ['forms', 'form_edit', 'form_layouts', 'form_settings', 'form_use', 'customers', 'customer_edit', 'customer_fields', 'customer_import'],
+        'datensicherung' => ['company_backups'],
+        'links'          => ['links', 'link_edit'],
+    ];
+    foreach ($routeApps as $slug => $routes) {
+        if (in_array($route, $routes, true)) {
+            $pageApp = row('SELECT id, name, icon FROM apps WHERE slug = ?', [$slug]);
+            break;
+        }
+    }
+}
 $companyName = '';
 if ($user && $user['company_id']) {
     $companyName = (string)(row('SELECT name FROM companies WHERE id = ?', [$user['company_id']])['name'] ?? '');
@@ -105,7 +121,17 @@ if ($user && $user['company_id']) {
 </nav>
 <?php endif; ?>
 <main>
+    <?php if ($pageApp): ?>
+    <div class="page-head app-<?= (int)$pageApp['id'] ?>">
+        <span class="app-icon app-icon-lg" title="<?= e($pageApp['name']) ?>" aria-hidden="true"><?= e($pageApp['icon'] ?: mb_substr($pageApp['name'], 0, 1)) ?></span>
+        <div>
+            <?php if ($pageApp['name'] !== $title): ?><div class="page-app"><?= e($pageApp['name']) ?></div><?php endif; ?>
+            <h1><?= e($title) ?></h1>
+        </div>
+    </div>
+    <?php else: ?>
     <h1><?= e($title) ?></h1>
+    <?php endif; ?>
     <?php foreach ($flashes as [$type, $msg]): ?>
         <div class="alert <?= e($type) ?>"><?= e($msg) ?></div>
     <?php endforeach; ?>
