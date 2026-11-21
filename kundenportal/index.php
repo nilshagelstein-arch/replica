@@ -37,6 +37,8 @@ require APP_DIR . '/pages/customers.php';
 require APP_DIR . '/backup.php';
 require APP_DIR . '/pages/backups.php';
 require APP_DIR . '/pages/company_backups.php';
+require APP_DIR . '/updates.php';
+require APP_DIR . '/pages/updates.php';
 
 $routes = [
     'login'          => 'page_login',
@@ -69,6 +71,7 @@ $routes = [
     'catalog'        => 'page_catalog',
     'templates'      => 'page_templates',
     'audit'          => 'page_audit',
+    'updates'        => 'page_updates',
     'backups'        => 'page_backups',
     'backup_download' => 'page_backup_download',
     'company_backups' => 'page_company_backups',

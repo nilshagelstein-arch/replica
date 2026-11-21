@@ -117,7 +117,7 @@ Unter **Datensicherung** (Superadmin und Verwaltungsadmins):
 
 ## Updates
 
-Am einfachsten mit der **update.php**: in den Portal-Ordner hochladen und im Browser aufrufen. Sie ersetzt die Programmdateien, behält `config.php` und `app/data/` und löscht sich danach selbst. Alternativ die neuen Dateien von Hand über die alten hochladen und dabei `config.php` und `app/data/` behalten. Beim nächsten Aufruf bringt das Portal die Datenbank automatisch auf den neuen Stand. Wer schon eine Version ohne App-Freigaben im Einsatz hatte, bekommt das Onboarding für alle bestehenden Firmen automatisch freigeschaltet.
+Am einfachsten mit der **update.php**: in den Portal-Ordner hochladen und im Browser aufrufen. Sie ersetzt die Programmdateien, behält `config.php` und `app/data/` und legt sich danach unter **Administration → Updates** ab. Alternativ die neuen Dateien von Hand über die alten hochladen und dabei `config.php` und `app/data/` behalten. Beim nächsten Aufruf bringt das Portal die Datenbank automatisch auf den neuen Stand. Wer schon eine Version ohne App-Freigaben im Einsatz hatte, bekommt das Onboarding für alle bestehenden Firmen automatisch freigeschaltet.
 
 ## Eine weitere interne App ergänzen
 
@@ -126,10 +126,14 @@ Am einfachsten mit der **update.php**: in den Portal-Ordner hochladen und im Bro
 3. Die App in `BUILTIN_APPS` (in `app/schema.php`) ergänzen und `SCHEMA_VERSION` erhöhen; sie wird dann beim nächsten Aufruf registriert
 4. Optional die Unternavigation der App in `app/views/layout.php` ergänzen
 
+### Seite „Updates“ (Administration)
+
+Archiv aller Update-Pakete mit Datum, Autor und Zusammenfassung. Pakete liegen in `app/data/updates/` (gesperrt per `.htaccess`). Superadmin und Verwaltungsadmins sehen die Liste und laden Pakete herunter; nur der Superadmin legt Pakete ab, bearbeitet die Angaben, löscht sie oder spielt sie direkt im Portal ein (Bestätigung mit Passwort). Ältere Pakete ohne eingebettete Angaben lassen sich hochladen und von Hand beschreiben.
+
 ## Update-Paket bauen
 
 ```bash
-php tools/build-update.php   # erzeugt build/update.php aus dem Ordner kundenportal/
+php tools/build-update.php --author="Name" --summary="Was ist neu"   # erzeugt build/update.php aus dem Ordner kundenportal/
 ```
 
 ## Lokal testen

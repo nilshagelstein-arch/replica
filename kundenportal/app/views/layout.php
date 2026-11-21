@@ -49,6 +49,7 @@ if ($user && company_pending($user)) {
         $nav[] = ['mail_settings', 'E-Mail-Versand', $route === 'mail_settings'];
         $nav[] = ['audit', 'Protokoll', $route === 'audit'];
         $nav[] = ['backups', 'Datensicherung', in_array($route, ['backups', 'company_backups'], true)];
+        $nav[] = ['updates', 'Updates', $route === 'updates'];
     } elseif ($user['role'] === 'firma_admin') {
         $nav[] = ['company_edit', 'Firmenprofil', $route === 'company_edit'];
         $nav[] = ['users', 'Benutzer', in_array($route, ['users', 'user_edit'], true)];

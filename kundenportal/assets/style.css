@@ -504,3 +504,10 @@ textarea.code { width: 100%; font-family: ui-monospace, Consolas, monospace; fon
 .zipcity { grid-template-columns: 7rem 1fr; gap: 1rem; margin-bottom: 0 !important; }
 .card.review { border-color: #f0c27b; background: #fffaf0; }
 details summary { cursor: pointer; }
+
+/* Updates */
+.nowrap { white-space: nowrap; }
+.table.updates td .prewrap { max-width: 60ch; }
+details.update-tools { display: inline-block; vertical-align: top; }
+details.update-tools[open] { display: block; margin-top: .5rem; min-width: 260px; }
+details.update-tools .form { margin: .5rem 0; padding: .6rem; border: 1px solid var(--line); border-radius: var(--radius); }
