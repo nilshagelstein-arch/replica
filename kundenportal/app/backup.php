@@ -614,6 +614,9 @@ function cbackup_data(int $cid): array
         'form_branding'  => rows('SELECT * FROM form_branding WHERE company_id = ?', [$cid]),
         'customer_fields'=> rows('SELECT * FROM customer_fields WHERE company_id = ?', [$cid]),
         'customers'      => rows('SELECT * FROM customers WHERE company_id = ?', [$cid]),
+        'link_tabs'      => rows('SELECT * FROM link_tabs WHERE company_id = ?', [$cid]),
+        'link_sections'  => rows('SELECT * FROM link_sections WHERE company_id = ?', [$cid]),
+        'links'          => rows('SELECT * FROM links WHERE company_id = ?', [$cid]),
     ];
 }
 

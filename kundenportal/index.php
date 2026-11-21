@@ -41,6 +41,7 @@ require APP_DIR . '/pages/backups.php';
 require APP_DIR . '/pages/company_backups.php';
 require APP_DIR . '/updates.php';
 require APP_DIR . '/pages/updates.php';
+require APP_DIR . '/pages/links.php';
 
 $routes = [
     'login'          => 'page_login',
@@ -94,6 +95,11 @@ $routes = [
     'customer_fields' => 'page_customer_fields',
     'customer_import' => 'page_customer_import',
     'customer_export' => 'page_customer_export',
+    // App „Linksammlung“
+    'links'           => 'page_links',
+    'link_edit'       => 'page_link_edit',
+    'link_action'     => 'page_link_action',
+    'link_image'      => 'page_link_image',
 ];
 
 $r = (string)($_GET['r'] ?? '');

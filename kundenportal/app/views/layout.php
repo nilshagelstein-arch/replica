@@ -40,6 +40,9 @@ if ($user && company_pending($user)) {
             }
         }
     }
+    if (isset($myApps['links'])) {
+        $nav[] = ['links', $myApps['links']['name'], in_array($route, ['links', 'link_edit'], true)];
+    }
     if (isset($myApps['datensicherung']) && $user['role'] === 'firma_admin') {
         $nav[] = ['company_backups', $myApps['datensicherung']['name'], $route === 'company_backups'];
     }

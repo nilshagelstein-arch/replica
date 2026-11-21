@@ -2,7 +2,7 @@
 
 Mandantenfähiges Webportal für Kundenfirmen eines IT-Dienstleisters. Nach der Anmeldung mit Passwort und Zwei-Faktor-Authentifizierung (Authenticator-App) sieht jede Firma eine Startseite mit den **Apps, die für sie freigeschaltet sind**.
 
-Eingebaute Apps sind **On- & Offboarding** und **Formulare**. Über On- & Offboarding beauftragen die Firmen:
+Eingebaute Apps sind **On- & Offboarding**, **Formulare**, **Datensicherung** und **Linksammlung**. Über On- & Offboarding beauftragen die Firmen:
 
 - **Onboarding:** neue Mitarbeitende einrichten
 - **Offboarding:** Austritte abwickeln (Konto sperren, Geräte zurücknehmen, Lizenzen entziehen, Postfach und Daten regeln)
@@ -51,6 +51,16 @@ Eingebaute Apps sind **On- & Offboarding** und **Formulare**. Über On- & Offboa
 - **Logo, Briefkopf und Fußzeile:** Logo hochladen, Bank- und Pflichtangaben pflegen, mehrere Briefköpfe und Fußzeilen anlegen und je Formular auswählen. Vorlagen: Briefkopf klassisch nach DIN 5008 (Logo rechts, Anschriftfeld), modern, zentriert, schlicht; Fußzeile dreispaltig, einzeilig oder mit Pflichtangaben.
 - **Ausfüllen direkt im Dokument:** Das Formular erscheint als A4-Seite, Felder und Eingabezellen werden an Ort und Stelle ausgefüllt, Rechentabellen rechnen sofort, Zeilen lassen sich ergänzen. Kunden auswählen (mehrere = Serienbrief, je Kunde eine Seite, Eingaben gelten für alle), Datum wählen, drucken oder als PDF speichern. Leere Felder erscheinen im Ausdruck als Linie zum Ausfüllen von Hand.
 - **Rechte:** Alle Benutzer einer Firma mit Freigabe nutzen Formulare und Kundendatenbank. Logo, Briefkopf/Fußzeile, eigene Felder, CSV-Import/-Export und API-Schlüssel verwalten Firmen-Administratoren und Dienstleister.
+
+### App „Linksammlung“
+- **Intranet-Startseite im Stil von SharePoint** je Firma: **Reiter** oben (z. B. Start, Personal, IT), darauf **Überschriften/Kategorien** und darunter die **Links als Kacheln mit Bild, Titel und Beschreibung**
+- **Darstellung je Überschrift:** Kacheln mit Bild (16:9), kompakte Kacheln (Bild/Symbol links) oder Liste
+- **Links:** Webadressen (`www.…` wird automatisch zu `https://…`), E-Mail-Adressen und Telefonnummern (`tel:`); wahlweise in neuem Fenster. Ohne Bild zeigt die Kachel ein Symbol (Emoji oder Buchstaben) in einer von acht Farben.
+- **Bilder** (PNG, JPG, GIF, WebP bis 3 MB) werden in der Datenbank gespeichert, auf 900 px Breite verkleinert (wenn GD vorhanden) und nur an angemeldete Benutzer der Firma ausgeliefert
+- **Bearbeiten-Modus** („Seite bearbeiten“): Reiter anlegen, umbenennen, verschieben, löschen; Überschriften anlegen, bearbeiten, auf andere Reiter verschieben; Reihenfolge mit ◀ ▶ / ▲ ▼
+- **Suche** über alle Reiter (Titel, Beschreibung, Adresse, Überschrift)
+- **Rechte:** Alle Benutzer einer Firma mit Freigabe sehen die Seite. Bearbeiten dürfen Firmen-Administratoren und der Dienstleister (wählt die Firma oben aus).
+- Die Daten sind Teil der Firmen-Datensicherung.
 
 ### API der Kundendatenbank
 

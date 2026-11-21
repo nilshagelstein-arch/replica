@@ -164,6 +164,44 @@ function schema_statements(string $driver): array
         granted_at $ts NOT NULL
     )$tail";
 
+    // App „Linksammlung“: Reiter, Überschriften (Bereiche) und Links je Firma
+    $tables[] = "CREATE TABLE IF NOT EXISTS link_tabs (
+        id $pk,
+        company_id $fk NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        sort INT NOT NULL DEFAULT 0,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS link_sections (
+        id $pk,
+        company_id $fk NOT NULL,
+        tab_id $fk NOT NULL,
+        name VARCHAR(190) NOT NULL,
+        description VARCHAR(500) NOT NULL DEFAULT '',
+        layout VARCHAR(10) NOT NULL DEFAULT 'tiles',
+        sort INT NOT NULL DEFAULT 0,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS links (
+        id $pk,
+        company_id $fk NOT NULL,
+        section_id $fk NOT NULL,
+        title VARCHAR(190) NOT NULL,
+        url VARCHAR(1000) NOT NULL,
+        description VARCHAR(1000) NOT NULL DEFAULT '',
+        icon VARCHAR(16) NOT NULL DEFAULT '',
+        color INT NOT NULL DEFAULT 1,
+        image_mime VARCHAR(40) NOT NULL DEFAULT '',
+        image_data $long,
+        new_window INT NOT NULL DEFAULT 1,
+        sort INT NOT NULL DEFAULT 0,
+        created_by $fk NULL,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
     // E-Mail-Versand: zentrales Konto (company_id NULL) oder Konto je Firma
     $tables[] = "CREATE TABLE IF NOT EXISTS mail_accounts (
         id $pk,
@@ -346,6 +384,9 @@ function schema_statements(string $driver): array
         'idx_reqitems_req'    => 'request_items (request_id)',
         'idx_reqlog_req'      => 'request_log (request_id)',
         'idx_audit_created'   => 'audit_log (created_at)',
+        'idx_linktabs_co'     => 'link_tabs (company_id, sort)',
+        'idx_linksec_tab'     => 'link_sections (company_id, tab_id, sort)',
+        'idx_links_sec'       => 'links (company_id, section_id, sort)',
     ];
     foreach ($indexes as $name => $def) {
         $tables[] = $mysql
@@ -355,7 +396,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 11;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -365,6 +406,8 @@ const BUILTIN_APPS = [
         'target' => 'forms', 'icon' => '📝', 'color' => '#0f7b6c', 'sort' => 20],
     'datensicherung' => ['name' => 'Datensicherung', 'description' => 'Tägliche Sicherung aller Daten Ihrer Firma – auf Wunsch automatisch in Ihr eigenes Google Drive.',
         'target' => 'company_backups', 'icon' => '💾', 'color' => '#6b4fbb', 'sort' => 30],
+    'links' => ['name' => 'Linksammlung', 'description' => 'Alle wichtigen Links der Firma an einem Ort – mit Bild, Beschreibung, Überschriften und Reitern, wie eine Intranet-Startseite.',
+        'target' => 'links', 'icon' => '🔗', 'color' => '#c2410c', 'sort' => 40],
 ];
 
 /**
@@ -457,6 +500,7 @@ function ensure_schema(): void
         db()->query('SELECT registration_status, requested_apps, registered_at FROM companies LIMIT 1');
         db()->query('SELECT id FROM user_tokens LIMIT 1');
         db()->query('SELECT id FROM employees LIMIT 1');
+        db()->query('SELECT id FROM links LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }
