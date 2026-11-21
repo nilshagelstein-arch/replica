@@ -938,28 +938,56 @@
     reg.classList.toggle('hf-empty', !l);
     var tag = root.querySelector('[data-hf-name="' + kind + '"]');
     if (tag) tag.textContent = l ? ' „' + l.name + '“' : ' (keiner)';
+    var rs = root.querySelector('[data-layout-select="' + kind + '"]'); if (rs) rs.value = String(id);
     caretFix();
     markDirty();
     status();
   }
   function startHf(kind) {
     var reg = regions[kind];
-    if (!reg || !cfg.canManage) return;
-    if (+form.elements[kind + '_id'].value < 0) { alert('Wählen Sie zuerst unter „Layout“ ' + (kind === 'header' ? 'einen Briefkopf' : 'eine Fußzeile') + ' aus.'); return; }
+    if (!reg || !form) return;
     stopHf();
-    reg.setAttribute('contenteditable', 'true');
-    reg.classList.remove('locked');
+    var id = +form.elements[kind + '_id'].value;
+    var l = layoutBody(kind, id);
+    var label = kind === 'header' ? 'Briefkopf' : 'Fußzeile';
+    var editable = cfg.canManage && id >= 0 && !!l;
     page.classList.add('hf-editing');
     reg.classList.add('hf-active');
-    active = reg;
-    var l = layoutBody(kind, +form.elements[kind + '_id'].value);
+    if (editable) {
+      reg.setAttribute('contenteditable', 'true');
+      reg.classList.remove('locked');
+      active = reg;
+    }
+    // Vorlagen-Auswahl: dieselben Optionen wie im Menüband unter „Layout“
+    var src = root.querySelector('[data-layout-select="' + kind + '"]');
+    var pick = '';
+    if (src) {
+      pick = '<label class="hf-pick">Vorlage <select data-hf-pick aria-label="' + label + '-Vorlage">';
+      Array.prototype.forEach.call(src.options, function (o) {
+        pick += '<option value="' + esc(o.value) + '"' + (+o.value === id ? ' selected' : '') + '>' + esc(o.textContent) + '</option>';
+      });
+      pick += '</select></label>';
+    }
     hfBar = document.createElement('div');
     hfBar.className = 'hf-bar';
-    hfBar.innerHTML = '<strong>' + (kind === 'header' ? 'Briefkopf' : 'Fußzeile') + (l ? ' „' + esc(l.name) + '“' : '') + ' bearbeiten.</strong> Änderungen gelten für alle Formulare mit dieser Vorlage. '
-      + '<button type="button" class="btn small" data-hf-new>Als neue Vorlage speichern …</button> <button type="button" class="btn small primary" data-hf-done>Fertig</button>';
+    hfBar.innerHTML = '<strong>' + label + '</strong> ' + pick
+      + (editable ? '<span class="hf-note">Änderungen am Inhalt gelten für alle Formulare mit dieser Vorlage.</span> '
+        + '<button type="button" class="btn small" data-hf-new>Als neue Vorlage speichern …</button> ' : '')
+      + '<button type="button" class="btn small primary" data-hf-done>Fertig</button>';
     root.querySelector('[data-canvas]').insertBefore(hfBar, ruler);
     hfBar.querySelector('[data-hf-done]').addEventListener('click', stopHf);
-    hfBar.querySelector('[data-hf-new]').addEventListener('click', function () {
+    var sel = hfBar.querySelector('[data-hf-pick]');
+    if (sel) sel.addEventListener('change', function () {
+      var dirtyEl = form.elements[kind + '_dirty'];
+      if (dirtyEl && dirtyEl.value === '1' && !window.confirm('Ihre Änderungen an diesem ' + label + ' gehen beim Wechsel der Vorlage verloren. Trotzdem wechseln?')) {
+        sel.value = String(id);
+        return;
+      }
+      setLayout(kind, +sel.value);
+      startHf(kind);
+    });
+    var nb = hfBar.querySelector('[data-hf-new]');
+    if (nb) nb.addEventListener('click', function () {
       var n = window.prompt('Name der neuen Vorlage', (l ? l.name : '') + ' (Kopie)');
       if (!n) return;
       form.elements[kind + '_new_name'].value = n.slice(0, 190);
@@ -967,8 +995,10 @@
       var tag = root.querySelector('[data-hf-name="' + kind + '"]'); if (tag) tag.textContent = ' „' + n + '“ (neu)';
       markDirty();
     });
-    reg.focus();
-    placeCaret(reg.querySelector('p,td,h1,h2,h3') || reg, true);
+    if (editable) {
+      reg.focus();
+      placeCaret(reg.querySelector('p,td,h1,h2,h3') || reg, true);
+    } else if (sel) sel.focus();
   }
   function stopHf() {
     ['header', 'footer'].forEach(function (k) {
@@ -988,6 +1018,9 @@
     reg.addEventListener('dblclick', function () { if (reg.classList.contains('locked')) startHf(k); });
     var l = layoutBody(k, cfg[k]);
     var tag = root.querySelector('[data-hf-name="' + k + '"]');
+    // Auch die Beschriftung darüber reagiert – wichtig bei „Ohne Briefkopf“, wo der Bereich leer ist
+    var tagBox = root.querySelector('.hf-tag-' + k);
+    if (tagBox) tagBox.addEventListener('dblclick', function () { startHf(k); });
     if (tag) tag.textContent = l ? ' „' + l.name + '“' : ' (keiner)';
     reg.classList.toggle('hf-empty', !l);
   });

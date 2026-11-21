@@ -36,7 +36,7 @@ Eingebaute Apps sind **On- & Offboarding** und **Formulare**. Über On- & Offboa
 - **E-Mail-Benachrichtigungen** bei neuen Aufträgen, Antworten und Statuswechseln
 
 ### App „Formulare“
-- **Editor wie Word:** Vollbild mit Menüband (Start, Einfügen, Felder, Layout, Tabelle), Schriftart und -größe in pt, Fett/Kursiv/Unterstrichen, Hoch-/Tiefstellung, Schrift- und Markierfarbe, Ausrichtung, Einzüge, Zeilen- und Absatzabstand, Formatvorlagen, Listen, Bilder, Links, Symbole, Seitenumbruch und Unterschriftsfeld. A4-Seite mit Lineal, Seitenrändern, Grundschrift, Zoom, Seiten- und Wortzähler, Speichern mit Strg+S. Briefkopf und Fußzeile werden per Doppelklick direkt auf der Seite bearbeitet oder als neue Vorlage gespeichert.
+- **Editor wie Word:** Vollbild mit Menüband (Start, Einfügen, Felder, Layout, Tabelle), Schriftart und -größe in pt, Fett/Kursiv/Unterstrichen, Hoch-/Tiefstellung, Schrift- und Markierfarbe, Ausrichtung, Einzüge, Zeilen- und Absatzabstand, Formatvorlagen, Listen, Bilder, Links, Symbole, Seitenumbruch und Unterschriftsfeld. A4-Seite mit Lineal, Seitenrändern, Grundschrift, Zoom, Seiten- und Wortzähler, Speichern mit Strg+S. Per Doppelklick auf Briefkopf oder Fußzeile lässt sich direkt auf der Seite die Vorlage wechseln, der Inhalt bearbeiten oder als neue Vorlage speichern.
 - **Rechentabellen wie Excel:** Zellbezüge (A1, B2:B9), Formelleiste mit Zellname, Spalten-/Zeilenköpfe, Formeln mit `=SUMME`, `MITTELWERT`, `MIN`, `MAX`, `ANZAHL`, `RUNDEN`, `AUFRUNDEN`, `ABRUNDEN`, `WENN`, `UND`, `ODER`, `ABS`, `PRODUKT`, Prozent und Rechenoperatoren; Zahlenformate (Zahl, Ganzzahl, Euro, Prozent), AutoSumme, Zellen markieren/verbinden/teilen, Spaltenbreite mit der Maus ziehen, Rahmen und Schattierung, Einfügen von Bereichen aus Excel. Beim Einfügen von Zeilen passen sich Formeln an (z. B. `=SUMME(E2:E4)` → `E2:E5`). Vorlagen: Positionen mit MwSt., Stundenzettel, leeres Rechenblatt.
 - **Ordner** zum Sortieren, beliebig verschachtelt, mit Suche. Formulare lassen sich duplizieren, verschieben und löschen.
 - **Platzhalter** für Daten aus der Kundendatenbank (`{{kunde.nachname}}`, `{{kunde.anschrift}}`, `{{kunde.briefanrede}}` …), der eigenen Firma (`{{firma.name}}`, `{{firma.iban}}` …), Datum, Ersteller und Logo
@@ -92,6 +92,25 @@ Composer und ein Kommandozeilenzugang sind nicht nötig.
 4. Danach kann jede Firma unter **E-Mail-Versand** „Mit Microsoft anmelden“ bzw. „Mit Google anmelden“ wählen. Das Portal bekommt nur das Recht zum Senden, nicht zum Lesen.
 
 Die Zugangsdaten werden mit einem Schlüssel in `app/data/secret.key` verschlüsselt. Diese Datei gehört in die Datensicherung. Geht sie verloren, müssen alle Postfächer neu verbunden werden.
+
+## Datensicherung
+
+Unter **Datensicherung** (Superadmin und Verwaltungsadmins):
+
+- **Jetzt sichern:** komplette Datenbank als `database.sql` plus `secret.key` (Schlüssel für die Postfach-Zugangsdaten) und `config.php` in einem ZIP-Archiv. Liste mit Download und Löschen.
+- **Täglich automatisch** über einen Cronjob, der `cron.php` aufruft. Gesichert wird höchstens einmal pro Tag. Ältere automatische Sicherungen werden gelöscht (Anzahl einstellbar, Standard 14), manuelle bleiben.
+- **Optional verschlüsselt** (AES-256-ZIP, z. B. mit 7-Zip zu öffnen) und **E-Mail an die Administratoren**, wenn eine automatische Sicherung fehlschlägt.
+- **Google Drive (optional):** Jede neue Sicherung wird zusätzlich in einen Drive-Ordner hochgeladen (Standard „Kundenportal-Backups“, ältere automatische Sicherungen dort nach einstellbarer Anzahl gelöscht). Ohne Google Cloud Console: Das Portal zeigt den Code für ein Google Apps Script mit eigenem Schlüssel; als Web-App bereitstellen (Ausführen als „Ich“, Zugriff „Jeder“) und die Web-App-URL im Portal einfügen. Größe je Sicherung bis 35 MB.
+- Ablage in `app/data/backups/` (per `.htaccess` gesperrt). Regelmäßig eine Sicherung herunterladen, damit sie auch außerhalb des Webspace liegt.
+
+**App „Datensicherung“ für Firmen:** Unter Apps & Freigaben je Firma freischalten. Firmen-Administratoren sichern dann die Daten ihrer Firma selbst (Firmenprofil, Benutzer ohne Passwörter, Aufträge, Formulare, Briefköpfe, Logo, Kundendatenbank) als ZIP mit `daten.json` und `kunden.csv`, auf Wunsch täglich und automatisch ins eigene Google Drive (eigenes Apps Script mit eigenem Schlüssel je Firma). Die Sicherungen liegen zusätzlich unter `app/data/backups/firma-<ID>/`. Die tägliche Sicherung läuft über denselben Cronjob wie die Portalsicherung.
+
+**Cronjob bei IONOS (1&1):**
+
+- Im IONOS-Konto unter Hosting › Cronjobs einen täglichen Cronjob mit *HTTP GET* auf `https://ihre-domain.de/portal/cron.php?token=…` anlegen. Die URL mit Schlüssel steht im Portal unter „Datensicherung“.
+- Oder per SSH (`crontab -e`): `0 3 * * * /usr/bin/php8.3 -f /pfad/zum/portal/cron.php`
+
+**Wiederherstellen:** `config.php` und `app/data/secret.key` aus dem ZIP zurückspielen, `database.sql` per phpMyAdmin importieren (ersetzt vorhandene Tabellen). Eine `LIESMICH.txt` im Archiv beschreibt die Schritte.
 
 ## Updates
 

@@ -315,7 +315,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -323,6 +323,8 @@ const BUILTIN_APPS = [
         'target' => 'dashboard', 'icon' => '👤', 'color' => '#1f5fa8', 'sort' => 10],
     'formulare' => ['name' => 'Formulare', 'description' => 'Briefe und Formulare mit eigenem Editor gestalten und mit Daten aus der Kundendatenbank ausfüllen. Mit Logo, Briefkopf und Fußzeile.',
         'target' => 'forms', 'icon' => '📝', 'color' => '#0f7b6c', 'sort' => 20],
+    'datensicherung' => ['name' => 'Datensicherung', 'description' => 'Tägliche Sicherung aller Daten Ihrer Firma – auf Wunsch automatisch in Ihr eigenes Google Drive.',
+        'target' => 'company_backups', 'icon' => '💾', 'color' => '#6b4fbb', 'sort' => 30],
 ];
 
 /**

@@ -33,6 +33,9 @@ require APP_DIR . '/forms_lib.php';
 require APP_DIR . '/pages/forms.php';
 require APP_DIR . '/pages/form_editor.php';
 require APP_DIR . '/pages/customers.php';
+require APP_DIR . '/backup.php';
+require APP_DIR . '/pages/backups.php';
+require APP_DIR . '/pages/company_backups.php';
 
 $routes = [
     'login'          => 'page_login',
@@ -61,6 +64,10 @@ $routes = [
     'catalog'        => 'page_catalog',
     'templates'      => 'page_templates',
     'audit'          => 'page_audit',
+    'backups'        => 'page_backups',
+    'backup_download' => 'page_backup_download',
+    'company_backups' => 'page_company_backups',
+    'company_backup_download' => 'page_company_backup_download',
     // App „Formulare“
     'forms'           => 'page_forms',
     'form_folder'     => 'page_form_folder',

@@ -37,12 +37,16 @@ if ($user) {
             }
         }
     }
+    if (isset($myApps['datensicherung']) && $user['role'] === 'firma_admin') {
+        $nav[] = ['company_backups', $myApps['datensicherung']['name'], $route === 'company_backups'];
+    }
     if (is_staff_role($user['role'])) {
         $nav[] = ['companies', 'Firmen', in_array($route, ['companies', 'company_edit'], true)];
         $nav[] = ['users', 'Benutzer', in_array($route, ['users', 'user_edit'], true)];
         $nav[] = ['apps', 'Apps & Freigaben', $route === 'apps'];
         $nav[] = ['mail_settings', 'E-Mail-Versand', $route === 'mail_settings'];
         $nav[] = ['audit', 'Protokoll', $route === 'audit'];
+        $nav[] = ['backups', 'Datensicherung', in_array($route, ['backups', 'company_backups'], true)];
     } elseif ($user['role'] === 'firma_admin') {
         $nav[] = ['company_edit', 'Firmenprofil', $route === 'company_edit'];
         $nav[] = ['users', 'Benutzer', in_array($route, ['users', 'user_edit'], true)];
