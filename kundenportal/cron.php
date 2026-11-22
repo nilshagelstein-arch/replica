@@ -1,9 +1,10 @@
 <?php
 /**
- * Cronjob-Einstieg für die tägliche Datensicherung.
+ * Cronjob-Einstieg für die tägliche Datensicherung und die Zeitsteuerung der Tickets
+ * (Erinnerungen, Eskalationen, Wiedervorlagen). Empfehlung: stündlich aufrufen – gesichert wird höchstens einmal pro Tag.
  *
  * IONOS-Konto (HTTP GET):  https://ihre-domain.de/portal/cron.php?token=GEHEIM
- * SSH-Crontab:             0 3 * * * /usr/bin/php8.3 -f /pfad/zum/portal/cron.php
+ * SSH-Crontab:             0 * * * * /usr/bin/php8.3 -f /pfad/zum/portal/cron.php
  *
  * Den Schlüssel und die fertige Zeile zeigt das Portal unter „Datensicherung“.
  * Optional: ?force=1 bzw. --force sichert auch, wenn heute schon gesichert wurde.
@@ -18,6 +19,8 @@ if (!is_file(APP_DIR . '/data/installed.lock')) {
 }
 require APP_DIR . '/schema.php';
 require APP_DIR . '/backup.php';
+require APP_DIR . '/pages/masterdata.php';
+require APP_DIR . '/pages/tickets.php';
 
 if (!$cli) {
     header('Content-Type: text/plain; charset=utf-8');
@@ -32,6 +35,14 @@ if (!$cli) {
 }
 
 ensure_schema();
+// Tickets zuerst: schnell und zeitkritisch
+try {
+    $tk = tickets_timers_run();
+    setting_set('tickets_timer_last', (string)time());
+    if ($cli && $tk) echo implode("\n", $tk) . "\n";
+} catch (Throwable $ex) {
+    error_log('[kundenportal] Ticket-Zeitsteuerung: ' . $ex->getMessage());
+}
 $force = $cli ? in_array('--force', $argv ?? [], true) : !empty($_GET['force']);
 
 if (!$cli) {

@@ -166,6 +166,9 @@ if (is_admin()) {
     }
 }
 
+// Zeitsteuerung der Tickets, falls kein (stündlicher) Cronjob läuft: höchstens alle 5 Minuten
+if (current_user()) tickets_timers_tick();
+
 try {
     $routes[$r]();
 } catch (PDOException $ex) {

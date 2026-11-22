@@ -12,7 +12,10 @@
  * Queue sind eingetragene Benutzer, Mitglieder der eingetragenen Gruppen, die Teamleitung und die Firmen-Admins
  * (Admin-Gruppe). Zuweisen an andere dürfen Teamleitung und Admins; der gebuchte Bearbeiter darf weitergeben.
  * Beim Erstellen wählt man „nur ich“ oder „meine Gruppe“: Gruppenmitglieder sehen das Ticket und schreiben mit.
- * Eskalation, E-Mail-Eingang, Dienstleister und Auswertung folgen (siehe Pflichtenheft).
+ * Stufe 3 (Zeitsteuerung): Wartet ein Ticket zu lange auf die Bearbeiter, gibt es je Dringlichkeit eine Erinnerung
+ * (gebuchter Bearbeiter, sonst die Queue), dann Eskalation an die Teamleitung und danach an die Firmen-Admins.
+ * Fälligkeit je Ticket. Läuft über cron.php und zusätzlich höchstens alle 5 Minuten bei einem Seitenaufruf.
+ * E-Mail-Eingang, Dienstleister und Auswertung folgen (siehe Pflichtenheft).
  *
  * Tickets bleiben firmenintern: Verwaltungsadmins des Dienstleisters richten Queues ein, sehen Tickets
  * aber nur, wenn die Firma die „Einsicht für den IT-Dienstleister“ eingeschaltet hat.
@@ -33,6 +36,11 @@ const TICKET_ATTACH_MAX = 10485760;      // 10 MB je Datei
 const TICKET_ATTACH_COUNT = 5;           // Dateien je Nachricht
 const TICKET_ATTACH_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'txt', 'log', 'csv', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'zip', 'eml', 'msg'];
 const TICKET_VIEW_MINUTES = 15;          // so lange gilt „wird gerade angesehen von …“
+/** Standardzeiten in Stunden je Dringlichkeit: [Erinnerung, Eskalation an die Teamleitung]; Admins bei doppelter Eskalationszeit */
+const TICKET_TIMES_DEFAULT = ['mehrere' => [1, 2], 'blockiert' => [2, 4], 'einschraenkung' => [8, 24], 'frage' => [24, 72]];
+/** Status, in denen ein Ticket auf die Bearbeiter wartet (bei Rückfrage, Zurückgestellt usw. läuft keine Uhr) */
+const TICKET_WAIT_STATUSES = ['offen', 'in_bearbeitung', 'wieder_eroeffnet'];
+const TICKET_TIMER_INTERVAL = 300;      // Sekunden zwischen zwei Läufen bei Seitenaufrufen
 
 // ---------------------------------------------------------------------------
 // Firmenkontext und Rechte
@@ -54,7 +62,7 @@ function tickets_company_id(): int
 function tickets_company(int $cid): array
 {
     static $cache = [];
-    return $cache[$cid] ??= (row('SELECT id, name, ticket_autoclose_days, ticket_provider_access, ticket_categories FROM companies WHERE id = ?', [$cid]) ?? []);
+    return $cache[$cid] ??= (row('SELECT id, name, ticket_autoclose_days, ticket_provider_access, ticket_categories, ticket_times FROM companies WHERE id = ?', [$cid]) ?? []);
 }
 
 /** Dienstleister (Verwaltungsadmins) sehen Tickets nur mit Freigabe der Firma */
@@ -184,6 +192,15 @@ function ticket_priority_badge(string $p): string
     return '<span class="prio prio-' . e($p) . '">' . e(t(TICKET_PRIORITIES[$p] ?? $p)) . '</span>';
 }
 
+/** Fälligkeitsdatum, rot wenn überfällig */
+function ticket_due_badge(array $tk): string
+{
+    if ($tk['due_at'] === '') return '';
+    $over = !in_array($tk['status'], TICKET_CLOSED, true) && $tk['due_at'] < date('Y-m-d');
+    $today = $tk['due_at'] === date('Y-m-d');
+    return '<span class="due' . ($over ? ' over' : ($today ? ' today' : '')) . '" title="' . e($over ? t('überfällig') : t('Fällig am')) . '">📅 ' . fmt_date($tk['due_at']) . '</span>';
+}
+
 /** „vor 5 Min.“, „vor 3 Std.“, „vor 2 Tagen“ */
 function ticket_age(string $dt): string
 {
@@ -219,15 +236,18 @@ function load_ticket(int $id): ?array
 // Zeitgesteuertes: Wiedervorlage und automatisches Schließen (beim Aufruf, höchstens einmal je Minute)
 // ---------------------------------------------------------------------------
 
-function tickets_housekeeping(int $cid): void
+function tickets_housekeeping(int $cid, bool $force = false): void
 {
     $key = 'tk_hk_' . $cid;
-    if (isset($_SESSION[$key]) && $_SESSION[$key] > time() - 60) return;
-    $_SESSION[$key] = time();
+    if (!$force) {
+        if (isset($_SESSION[$key]) && $_SESSION[$key] > time() - 60) return;
+        $_SESSION[$key] = time();
+    }
     foreach (rows("SELECT id, assigned_to FROM tickets WHERE company_id = ? AND status = 'zurueckgestellt' AND follow_up_at <> '' AND follow_up_at <= ?",
         [$cid, date('Y-m-d')]) as $tk) {
         $to = $tk['assigned_to'] ? 'in_bearbeitung' : 'offen';
-        update('tickets', (int)$tk['id'], ['status' => $to, 'follow_up_at' => '', 'updated_at' => now(), 'last_activity_at' => now()]);
+        update('tickets', (int)$tk['id'], ['status' => $to, 'follow_up_at' => '', 'updated_at' => now(), 'last_activity_at' => now(),
+            'waiting_since' => now(), 'reminder_level' => 0]);
         ticket_log((int)$tk['id'], $cid, null, 'event', 'Wiedervorlage fällig', ['status_from' => 'zurueckgestellt', 'status_to' => $to]);
     }
     $days = max(1, (int)(tickets_company($cid)['ticket_autoclose_days'] ?? 7));
@@ -235,6 +255,135 @@ function tickets_housekeeping(int $cid): void
     foreach (rows("SELECT id FROM tickets WHERE company_id = ? AND status = 'geloest' AND resolved_at <> '' AND resolved_at <= ?", [$cid, $limit]) as $tk) {
         update('tickets', (int)$tk['id'], ['status' => 'geschlossen', 'closed_at' => now(), 'updated_at' => now()]);
         ticket_log((int)$tk['id'], $cid, null, 'event', 'Automatisch geschlossen', ['status_from' => 'geloest', 'status_to' => 'geschlossen']);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Zeitsteuerung: Wartezeit, Erinnerung, Eskalation, Fälligkeit
+// ---------------------------------------------------------------------------
+
+/** Zeiten der Firma: ['on' => bool, 'skip_weekend' => bool, 'times' => [prio => [Erinnerung, Eskalation]]] (Stunden) */
+function ticket_times(int $cid): array
+{
+    $raw = json_decode((string)(tickets_company($cid)['ticket_times'] ?? ''), true);
+    $raw = is_array($raw) ? $raw : [];
+    $times = [];
+    foreach (TICKET_TIMES_DEFAULT as $p => [$r, $x]) {
+        $v = $raw['times'][$p] ?? [$r, $x];
+        $times[$p] = [max(0, (int)($v[0] ?? $r)), max(0, (int)($v[1] ?? $x))];
+    }
+    return ['on' => (bool)($raw['on'] ?? true), 'skip_weekend' => (bool)($raw['skip_weekend'] ?? true), 'times' => $times];
+}
+
+/** Die Uhr läuft (wieder) an. $restart: auch wenn sie schon läuft, neu beginnen */
+function ticket_wait_start(int $id, bool $restart = false): void
+{
+    q("UPDATE tickets SET waiting_since = ?, reminder_level = 0 WHERE id = ?" . ($restart ? '' : " AND waiting_since = ''"), [now(), $id]);
+}
+
+/** Die Bearbeiter haben reagiert: Uhr anhalten */
+function ticket_wait_stop(int $id): void
+{
+    q("UPDATE tickets SET waiting_since = '', reminder_level = 0 WHERE id = ?", [$id]);
+}
+
+/** Stunden seit $since; Samstag und Sonntag zählen auf Wunsch nicht mit */
+function ticket_hours_since(string $since, bool $skipWeekend, ?int $now = null): float
+{
+    $from = (int)strtotime($since);
+    $to = $now ?? time();
+    if ($to <= $from) return 0.0;
+    if (!$skipWeekend) return ($to - $from) / 3600;
+    $sec = 0;
+    $t = $from;
+    while ($t < $to) {
+        $next = min($to, (int)strtotime('tomorrow', $t));
+        if ((int)date('N', $t) < 6) $sec += $next - $t;
+        $t = $next;
+    }
+    return $sec / 3600;
+}
+
+/** Mail an eine Liste von Benutzern (Zeitsteuerung, ohne angemeldeten Benutzer) */
+function ticket_mail_users(array $users, array $tk, callable $text): void
+{
+    $to = array_values(array_filter(array_map(fn($p) => (string)$p['email'], $users)));
+    if (!$to) return;
+    send_mail_t($to, fn() => [ticket_mail_subject($tk), $text() . t("\n\nZum Ticket: ") . ticket_link((int)$tk['id'])], (int)$tk['company_id']);
+}
+
+/** Erinnerungen, Eskalationen und Fälligkeiten aller Firmen prüfen. Gibt Textzeilen fürs Protokoll zurück. */
+function tickets_timers_run(): array
+{
+    $out = [];
+    $companies = array_map('intval', array_column(rows("SELECT DISTINCT company_id FROM tickets WHERE status <> 'geschlossen'"), 'company_id'));
+    foreach ($companies as $cid) {
+        tickets_housekeeping($cid, true);
+        $cfg = ticket_times($cid);
+        $tickets = rows("SELECT t.*, q.name AS queue_name, q.lead_user_id FROM tickets t LEFT JOIN ticket_queues q ON q.id = t.queue_id
+            WHERE t.company_id = ? AND t.status NOT IN ('geloest', 'geschlossen')", [$cid]);
+        $admins = rows("SELECT id, name, email FROM users WHERE company_id = ? AND role = 'firma_admin' AND active = 1 ORDER BY name", [$cid]);
+        foreach ($tickets as $tk) {
+            $id = (int)$tk['id'];
+            // Fälligkeit erreicht: einmal Bescheid an den Bearbeiter bzw. die Queue
+            if ($tk['due_at'] !== '' && $tk['due_at'] <= date('Y-m-d') && !(int)$tk['due_notified']) {
+                if (q('UPDATE tickets SET due_notified = 1 WHERE id = ? AND due_notified = 0', [$id])->rowCount() === 1) {
+                    $who = $tk['assigned_to'] ? rows('SELECT id, name, email FROM users WHERE id = ? AND active = 1', [$tk['assigned_to']])
+                        : ticket_queue_processors((int)$tk['queue_id'], $cid);
+                    ticket_log($id, $cid, null, 'event', 'Fälligkeit erreicht');
+                    $due = $tk['due_at'];
+                    ticket_mail_users($who, $tk, fn() => t('Das Ticket ist am {x} fällig und noch nicht gelöst.', ['x' => fmt_date($due)]));
+                    $out[] = '#' . $tk['number'] . ' ' . t('Fälligkeit erreicht');
+                }
+            }
+            if (!$cfg['on'] || $tk['waiting_since'] === '' || !in_array($tk['status'], TICKET_WAIT_STATUSES, true)) continue;
+            [$remind, $escalate] = $cfg['times'][$tk['priority']] ?? [24, 72];
+            $hours = ticket_hours_since((string)$tk['waiting_since'], $cfg['skip_weekend']);
+            $level = (int)$tk['reminder_level'];
+            $lead = $tk['lead_user_id'] ? row('SELECT id, name, email FROM users WHERE id = ? AND active = 1', [$tk['lead_user_id']]) : null;
+            // je Lauf höchstens eine Stufe weiter: 1 Erinnerung, 2 Teamleitung (ohne Teamleitung: Admins), 3 Admins
+            $thresholds = [1 => $remind, 2 => $escalate, 3 => $lead ? $escalate * 2 : 0];
+            $target = $level + 1;
+            while ($target <= 3 && $thresholds[$target] <= 0) $target++;
+            if ($target > 3 || $hours < $thresholds[$target]) continue;
+            // gegen doppelten Versand bei gleichzeitigen Läufen
+            if (q('UPDATE tickets SET reminder_level = ? WHERE id = ? AND reminder_level = ?', [$target, $id, $level])->rowCount() !== 1) continue;
+            $h = (int)floor($hours);
+            $prio = $tk['priority'];
+            if ($target === 1) {
+                $who = $tk['assigned_to'] ? rows('SELECT id, name, email FROM users WHERE id = ? AND active = 1', [$tk['assigned_to']])
+                    : ticket_queue_processors((int)$tk['queue_id'], $cid);
+                ticket_log($id, $cid, null, 'event', 'Erinnerung gesendet');
+                ticket_mail_users($who, $tk, fn() => t("Erinnerung: Das Ticket wartet seit {n} Std. auf eine Reaktion (Dringlichkeit: {prio}).", [
+                    'n' => $h, 'prio' => t(TICKET_PRIORITIES[$prio] ?? $prio)]));
+            } else {
+                // Stufe 2: Teamleitung (ohne Teamleitung gleich die Admins), Stufe 3: Admins
+                $who = $target === 2 && $lead ? [$lead] : $admins;
+                $names = implode(', ', array_column($who, 'name'));
+                ticket_log($id, $cid, null, 'event', 'Eskaliert an: ' . ($names !== '' ? $names : '–'));
+                $assignee = $tk['assigned_to'] ? (row('SELECT name FROM users WHERE id = ?', [$tk['assigned_to']])['name'] ?? '') : '';
+                ticket_mail_users($who, $tk, fn() => t("Eskalation: Das Ticket in der Queue „{queue}“ wartet seit {n} Std. auf eine Reaktion (Dringlichkeit: {prio}).", [
+                    'queue' => (string)$tk['queue_name'], 'n' => $h, 'prio' => t(TICKET_PRIORITIES[$prio] ?? $prio)])
+                    . "\n" . ($assignee !== '' ? t('Bearbeiter: {name}', ['name' => $assignee]) : t('Es hat noch niemand das Ticket gebucht.')));
+            }
+            $out[] = '#' . $tk['number'] . ' ' . t('Stufe {n}', ['n' => $target]);
+        }
+    }
+    return $out;
+}
+
+/** Bei Seitenaufrufen höchstens alle 5 Minuten (ergänzt cron.php, falls kein Cronjob eingerichtet ist) */
+function tickets_timers_tick(): void
+{
+    try {
+        $last = setting_get('tickets_timer_last');
+        if ($last !== '' && (int)$last > time() - TICKET_TIMER_INTERVAL) return;
+        if ($last === '') setting_set('tickets_timer_last', '0');
+        // nur ein Lauf gleichzeitig: wer den Zeitstempel umschreibt, darf laufen
+        if (q('UPDATE settings SET value = ? WHERE name = ? AND value = ?', [(string)time(), 'tickets_timer_last', $last === '' ? '0' : $last])->rowCount() !== 1) return;
+        tickets_timers_run();
+    } catch (Throwable $ex) {
+        error_log('[kundenportal] Ticket-Zeitsteuerung: ' . $ex->getMessage());
     }
 }
 
@@ -348,7 +497,7 @@ function page_tickets(): void
     $views = $staff ? [] : ['mine' => t('Meine Tickets')];
     $myGroups = $staff ? [] : user_groups((int)$u['id']);
     if ($myGroups) $views['group'] = t('Meine Gruppen');
-    if ($processor) $views += ['queue' => t('Offen in meinen Queues'), 'assigned' => t('Mir zugewiesen'), 'all' => t('Alle meiner Queues')];
+    if ($processor) $views += ['queue' => t('Offen in meinen Queues'), 'assigned' => t('Mir zugewiesen'), 'waiting' => t('Wartet zu lange'), 'all' => t('Alle meiner Queues')];
     $view = (string)($_GET['view'] ?? '');
     if (!isset($views[$view])) $view = $processor ? 'queue' : 'mine';
     $state = in_array($_GET['state'] ?? '', ['open', 'closed', 'all'], true) ? (string)$_GET['state'] : 'open';
@@ -363,6 +512,7 @@ function page_tickets(): void
         $where[] = $myQueues ? 't.queue_id IN (' . implode(',', $myQueues) . ')' : '1 = 0';
         if ($view === 'queue') { $where[] = "t.assigned_to IS NULL AND t.status IN ('offen', 'wieder_eroeffnet')"; }
         if ($view === 'assigned') { $where[] = 't.assigned_to = ?'; $params[] = $u['id']; }
+        if ($view === 'waiting') { $where[] = "((t.reminder_level > 0 AND t.waiting_since <> '') OR (t.due_at <> '' AND t.due_at <= ?))"; $params[] = date('Y-m-d'); }
     }
     if ($view !== 'queue') {
         if ($state === 'open') $where[] = "t.status NOT IN ('geloest', 'geschlossen')";
@@ -387,6 +537,8 @@ function page_tickets(): void
         $in = implode(',', $myQueues);
         $counts['queue'] = (int)row("SELECT COUNT(*) AS n FROM tickets WHERE company_id = ? AND queue_id IN ($in) AND assigned_to IS NULL AND status IN ('offen', 'wieder_eroeffnet')", [$cid])['n'];
         $counts['assigned'] = (int)row("SELECT COUNT(*) AS n FROM tickets WHERE company_id = ? AND assigned_to = ? AND status NOT IN ('geloest', 'geschlossen')", [$cid, $u['id']])['n'];
+        $counts['waiting'] = (int)row("SELECT COUNT(*) AS n FROM tickets WHERE company_id = ? AND queue_id IN ($in) AND status NOT IN ('geloest', 'geschlossen')
+            AND ((reminder_level > 0 AND waiting_since <> '') OR (due_at <> '' AND due_at <= ?))", [$cid, date('Y-m-d')])['n'];
     }
 
     render_page(tickets_app_name(), function () use ($cid, $u, $staff, $queues, $views, $view, $state, $queueFilter, $search, $list, $counts, $processor) {
@@ -444,7 +596,9 @@ function page_tickets(): void
                             <?php if ($tk['visibility'] === 'group' && $tk['group_name'] !== null): ?> <span class="tag" title="<?= e(t('Sichtbar für die Gruppe')) ?>">👥 <?= e($tk['group_name']) ?></span><?php endif; ?></td>
                         <td><?= e($tk['queue_name'] ?? '–') ?></td>
                         <td><?= ticket_priority_badge($tk['priority']) ?></td>
-                        <td><?= ticket_status_badge($tk['status']) ?><?= $tk['status'] === 'zurueckgestellt' && $tk['follow_up_at'] ? '<br><span class="muted small">' . e(t('bis')) . ' ' . fmt_date($tk['follow_up_at']) . '</span>' : '' ?></td>
+                        <td><?= ticket_status_badge($tk['status']) ?><?= $tk['status'] === 'zurueckgestellt' && $tk['follow_up_at'] ? '<br><span class="muted small">' . e(t('bis')) . ' ' . fmt_date($tk['follow_up_at']) . '</span>' : '' ?>
+                            <?php if ($tk['due_at'] !== ''): ?><br><?= ticket_due_badge($tk) ?><?php endif; ?>
+                            <?php if ($view !== 'mine' && $view !== 'group' && $tk['waiting_since'] !== '' && (int)$tk['reminder_level'] > 0): ?><br><span class="tag <?= (int)$tk['reminder_level'] >= 2 ? 'danger' : 'warn' ?>" title="<?= e(t('Wartet seit')) ?> <?= e(ticket_age($tk['waiting_since'])) ?>"><?= e((int)$tk['reminder_level'] >= 2 ? t('eskaliert') : t('erinnert')) ?></span><?php endif; ?></td>
                         <td><?= $tk['assignee_name'] !== null ? e($tk['assignee_name']) : '<span class="muted">–</span>' ?></td>
                         <?php if ($view !== 'mine'): ?><td><?= e($tk['creator_name'] ?? '–') ?></td><?php endif; ?>
                         <td class="nowrap" title="<?= e(fmt_dt($tk['created_at'])) ?>"><?= e(ticket_age($tk['created_at'])) ?></td>
@@ -515,6 +669,7 @@ function page_ticket_new(): void
                         'subject' => $data['subject'], 'priority' => $data['priority'], 'category' => $data['category'], 'status' => 'offen',
                         'created_by' => $data['created_by'], 'entered_by' => (int)$u['id'], 'employee_id' => $data['employee_id'] ?: null,
                         'visibility' => $data['group_id'] ? 'group' : 'me', 'group_id' => $data['group_id'] ?: null,
+                        'waiting_since' => now(), 'reminder_level' => 0, 'due_at' => '', 'due_notified' => 0,
                         'assigned_to' => null, 'follow_up_at' => '', 'resolved_at' => '', 'closed_at' => '', 'viewing_by' => null, 'viewing_at' => '',
                         'created_at' => now(), 'updated_at' => now(), 'last_activity_at' => now()]);
                 } catch (PDOException $ex) {
@@ -683,6 +838,8 @@ function page_ticket(): void
                     <dl class="facts">
                         <dt><?= e(t('Status')) ?></dt><dd><?= ticket_status_badge($tk['status']) ?><?= $tk['status'] === 'zurueckgestellt' && $tk['follow_up_at'] ? '<br><span class="small">' . e(t('Wiedervorlage')) . ' ' . fmt_date($tk['follow_up_at']) . '</span>' : '' ?></dd>
                         <dt><?= e(t('Dringlichkeit')) ?></dt><dd><?= ticket_priority_badge($tk['priority']) ?></dd>
+                        <?php if ($tk['due_at'] !== ''): ?><dt><?= e(t('Fällig am')) ?></dt><dd><?= ticket_due_badge($tk) ?></dd><?php endif; ?>
+                        <?php if ($proc && $tk['waiting_since'] !== '' && !$closed): ?><dt><?= e(t('Wartet seit')) ?></dt><dd><?= e(ticket_age($tk['waiting_since'])) ?><?= (int)$tk['reminder_level'] >= 2 ? ' <span class="tag danger">' . e(t('eskaliert')) . '</span>' : ((int)$tk['reminder_level'] === 1 ? ' <span class="tag warn">' . e(t('erinnert')) . '</span>' : '') ?></dd><?php endif; ?>
                         <dt><?= e(t('Queue')) ?></dt><dd><?= e($tk['queue_name'] ?? '–') ?></dd>
                         <?php if ($tk['category'] !== ''): ?><dt><?= e(t('Kategorie')) ?></dt><dd><?= e(t($tk['category'])) ?></dd><?php endif; ?>
                         <dt><?= e(t('Bearbeiter')) ?></dt><dd><?= $tk['assignee_name'] !== null ? e($tk['assignee_name']) : '<span class="muted">' . e(t('noch niemand')) . '</span>' ?></dd>
@@ -719,6 +876,9 @@ function page_ticket(): void
                     <form method="post" action="<?= $action ?>" class="inline-form"><?= csrf_field() ?><input type="hidden" name="action" value="defer">
                         <label><?= e(t('Zurückstellen bis')) ?> <input type="date" name="follow_up_at" required min="<?= e(date('Y-m-d', strtotime('+1 day'))) ?>"></label>
                         <button class="btn small"><?= e(t('Zurückstellen')) ?></button></form>
+                    <form method="post" action="<?= $action ?>" class="inline-form"><?= csrf_field() ?><input type="hidden" name="action" value="due">
+                        <label><?= e(t('Fällig am')) ?> <input type="date" name="due_at" value="<?= e($tk['due_at']) ?>"></label>
+                        <button class="btn small"><?= e(t('Setzen')) ?></button></form>
                     <form method="post" action="<?= $action ?>" class="inline-form"><?= csrf_field() ?><input type="hidden" name="action" value="priority">
                         <label><?= e(t('Dringlichkeit')) ?> <select name="priority">
                             <?php foreach (TICKET_PRIORITIES as $k => $label): ?><option value="<?= e($k) ?>" <?= $tk['priority'] === $k ? 'selected' : '' ?>><?= e(t($label)) ?></option><?php endforeach; ?>
@@ -768,6 +928,9 @@ function page_ticket_action(): void
         if ($to === 'geschlossen') $data['closed_at'] = now();
         if (!in_array($to, TICKET_CLOSED, true)) { $data['resolved_at'] = ''; $data['closed_at'] = ''; }
         if ($to !== 'zurueckgestellt') $data['follow_up_at'] = '';
+        // Uhr: wartet das Ticket wieder auf die Bearbeiter, läuft sie; sonst steht sie
+        if (in_array($to, ['offen', 'wieder_eroeffnet'], true)) { if ($tk['waiting_since'] === '') { $data['waiting_since'] = now(); $data['reminder_level'] = 0; } }
+        elseif ($to !== 'in_bearbeitung') { $data['waiting_since'] = ''; $data['reminder_level'] = 0; }
         update('tickets', $id, $data);
         ticket_log($id, $cid, (int)$u['id'], 'event', $label !== '' ? $label : 'Status geändert', ['status_from' => $tk['status'], 'status_to' => $to]);
         $from = $tk['status'];
@@ -805,6 +968,9 @@ function page_ticket_action(): void
                 $statusLine = $note ? '' : $from . '>' . $status;
             }
             if (!$note) {
+                // Antwort der Bearbeiter hält die Uhr an, Antwort der Ersteller-Seite startet sie
+                if ($requester && (!$proc || (int)$tk['assigned_to'] !== (int)$u['id'])) ticket_wait_start($id);
+                elseif ($proc) ticket_wait_stop($id);
                 if ($requester && (!$proc || (int)$tk['assigned_to'] !== (int)$u['id'])) {
                     // Gruppen-Ticket: der Ersteller bekommt seine eigene Mail (unten), auch wenn er Bearbeiter ist
                     ticket_notify_processors($tk, fn() => t("{name} hat geantwortet:\n\n", ['name' => $u['name']]) . $body, false, $isCreator ? [] : [(int)$tk['created_by']]);
@@ -831,6 +997,7 @@ function page_ticket_action(): void
             if (!$proc) abort(403);
             $prev = $tk['assignee_name'];
             update('tickets', $id, ['assigned_to' => $u['id'], 'updated_at' => now(), 'last_activity_at' => now()]);
+            ticket_wait_stop($id);
             ticket_log($id, $cid, (int)$u['id'], 'event', $prev !== null ? 'Übernommen von: ' . $prev : 'Fest gebucht');
             if (in_array($tk['status'], ['offen', 'wieder_eroeffnet'], true)) $setStatus('in_bearbeitung');
             else ticket_notify_creator($tk, fn() => t('{name} bearbeitet jetzt Ihr Ticket.', ['name' => $u['name']]));
@@ -845,6 +1012,7 @@ function page_ticket_action(): void
         case 'release':
             if (!$proc) abort(403);
             update('tickets', $id, ['assigned_to' => null, 'updated_at' => now(), 'last_activity_at' => now()]);
+            if (in_array($tk['status'], TICKET_WAIT_STATUSES, true)) ticket_wait_start($id, true);
             ticket_log($id, $cid, (int)$u['id'], 'event', 'In die Queue zurückgegeben');
             if ($tk['status'] === 'in_bearbeitung') $setStatus('offen');
             $t2 = load_ticket($id);
@@ -862,6 +1030,8 @@ function page_ticket_action(): void
             if (!$target) { flash('error', t('Bitte einen Bearbeiter dieser Queue wählen.')); $back(); }
             $prevAssigned = (int)$tk['assigned_to'];
             update('tickets', $id, ['assigned_to' => $to, 'updated_at' => now(), 'last_activity_at' => now()]);
+            if ($to === (int)$u['id']) ticket_wait_stop($id);
+            elseif (in_array($tk['status'], TICKET_WAIT_STATUSES, true)) ticket_wait_start($id, true);
             ticket_log($id, $cid, (int)$u['id'], 'event', 'Zugewiesen an: ' . $target['name']);
             if (in_array($tk['status'], ['offen', 'wieder_eroeffnet'], true)) $setStatus('in_bearbeitung');
             if ($prevAssigned !== $to) {
@@ -880,6 +1050,7 @@ function page_ticket_action(): void
             $q = row('SELECT id, name FROM ticket_queues WHERE id = ? AND company_id = ? AND active = 1', [(int)post('queue_id', 0), $cid]);
             if (!$q || (int)$q['id'] === (int)$tk['queue_id']) $back();
             update('tickets', $id, ['queue_id' => $q['id'], 'assigned_to' => null, 'updated_at' => now(), 'last_activity_at' => now()]);
+            if (in_array($tk['status'], TICKET_WAIT_STATUSES, true)) ticket_wait_start($id, true);
             ticket_log($id, $cid, (int)$u['id'], 'event', 'Verschoben in Queue: ' . $q['name']);
             if ($tk['status'] === 'in_bearbeitung') $setStatus('offen');
             $t2 = load_ticket($id);
@@ -906,11 +1077,22 @@ function page_ticket_action(): void
             ticket_log($id, $cid, (int)$u['id'], 'event', 'Dringlichkeit: ' . TICKET_PRIORITIES[$p]);
             $back();
 
+        case 'due':
+            if (!$proc) abort(403);
+            $d = (string)post('due_at');
+            if ($d !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) $back();
+            if ($d === $tk['due_at']) $back();
+            update('tickets', $id, ['due_at' => $d, 'due_notified' => 0, 'updated_at' => now()]);
+            ticket_log($id, $cid, (int)$u['id'], 'event', $d !== '' ? 'Fällig am: ' . fmt_date($d) : 'Fälligkeit entfernt');
+            flash('success', $d !== '' ? t('Das Ticket ist am {x} fällig.', ['x' => fmt_date($d)]) : t('Die Fälligkeit wurde entfernt.'));
+            $back();
+
         case 'status':
             if (!$proc) abort(403);
             $s = (string)post('status');
             if (!in_array($s, TICKET_MANUAL_STATUSES, true) || $s === 'zurueckgestellt') $back();
             $setStatus($s);
+            if ($s === 'in_bearbeitung') ticket_wait_stop($id);
             flash('success', t('Der Status wurde geändert.'));
             $back();
 
@@ -1025,6 +1207,14 @@ function page_ticket_settings(): void
             $data = ['ticket_autoclose_days' => max(1, min(90, (int)post('autoclose_days', 7))),
                 'ticket_categories' => mb_substr(implode("\n", array_slice(array_values(array_filter(array_map(fn($l) => mb_substr(trim($l), 0, 60),
                     preg_split('/\R/', (string)post('categories')) ?: []))), 0, 40)), 0, 3000)];
+            $times = [];
+            foreach (TICKET_TIMES_DEFAULT as $p => $def) {
+                $r = max(0, min(720, (int)(($_POST['remind'] ?? [])[$p] ?? $def[0])));
+                $x = max(0, min(720, (int)(($_POST['escalate'] ?? [])[$p] ?? $def[1])));
+                if ($x && $r && $x < $r) $x = $r;   // Eskalation nicht vor der Erinnerung
+                $times[$p] = [$r, $x];
+            }
+            $data['ticket_times'] = json_encode(['on' => post('times_on') === '1', 'skip_weekend' => post('skip_weekend') === '1', 'times' => $times]);
             // Die Einsicht für den Dienstleister schaltet nur die Firma selbst
             if (!$staff) $data['ticket_provider_access'] = post('provider_access') === '1' ? 1 : 0;
             update('companies', $cid, $data);
@@ -1052,8 +1242,9 @@ function page_ticket_settings(): void
     $depNames = array_column($deps, 'name', 'id');
     $co = tickets_company($cid);
     $cats = ticket_categories($cid);
+    $tcfg = ticket_times($cid);
 
-    render_page(t('Queues & Einstellungen'), function () use ($cid, $staff, $users, $queues, $members, $qgroups, $deps, $gmembers, $userNames, $depNames, $co, $cats) {
+    render_page(t('Queues & Einstellungen'), function () use ($cid, $staff, $users, $queues, $members, $qgroups, $deps, $gmembers, $userNames, $depNames, $co, $cats, $tcfg) {
         if (is_admin()) echo company_switcher($cid, 'ticket_settings'); ?>
         <p><a href="<?= e(turl('tickets')) ?>"><?= e(t('← Zur Übersicht')) ?></a></p>
         <div class="card">
@@ -1102,6 +1293,22 @@ function page_ticket_settings(): void
             <h2><?= e(t('Einstellungen')) ?></h2>
             <label><?= e(t('Gelöste Tickets automatisch schließen nach (Tagen)')) ?> <input type="number" name="autoclose_days" min="1" max="90" value="<?= (int)($co['ticket_autoclose_days'] ?? 7) ?>">
                 <span class="muted small"><?= e(t('Bis dahin kann der Ersteller das Ticket wieder öffnen.')) ?></span></label>
+            <h3><?= e(t('Erinnerung und Eskalation')) ?></h3>
+            <p class="muted small"><?= e(t('Wartet ein Ticket zu lange auf eine Reaktion der Bearbeiter, bekommt zuerst der gebuchte Bearbeiter (sonst die Queue) eine Erinnerung, danach die Teamleitung der Queue und nach der doppelten Eskalationszeit die Firmen-Administratoren. Die Uhr steht bei Rückfrage, Zurückgestellt und Gelöst und beginnt neu, sobald ein Bearbeiter antwortet oder das Ticket bucht. 0 = aus.')) ?></p>
+            <label class="check"><input type="checkbox" name="times_on" value="1" <?= $tcfg['on'] ? 'checked' : '' ?>> <?= e(t('Erinnerungen und Eskalation einschalten')) ?></label>
+            <label class="check"><input type="checkbox" name="skip_weekend" value="1" <?= $tcfg['skip_weekend'] ? 'checked' : '' ?>> <?= e(t('Samstag und Sonntag nicht mitzählen')) ?></label>
+            <table class="table times-table">
+                <thead><tr><th><?= e(t('Dringlichkeit')) ?></th><th><?= e(t('Erinnerung nach (Std.)')) ?></th><th><?= e(t('Eskalation nach (Std.)')) ?></th></tr></thead>
+                <tbody>
+                <?php foreach (TICKET_PRIORITIES as $p => $label): [$r, $x] = $tcfg['times'][$p]; ?>
+                    <tr><td><?= ticket_priority_badge($p) ?></td>
+                        <td><input type="number" name="remind[<?= e($p) ?>]" min="0" max="720" value="<?= (int)$r ?>" aria-label="<?= e(t('Erinnerung nach (Std.)')) ?>"></td>
+                        <td><input type="number" name="escalate[<?= e($p) ?>]" min="0" max="720" value="<?= (int)$x ?>" aria-label="<?= e(t('Eskalation nach (Std.)')) ?>"></td></tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <p class="muted small"><?= e(t('Geprüft wird bei jedem Lauf des Cronjobs (siehe Datensicherung, am besten stündlich) und zusätzlich alle paar Minuten, während jemand das Portal nutzt.')) ?></p>
+            <h3><?= e(t('Allgemein')) ?></h3>
             <label><?= e(t('Kategorien (eine pro Zeile)')) ?> <textarea name="categories" rows="6"><?= e(implode("\n", $cats)) ?></textarea></label>
             <label class="check"><input type="checkbox" name="provider_access" value="1" <?= (int)($co['ticket_provider_access'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
                 <?= e(t('Einsicht für den IT-Dienstleister: Unser IT-Dienstleister darf unsere Tickets sehen und bearbeiten')) ?></label>

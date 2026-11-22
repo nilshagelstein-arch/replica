@@ -488,7 +488,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 17;
+const SCHEMA_VERSION = 18;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -561,6 +561,11 @@ function run_migrations(): void
         ['ticket_queues', 'lead_user_id', 'INT NULL'],
         ['tickets', 'visibility', "VARCHAR(10) NOT NULL DEFAULT 'me'"],
         ['tickets', 'group_id', 'INT NULL'],
+        ['tickets', 'waiting_since', "VARCHAR(19) NOT NULL DEFAULT ''"],
+        ['tickets', 'reminder_level', 'INT NOT NULL DEFAULT 0'],
+        ['tickets', 'due_at', "VARCHAR(10) NOT NULL DEFAULT ''"],
+        ['tickets', 'due_notified', 'INT NOT NULL DEFAULT 0'],
+        ['companies', 'ticket_times', 'TEXT NULL'],
         ['companies', 'ticket_provider_access', 'INT NOT NULL DEFAULT 0'],
         ['companies', 'ticket_categories', 'TEXT NULL'],
     ];
@@ -620,6 +625,8 @@ function ensure_schema(): void
         db()->query('SELECT t.visibility, t.group_id, q.lead_user_id FROM tickets t, ticket_queues q LIMIT 1');
         db()->query('SELECT id FROM user_departments LIMIT 1');
         db()->query('SELECT id FROM ticket_queue_groups LIMIT 1');
+        db()->query('SELECT waiting_since, reminder_level, due_at, due_notified FROM tickets LIMIT 1');
+        db()->query('SELECT ticket_times FROM companies LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

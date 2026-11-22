@@ -140,12 +140,12 @@ function page_backups(): void
                 <h2><?= e(t('Cronjob bei IONOS (1&1) einrichten')) ?></h2>
                 <p><strong><?= e(t('Variante A – im IONOS-Konto')) ?></strong> <?= e(t('(Hosting › Cronjobs › Cronjob erstellen):')) ?></p>
                 <ul>
-                    <li><?= e(t('Ausführung: täglich, z. B. 3:00 Uhr')) ?></li>
+                    <li><?= e(t('Ausführung: stündlich (für die Tickets), mindestens aber täglich')) ?></li>
                     <li><?= e(t('Feld')) ?> <em><?= e(t('HTTP GET')) ?></em>:<br><input readonly value="<?= e($cronUrl) ?>" aria-label="<?= e(t('Cron-URL')) ?>"></li>
                 </ul>
                 <p><strong><?= e(t('Variante B – per SSH')) ?></strong> (<code>crontab -e</code><?= e(t('), läuft ohne Zeitlimit des Webservers:')) ?></p>
-                <p><input readonly value="<?= e('0 3 * * * /usr/bin/php8.3 -f ' . ROOT_DIR . '/cron.php') ?>" aria-label="<?= e(t('Crontab-Zeile')) ?>"></p>
-                <p class="muted small"><?= e(t('PHP-Version an die Ihres Webspace anpassen (z. B. php8.2, php8.4). Der Cronjob darf auch öfter laufen – gesichert wird höchstens einmal pro Tag.')) ?></p>
+                <p><input readonly value="<?= e('0 * * * * /usr/bin/php8.3 -f ' . ROOT_DIR . '/cron.php') ?>" aria-label="<?= e(t('Crontab-Zeile')) ?>"></p>
+                <p class="muted small"><?= e(t('PHP-Version an die Ihres Webspace anpassen (z. B. php8.2, php8.4). Am besten stündlich: Der Cronjob prüft dann auch Erinnerungen und Eskalationen der Tickets; gesichert wird höchstens einmal pro Tag.')) ?></p>
                 <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="token">
                     <button class="btn small" data-confirm="<?= e(t('Neuen Schlüssel erzeugen? Die bisherige Cron-URL funktioniert danach nicht mehr.')) ?>"><?= e(t('Neuen Cron-Schlüssel erzeugen')) ?></button></form>
                 <p class="muted small"><?= e(t('Die URL enthält einen geheimen Schlüssel – bitte nicht weitergeben.')) ?></p>
