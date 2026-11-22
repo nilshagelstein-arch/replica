@@ -129,7 +129,7 @@ function page_mail_settings(): void
         if (is_admin()): ?>
             <div class="toolbar">
                 <form method="get" class="company-switch"><input type="hidden" name="r" value="mail_settings">
-                    <label>Postfach von: <select name="company" onchange="this.form.submit()">
+                    <label>Postfach von: <select name="company" data-autosubmit>
                         <option value="0">Zentral (Dienstleister)</option>
                         <?php foreach (companies_for_select() as $c): ?><option value="<?= (int)$c['id'] ?>" <?= $cid === (int)$c['id'] ? 'selected' : '' ?>><?= e($c['name']) ?></option><?php endforeach; ?>
                     </select></label><noscript><button class="btn small">Wechseln</button></noscript></form>

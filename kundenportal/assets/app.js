@@ -8,6 +8,13 @@
     if (btn && !window.confirm(btn.getAttribute('data-confirm'))) ev.preventDefault();
   });
 
+  // Auswahlfelder mit data-autosubmit (z. B. Firmenauswahl) schicken ihr Formular beim Wechseln ab
+  // (statt onchange="…", das die Content-Security-Policy blockiert)
+  document.addEventListener('change', function (ev) {
+    var el = ev.target.closest('[data-autosubmit]');
+    if (el && el.form) el.form.submit();
+  });
+
   // App-Freigaben: ganze Spalte an-/abwählen
   document.addEventListener('click', function (ev) {
     var b = ev.target.closest('[data-toggle-col]');

@@ -638,7 +638,7 @@ function company_switcher(int $current, string $route, array $extra = []): strin
     if (!is_admin()) return '';
     $html = '<form method="get" class="company-switch"><input type="hidden" name="r" value="' . e($route) . '">';
     foreach ($extra as $k => $v) $html .= '<input type="hidden" name="' . e($k) . '" value="' . e($v) . '">';
-    $html .= '<label>Firma: <select name="company" onchange="this.form.submit()">';
+    $html .= '<label>Firma: <select name="company" data-autosubmit>';
     foreach (companies_for_select() as $c) {
         $sel = (int)$c['id'] === $current ? ' selected' : '';
         $html .= '<option value="' . (int)$c['id'] . "\"$sel>" . e($c['name']) . ((int)$c['active'] ? '' : ' (inaktiv)') . '</option>';
