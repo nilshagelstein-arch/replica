@@ -245,13 +245,12 @@ function page_customer_export(): void
     header('Cache-Control: no-store');
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF");
-    $safe = fn($v) => preg_match('/^[=+\-@\t\r]/', (string)$v) ? "'" . $v : (string)$v; // Schutz vor Formeln in Excel
     fputcsv($out, array_values($fields), ';', '"', '');
     if (isset($_GET['vorlage'])) { fclose($out); exit; }
     $st = q("SELECT * FROM customers WHERE $where ORDER BY company_name, last_name, first_name", $params);
     while ($c = $st->fetch()) {
         $r = customer_export_row($c, $cid);
-        fputcsv($out, array_map($safe, array_map(fn($k) => $r[$k] ?? '', array_keys($fields))), ';', '"', '');
+        fputcsv($out, array_map('csv_cell_safe', array_map(fn($k) => $r[$k] ?? '', array_keys($fields))), ';', '"', '');
     }
     fclose($out);
     exit;

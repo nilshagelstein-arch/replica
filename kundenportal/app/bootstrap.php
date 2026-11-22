@@ -201,6 +201,28 @@ function query_int(string $key): int
     return (int)($_GET[$key] ?? 0);
 }
 
+/**
+ * Löst einen Hostnamen auf und liefert eine öffentliche IPv4-Adresse, sonst null.
+ * Abgelehnt werden private, reservierte, Loopback-, Link-Local- und CGNAT-Adressen (100.64.0.0/10),
+ * auch wenn nur eine der aufgelösten Adressen intern ist. Schutz vor SSRF bei ausgehenden Verbindungen.
+ * Aufrufer sollen sich mit der gelieferten IP verbinden (nicht erneut mit dem Namen), damit DNS-Rebinding nicht greift.
+ */
+function public_ip(string $host, bool $allowPrivate = false): ?string
+{
+    $host = trim($host, '[]');
+    $ips = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : (@gethostbynamel($host) ?: []);
+    if (!$ips) return null;
+    if ($allowPrivate) return $ips[0];
+    $flags = FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE | (defined('FILTER_FLAG_GLOBAL_RANGE') ? FILTER_FLAG_GLOBAL_RANGE : 0);
+    foreach ($ips as $ip) {
+        if (!filter_var($ip, FILTER_VALIDATE_IP, $flags)) return null;
+        if (str_contains($ip, ':')) return null; // IPv6-Literale (auch ::ffff:127.0.0.1) nicht zulassen
+        $n = ip2long($ip);
+        if ($n === false || ($n & 0xFFC00000) === (ip2long('100.64.0.0') & 0xFFC00000)) return null; // CGNAT
+    }
+    return $ips[0];
+}
+
 function client_ip(): string
 {
     return substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
@@ -545,7 +567,11 @@ function context_company_id(): int
     $u = require_login();
     if (is_staff_role($u['role'])) {
         $id = query_int('company') ?: (int)post('company_id', 0);
-        if (!$id || !can_access_company($id)) {
+        // Ausdrücklich angefragte, aber nicht erlaubte Firma: ablehnen statt still auf eine andere Firma umzuschalten
+        // (sonst landet z. B. ein POST nach Einschränkung der Rechte bei der falschen Firma)
+        if ($id && !can_access_company($id)) abort(403);
+        if (!$id) {
+            // ohne Angabe: erste erlaubte Firma als Startansicht
             $first = row('SELECT id FROM companies WHERE 1 = 1' . company_scope_sql('id') . ' ORDER BY name LIMIT 1');
             $id = (int)($first['id'] ?? 0);
         }

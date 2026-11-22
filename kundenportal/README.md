@@ -21,7 +21,7 @@ Eingebaute Apps sind **On- & Offboarding**, **Formulare**, **Datensicherung** un
   - **Firmen-Administrator:** pflegt Firmenprofil und Benutzer der eigenen Firma
   - **Firmen-Benutzer:** erstellt und verfolgt Aufträge
 - **E-Mail-Versand:** zentrales Absender-Postfach und auf Wunsch ein eigenes Postfach je Firma (SMTP mit Anmeldung, Microsoft 365 oder Gmail/Google Workspace per OAuth2). Benachrichtigungen an eine Firma laufen über deren Postfach, Mails an die Administratoren über das zentrale. Fällt ein Postfach aus, springt automatisch das nächste ein (Firma → zentral → Mailfunktion des Webhosters). Zugangsdaten werden verschlüsselt gespeichert, und für jedes Postfach gibt es einen Knopf für eine Testmail.
-- **Mitarbeiterliste (On- & Offboarding → Mitarbeiter):** Alle Mitarbeitenden einer Firma mit Status (Eintritt geplant, Aktiv, Stillgelegt, Ausgeschieden). Wird automatisch aus den Aufträgen gepflegt: Ein offenes Onboarding legt den Eintrag als „geplant“ an, abgeschlossene Aufträge setzen den Status. Bestehende Mitarbeitende lassen sich von Hand anlegen oder per CSV importieren (Personalnummer, Vorname, Nachname; optional Abteilung, Position, E-Mail, Eintritt, Status …), Export als CSV. Aus der Liste startet man Offboarding, Stilllegung oder Reaktivierung mit allen Daten und der Ausstattung aus dem letzten Auftrag. Pflegen und importieren dürfen Firmen-Admins und der Dienstleister, ansehen und Aufträge starten alle mit der App.
+- **Mitarbeiterliste (On- & Offboarding → Mitarbeiter):** Alle Mitarbeitenden einer Firma mit Status (Eintritt geplant, Aktiv, Stillgelegt, Ausgeschieden). Wird automatisch aus den Aufträgen gepflegt: Ein offenes Onboarding legt den Eintrag als „geplant“ an, abgeschlossene Aufträge setzen den Status. Bestehende Mitarbeitende lassen sich von Hand anlegen oder per CSV importieren (Personalnummer, Vorname, Nachname; optional Abteilung, Position, E-Mail, Eintritt, Status …), Export als CSV. Aus der Liste startet man Offboarding, Stilllegung oder Reaktivierung mit allen Daten und der Ausstattung aus dem letzten Auftrag. Pflegen, importieren und als CSV exportieren dürfen Firmen-Admins und der Dienstleister, ansehen und Aufträge starten alle mit der App.
 - **Selbstregistrierung:** Firmen registrieren sich über „Firma registrieren“ auf der Anmeldeseite (Firmendaten, Ansprechpartner/in, Passwort, gewünschte Module). Die Firma bekommt eine E-Mail mit Bestätigungslink, der Dienstleister (`mail.admin_recipients` und Superadmin) eine Benachrichtigung. Nach Bestätigung der E-Mail-Adresse meldet sich die Firma an und richtet die 2FA ein, sieht aber bis zur Freischaltung nur einen Hinweis. Unter **Firmen** steht „Freischaltung offen“; im Firmenprofil werden die angefragten Module geprüft, freigeschaltet oder die Registrierung abgelehnt. Die Firma erhält jeweils eine E-Mail. Schutz gegen Spam: Honeypot, Mindestdauer und Begrenzung je IP-Adresse (`registration.max_per_hour`).
 - **Passwort vergessen:** Link per E-Mail (60 Minuten gültig, nur einmal verwendbar). Die 2FA bleibt bestehen. Ob eine Adresse existiert, wird nicht verraten.
 - **2FA verloren:** Auf der Code-Seite lässt sich das Zurücksetzen beantragen. Der Superadmin bekommt eine E-Mail und einen Hinweis auf der Startseite; **nur der Superadmin** kann die 2FA zurücksetzen. Der Benutzer wird per E-Mail informiert.
@@ -37,6 +37,7 @@ Eingebaute Apps sind **On- & Offboarding**, **Formulare**, **Datensicherung** un
 - **Automatische Aufgaben** in der Checkliste, z. B. Konto sperren zum Zeitpunkt X, Postfach umwandeln, Wiedervorlage vor der Rückkehr
 - **Kataloge und Vorlagen:** Einträge gelten für alle Firmen oder nur für eine. Für jede Abteilung und Position lässt sich hinterlegen, was vorausgewählt wird.
 - **Workflow:** Eingereicht → In Bearbeitung → Rückfrage → Eingerichtet → Freigegeben (oder Storniert). Dazu gibt es eine Checkliste, Nachrichten, interne Notizen und eine Druckansicht.
+- **Änderungsantrag:** Freigegebene und stornierte Aufträge kann der IT-Service nicht mehr direkt ändern. Er stellt stattdessen einen Änderungsantrag mit Begründung. Die Firma bekommt eine E-Mail. Ein Firmen-Administrator oder die Person, die den Auftrag eingereicht hat, gibt den Antrag frei; dann ist der Auftrag wieder „In Bearbeitung“. Oder sie lehnt ihn ab, dann bleibt der Auftrag abgeschlossen. Offene Anträge sind in der Auftragsliste markiert.
 - **E-Mail-Benachrichtigungen** bei neuen Aufträgen, Antworten und Statuswechseln
 
 ### App „Formulare“
@@ -85,6 +86,7 @@ Feldnamen: `nummer, firma, anrede, titel, vorname, nachname, strasse, plz, ort, 
 - Webhosting mit **PHP 8.1 oder neuer** (PDO/pdo_mysql, mbstring, openssl, dom, zip für die update.php), wie bei IONOS, Strato, All-Inkl. und ähnlichen Hostern üblich
 - eine **MySQL- oder MariaDB-Datenbank**
 - **HTTPS**
+- **Kein Reverse Proxy oder CDN davor**, also kein Cloudflare o. Ä. Die Begrenzungen pro IP (Anmeldung, Registrierung, Passwort vergessen) lesen die Client-Adresse aus `REMOTE_ADDR`. Hinter einem Proxy hätten alle Benutzer dieselbe Adresse, und die Begrenzungen würden für alle gemeinsam gelten.
 
 Composer und ein Kommandozeilenzugang sind nicht nötig.
 
@@ -162,3 +164,68 @@ Ist der Mailversand deaktiviert, landen die E-Mails in `app/data/mail.log`.
 ## Datensicherung
 
 Sichern Sie regelmäßig die Datenbank (Backup-Funktion des Hosters) und die Datei `config.php`.
+
+---
+
+<!-- EGM-Vertrag: die folgenden Abschnitte beschreiben die Code-Grenzen dieses Pakets. Bitte bei Änderungen an Routen, Rechten oder Tabellen mitpflegen. -->
+
+## Interface
+
+- **Unterverzeichnisse:**
+  - [app/README.md](./app/README.md): Kernbibliothek (Rechte, Schema, Mail, Sicherung, Formulare, Updates)
+  - [app/pages/README.md](./app/pages/README.md): Seiten-Handler
+  - [app/views/README.md](./app/views/README.md): Layout
+  - [assets/README.md](./assets/README.md): Browser-Skripte
+- **`index.php`**: Front-Controller.
+  - `?r=<route>` wird über `$routes` an `page_*`-Funktionen weitergegeben. Ohne `r` geht es zu `home` bzw. `login`, eine unbekannte Route ergibt 404 `[index.php:$routes]`.
+  - `ROUTE_AREAS` ordnet jeder Verwaltungsroute einen Bereich (`companies`, `users`, `apps`, `mail`, `audit`, `updates`, `backups`, `onboarding`, `forms`, `links`) und eine Mindeststufe (`PERM_VIEW`/`PERM_EDIT`) zu `[index.php:ROUTE_AREAS]`. Routen ohne Bereich stehen in `ROUTES_WITHOUT_AREA`. Jede andere Route ergibt für Verwaltungsadmins 403.
+- **`api.php`**: REST/JSON-API der Kundendatenbank `[api.php]`. Der Pfad kommt aus `PATH_INFO` oder `?pfad=`/`?path=`.
+  - `GET /`
+  - `GET /felder`
+  - `GET|POST /kunden`
+  - `GET|PUT|PATCH|DELETE /kunden/{id}`
+  - `…/kunden/nummer/{nr}`
+- **`cron.php`**: tägliche Sicherung `backup_daily($force)` `[cron.php]`. Aufruf per HTTP mit `?token=<backup_cron_token>[&force=1]` oder per CLI mit `php -f cron.php [--force]`.
+- **`install.php`**: einmalige Einrichtung `[install.php]`. Legt das Schema an (`run_migrations`), erzeugt den Superadmin, füllt den Katalog vor und schreibt `app/data/installed.lock`.
+- **`config.sample.php`**: Vorlage für `config.php`. Schlüssel:
+  - `app_name`, `base_url`
+  - `db.{driver, host, port, name, user, password, sqlite_path}`
+  - `mail.{enabled, from, from_name, admin_recipients}`
+  - `registration.{enabled, privacy_url, max_per_hour}`
+  - `totp_issuer`, `session_lifetime_minutes`, `max_login_attempts`, `max_login_attempts_ip`, `lockout_minutes`, `timezone`
+  - optional: `mail.smtp_allow_private` (nur zum Testen) und `links.google_favicons` (Standard aus)
+
+## Invariants
+
+- Ohne `app/data/installed.lock` leitet `index.php` zu `install.php` weiter. `api.php` antwortet dann mit 503. `cron.php` antwortet per HTTP mit 503, per CLI gibt es nur eine Textmeldung aus. `install.php` ist nach dem Anlegen der Datei gesperrt.
+- **Sicherheitsheader** `[index.php]`, `[index.php:$styleSrc]`:
+  - `X-Frame-Options DENY`, `X-Content-Type-Options nosniff`, `Referrer-Policy same-origin`
+  - CSP mit `default-src 'self'; img-src 'self' data:; script-src 'self'; form-action 'self'; frame-ancestors 'none'`
+  - `style-src 'unsafe-inline'` nur für `form_edit`, `form_layouts`, `form_use` und `form_print`
+- Für Verwaltungsadmins verlangt `index.php` vor dem Handler `require_area(<bereich>, is_post() || PERM_EDIT)`. Jeder POST braucht also das Schreibrecht. Rechte für Firmenrollen prüfen die Seiten selbst.
+- **API** `[api.php:auth]`, `[api.php:$canWrite]`:
+  - Schlüssel kommt per `Authorization: Bearer …` oder `X-API-Key`. Ein ungültiger Schlüssel ergibt 401 nach 300 ms Verzögerung.
+  - Die Firma muss aktiv sein und die App `formulare` haben.
+  - Schreibende Methoden brauchen `can_write=1`.
+  - Grenzen: Anfragekörper bis 5 MiB, `pro_seite` 1–500, höchstens 1000 Kunden je POST.
+  - Unbekannte Felder ergeben 422, eine doppelte Kundennummer 409.
+- **Cron:** Per HTTP muss der Token per `hash_equals` gegen `backup_cron_token` passen. Per CLI ist kein Token nötig `[cron.php]`.
+- **Webserver:** `.htaccess` sperrt `config.php`, `config.sample.php`, `README.md`, `*.sqlite`, `*.log` und `*.lock`, erzwingt HTTPS und reicht `Authorization` an PHP weiter. `app/.htaccess` und `app/data/.htaccess` enthalten `Require all denied`.
+- Ein Datenbankfehler (`PDOException`) im Handler wird protokolliert und mit einer allgemeinen 500-Seite beantwortet `[index.php]`.
+- Weitere Regeln zu Rechten, Mandantentrennung und Workflow: siehe [app/README.md](./app/README.md) und [app/pages/README.md](./app/pages/README.md).
+
+## Side Effects
+
+- Bei jeder Anfrage laufen `ensure_schema()` (ggf. Migration) und `start_session()` `[index.php]`.
+- **API** `[api.php]`:
+  - `api_tokens.last_used_at` wird höchstens einmal pro Minute aktualisiert.
+  - Schreibzugriffe auf `customers` mit `audit()`: `api_customers_saved`, `api_customer_updated`, `api_customer_deleted`.
+- **Cron** `[cron.php]`:
+  - Per HTTP mit `set_time_limit(900)`. Gibt es `fastcgi_finish_request` (PHP-FPM), antwortet das Skript sofort mit `OK` und sichert im Hintergrund weiter. Sonst läuft die Sicherung synchron und die Antwort ist das Ergebnis von `backup_daily()`.
+  - Schreibt Sicherungen nach `app/data/backups/` und lädt sie optional zu Google Drive hoch.
+- **Installation** `[install.php]`: schreibt `users`, `catalog_items` und `app/data/installed.lock`.
+- Weitere Effekte (Mails, OAuth, Drive, Dateien unter `app/data/`): siehe [app/README.md](./app/README.md).
+
+## Verification
+
+- Run: `<test-command>` (kein automatisierter Test im Repository; Rauchtest wie unter „Lokal testen“: `php -S 127.0.0.1:8080`, dann `install.php` und Anmeldung durchspielen)

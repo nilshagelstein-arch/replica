@@ -397,7 +397,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -456,6 +456,10 @@ function run_migrations(): void
         ['users', 'admin_companies', "VARCHAR(2000) NOT NULL DEFAULT ''"],
         // Linksammlung: Bild einpassen oder ausfüllen (ab Version 12)
         ['links', 'image_fit', "VARCHAR(10) NOT NULL DEFAULT 'contain'"],
+        // Änderungsantrag für abgeschlossene Aufträge (ab Version 14); gesetzt = Antrag offen
+        ['requests', 'change_requested_at', 'VARCHAR(19) NULL'],
+        ['requests', 'change_requested_by', 'INT NULL'],
+        ['requests', 'change_reason', 'TEXT NULL'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -507,6 +511,7 @@ function ensure_schema(): void
         db()->query('SELECT id FROM user_tokens LIMIT 1');
         db()->query('SELECT id FROM employees LIMIT 1');
         db()->query('SELECT image_fit FROM links LIMIT 1');
+        db()->query('SELECT change_requested_at, change_requested_by, change_reason FROM requests LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

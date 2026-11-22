@@ -85,6 +85,7 @@ function page_mail_settings(): void
                 if ($pw !== '') $data['secret_enc'] = encrypt_secret($pw);
                 if (!filter_var($data['from_email'], FILTER_VALIDATE_EMAIL)) $errors[] = 'Bitte eine gültige Absenderadresse angeben.';
                 if (!preg_match('/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/', $data['smtp_host'])) $errors[] = 'Bitte einen gültigen SMTP-Server angeben, z. B. smtp.ionos.de.';
+                elseif (public_ip($data['smtp_host'], (bool)cfg('mail.smtp_allow_private', false)) === null) $errors[] = 'Der SMTP-Server wurde nicht gefunden oder hat eine interne Adresse. Erlaubt sind nur öffentlich erreichbare Server.';
                 if (!in_array($data['smtp_port'], SMTP_ALLOWED_PORTS, true)) $errors[] = 'Erlaubte Ports: ' . implode(', ', SMTP_ALLOWED_PORTS) . '.';
                 if ($data['smtp_security'] === 'none' && $data['smtp_user'] !== '') $errors[] = 'Eine Anmeldung ohne Verschlüsselung ist nicht erlaubt. Bitte STARTTLS oder SSL wählen.';
                 // Wechsel weg von OAuth: Tokens verwerfen

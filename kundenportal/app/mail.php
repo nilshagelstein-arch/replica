@@ -207,7 +207,11 @@ final class SmtpClient
             'verify_peer_name' => !cfg('mail.smtp_insecure_tls', false),
             'SNI_enabled' => true, 'peer_name' => $host,
         ]]);
-        $remote = ($security === 'ssl' ? 'ssl://' : 'tcp://') . $host . ':' . $port;
+        // Nur öffentliche Server (Schutz vor SSRF ins interne Netz); verbunden wird mit der geprüften IP,
+        // das Zertifikat wird weiter gegen den Hostnamen geprüft (peer_name/SNI)
+        $ip = public_ip($host, (bool)cfg('mail.smtp_allow_private', false));
+        if ($ip === null) throw new RuntimeException("Der SMTP-Server $host wurde nicht gefunden oder liegt in einem internen Netz.");
+        $remote = ($security === 'ssl' ? 'ssl://' : 'tcp://') . $ip . ':' . $port;
         $s = @stream_socket_client($remote, $errno, $errstr, 15, STREAM_CLIENT_CONNECT, $ctx);
         if (!$s) throw new RuntimeException("Keine Verbindung zu $host:$port ($errstr)");
         stream_set_timeout($s, 20);

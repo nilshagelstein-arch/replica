@@ -65,6 +65,7 @@ function page_employees(): void
     $list = rows('SELECT * FROM employees WHERE ' . implode(' AND ', $where) . ' ORDER BY last_name, first_name', $p);
 
     if (($_GET['export'] ?? '') === 'csv') {
+        if (!$manage) abort(403); // Export nur für Firmen-Admins und den IT-Service
         audit('employees.export', count($list) . ' Mitarbeitende', $cid);
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="mitarbeiter-' . preg_replace('/[^a-z0-9]+/i', '-', $company['name']) . '-' . date('Y-m-d') . '.csv"');
@@ -72,9 +73,9 @@ function page_employees(): void
         fwrite($out, "\xEF\xBB\xBF");
         fputcsv($out, ['Personalnummer', 'Anrede', 'Vorname', 'Nachname', 'Abteilung', 'Position', 'E-Mail', 'Telefon', 'Standort', 'Vorgesetzte/r', 'Eintritt', 'Austritt', 'Status', 'Notiz'], ';', '"', '');
         foreach ($list as $e) {
-            fputcsv($out, [$e['employee_no'], $e['salutation'], $e['first_name'], $e['last_name'], $e['department_name'], $e['position_name'], $e['email'],
+            fputcsv($out, array_map('csv_cell_safe', [$e['employee_no'], $e['salutation'], $e['first_name'], $e['last_name'], $e['department_name'], $e['position_name'], $e['email'],
                 $e['phone'], $e['location'], $e['manager_name'], $e['entry_date'] ? date('d.m.Y', strtotime($e['entry_date'])) : '', $e['exit_date'] ? date('d.m.Y', strtotime($e['exit_date'])) : '',
-                EMPLOYEE_STATUSES[$e['status']] ?? $e['status'], $e['notes']], ';', '"', '');
+                EMPLOYEE_STATUSES[$e['status']] ?? $e['status'], $e['notes']]), ';', '"', ''); // Schutz vor Formeln in Excel
         }
         fclose($out);
         exit;
@@ -102,7 +103,7 @@ function page_employees(): void
             <button class="btn">Suchen</button>
             <span class="grow"></span>
             <?php if ($manage): ?><a class="btn primary" href="<?= e(url('employee_edit', $params)) ?>">+ Mitarbeiter/in</a><?php endif; ?>
-            <a class="btn" href="<?= e(url('employees', $params + ['status' => $status, 'q' => $search, 'export' => 'csv'])) ?>">CSV exportieren</a>
+            <?php if ($manage): ?><a class="btn" href="<?= e(url('employees', $params + ['status' => $status, 'q' => $search, 'export' => 'csv'])) ?>">CSV exportieren</a><?php endif; ?>
         </form>
         <div class="card">
         <?php if (!$list): ?>

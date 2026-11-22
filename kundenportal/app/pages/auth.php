@@ -3,9 +3,38 @@
  * Anmeldung (Passwort + Zwei-Faktor), 2FA-Einrichtung, Abmeldung, Mein Konto.
  */
 
-function login_fail(?array $u): void
+/** Meldung für jeden fehlgeschlagenen Login – gleich für unbekannte, falsche, gesperrte und deaktivierte Konten */
+const LOGIN_FAIL_MESSAGE = 'E-Mail-Adresse oder Passwort ist falsch, oder der Zugang ist deaktiviert.';
+
+/**
+ * Hash für unbekannte E-Mail-Adressen, damit die Prüfung genauso lange dauert wie bei echten Konten.
+ * Einmal erzeugt und gespeichert (gleiche Kosten wie echte Hashes, kein zusätzliches password_hash pro Anfrage).
+ */
+function login_dummy_hash(): string
 {
-    if ($u) {
+    $h = setting_get('login_dummy_hash');
+    if ($h === '' || password_needs_rehash($h, PASSWORD_DEFAULT)) {
+        $h = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+        setting_set('login_dummy_hash', $h);
+    }
+    return $h;
+}
+
+/** Zu viele Fehlversuche von dieser IP (über alle Konten)? Schützt vor Durchprobieren und vor massenhaftem Aussperren */
+function login_ip_blocked(): bool
+{
+    return ip_action_count('login_failed', (int)cfg('lockout_minutes', 15)) >= (int)cfg('max_login_attempts_ip', 20);
+}
+
+/**
+ * Fehlversuch verbuchen: zählt für die IP-Sperre und – wenn ein Konto übergeben wird – für die Kontosperre.
+ * Wartet immer 200–500 ms, damit alle Fehlschläge gleich lange dauern.
+ */
+function login_fail(?array $u, bool $countAccount = true): void
+{
+    insert('audit_log', ['user_id' => $u['id'] ?? null, 'company_id' => $u['company_id'] ?? null, 'action' => 'login_failed',
+        'details' => 'Fehlgeschlagene Anmeldung', 'ip' => client_ip(), 'created_at' => now()]);
+    if ($u && $countAccount) {
         $attempts = (int)$u['failed_attempts'] + 1;
         $data = ['failed_attempts' => $attempts];
         if ($attempts >= (int)cfg('max_login_attempts', 5)) {
@@ -51,15 +80,20 @@ function page_login(): void
         $email = strtolower(post('email'));
         $pw = (string)($_POST['password'] ?? '');
         $u = row('SELECT * FROM users WHERE email = ?', [$email]);
-        // Hash auch bei unbekannter Adresse prüfen (gleiche Antwortzeit)
-        $hash = $u['password_hash'] ?? password_hash(random_bytes(8), PASSWORD_DEFAULT);
+        // Hash auch bei unbekannter Adresse prüfen – mit gespeichertem Dummy-Hash, damit die Antwortzeit gleich ist
+        $hash = $u['password_hash'] ?? login_dummy_hash();
         $ok = password_verify($pw, $hash);
 
-        if ($u && is_locked($u)) {
-            $error = 'Zu viele Fehlversuche. Das Konto ist vorübergehend gesperrt – bitte später erneut versuchen.';
+        if (login_ip_blocked()) {
+            usleep(random_int(200000, 500000));
+            $error = 'Zu viele fehlgeschlagene Anmeldungen von Ihrer Internetadresse. Bitte versuchen Sie es in ' . (int)cfg('lockout_minutes', 15) . ' Minuten erneut.';
+        } elseif ($u && is_locked($u)) {
+            // Den Sperrhinweis sieht nur, wer das richtige Passwort kennt – sonst verrät er, dass das Konto existiert
+            login_fail($ok ? null : $u, false);
+            $error = $ok ? 'Zu viele Fehlversuche. Das Konto ist vorübergehend gesperrt – bitte später erneut versuchen.' : LOGIN_FAIL_MESSAGE;
         } elseif (!$u || !$ok || !(int)$u['active'] || !user_company_active($u)) {
             login_fail($ok ? null : $u);
-            $error = 'E-Mail-Adresse oder Passwort ist falsch, oder der Zugang ist deaktiviert.';
+            $error = LOGIN_FAIL_MESSAGE;
         } elseif (!(int)($u['email_verified'] ?? 1)) {
             if (!token_recently_sent((int)$u['id'], 'verify', 10)) send_verification_mail($u);
             $error = 'Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse. Wir haben Ihnen einen Bestätigungslink geschickt (bitte auch im Spam-Ordner nachsehen). Ein Klick auf den Link genügt, danach können Sie sich anmelden.';

@@ -643,13 +643,14 @@
       Array.prototype.slice.call(node.childNodes).forEach(function (n) {
         if (n.nodeType === 8) { n.remove(); return; }
         if (n.nodeType !== 1) return;
-        if (/^(SCRIPT|STYLE|META|LINK|TITLE|IFRAME|OBJECT|SVG)$/.test(n.tagName) || /:/.test(n.tagName)) { n.remove(); return; }
+        // tagName in Großbuchstaben vergleichen: SVG/MathML-Elemente liefern im HTML-Dokument kleingeschriebene Namen (svg, math)
+        if (/^(SCRIPT|STYLE|META|LINK|TITLE|IFRAME|OBJECT|EMBED|SVG|MATH|TEMPLATE|NOSCRIPT)$/.test(n.tagName.toUpperCase()) || /:/.test(n.tagName)) { n.remove(); return; }
         walk(n);
         if (!ALLOWED[n.tagName]) { while (n.firstChild) n.parentNode.insertBefore(n.firstChild, n); n.remove(); return; }
         var keepStyle = '';
         if (n.style) ['font-weight', 'font-style', 'text-decoration', 'text-align'].forEach(function (pr) { var v = n.style.getPropertyValue(pr); if (v) keepStyle += pr + ':' + v + ';'; });
         Array.prototype.slice.call(n.attributes).forEach(function (a) {
-          var keep = (n.tagName === 'A' && a.name === 'href') || (n.tagName === 'IMG' && a.name === 'src' && /^data:image\//.test(a.value)) || /^(colspan|rowspan)$/.test(a.name);
+          var keep = (n.tagName === 'A' && a.name === 'href' && /^(https?:\/\/|mailto:|tel:)/i.test(a.value.trim())) || (n.tagName === 'IMG' && a.name === 'src' && /^data:image\//.test(a.value)) || /^(colspan|rowspan)$/.test(a.name);
           if (!keep) n.removeAttribute(a.name);
         });
         if (keepStyle) n.setAttribute('style', keepStyle);

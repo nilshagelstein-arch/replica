@@ -505,6 +505,12 @@ function layout_presets(): array
 function forms_ensure_defaults(int $companyId): void
 {
     if (row('SELECT id FROM form_layouts WHERE company_id = ? LIMIT 1', [$companyId])) return;
+    // Nur ein Aufruf darf anlegen: settings.name ist UNIQUE, ein zweiter gleichzeitiger Aufruf scheitert hier
+    try {
+        insert('settings', ['name' => 'forms_seeded_c' . $companyId, 'value' => now()]);
+    } catch (PDOException $ex) {
+        return;
+    }
     $p = layout_presets();
     foreach (['header' => 'klassisch', 'footer' => 'spalten'] as $kind => $key) {
         insert('form_layouts', ['company_id' => $companyId, 'kind' => $kind,
@@ -638,10 +644,26 @@ function csv_read(string $raw): array
     $rowsOut = [];
     while (($r = fgetcsv($fh, 0, $delim, '"', '')) !== false) {
         if ($r === [null] || (count($r) === 1 && trim((string)$r[0]) === '')) continue;
-        $rowsOut[] = array_map(fn($x) => (string)$x, $r);
+        $rowsOut[] = array_map(fn($x) => csv_cell_unescape((string)$x), $r);
     }
     fclose($fh);
     return $rowsOut;
+}
+
+/**
+ * Schutz vor Formel-Injection beim CSV-Export: Werte, die Excel/LibreOffice als Formel
+ * ausführen würden (Beginn mit = + - @ Tab CR), bekommen ein ' vorangestellt.
+ */
+function csv_cell_safe(mixed $v): string
+{
+    $v = (string)$v;
+    return preg_match('/^[=+\-@\t\r]/', $v) ? "'" . $v : $v;
+}
+
+/** Gegenstück für den Import: entfernt das von csv_cell_safe() vorangestellte ', damit ein Export unverändert wieder eingelesen werden kann */
+function csv_cell_unescape(string $v): string
+{
+    return preg_match('/^\'[=+\-@\t\r]/', $v) ? substr($v, 1) : $v;
 }
 
 function csv_norm(string $s): string
