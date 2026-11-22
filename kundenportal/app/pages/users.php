@@ -54,8 +54,8 @@ function page_users(): void
                     <tr class="<?= (int)$row['active'] ? '' : 'inactive' ?>">
                         <td><?= e($row['name']) ?></td>
                         <td><?= e($row['email']) ?></td>
-                        <td><?= e(ROLES[$row['role']] ?? $row['role']) ?></td>
-                        <td><?= (int)$row['totp_enabled'] ? '✓ eingerichtet' : '<span class="muted">bei nächster Anmeldung</span>' ?></td>
+                        <td><?= e(ROLES[$row['role']] ?? $row['role']) ?><?php if ($row['role'] === 'admin'): ?><br><span class="muted small"><?= e(admin_rights_summary($row)) ?></span><?php endif; ?></td>
+                        <td><?= (int)$row['totp_enabled'] ? '✓ eingerichtet' : '<span class="muted">bei nächster Anmeldung</span>' ?><?= $row['totp_reset_requested_at'] ? ' <span class="badge st-rueckfrage">Reset beantragt</span>' : '' ?><?= (int)$row['email_verified'] ? '' : ' <span class="badge">E-Mail unbestätigt</span>' ?></td>
                         <td><?= fmt_dt($row['last_login']) ?></td>
                         <td><?= (int)$row['active'] ? 'aktiv' : 'deaktiviert' ?><?= $row['locked_until'] && strtotime($row['locked_until']) > time() ? ' · <strong>gesperrt</strong>' : '' ?></td>
                         <td class="actions"><?php if (!is_staff_role($row['role']) || is_superadmin()): ?><a href="<?= e(url('user_edit', ['id' => $row['id']])) ?>">Bearbeiten</a><?php elseif ((int)$row['id'] === $u['id']): ?><a href="<?= e(url('account')) ?>">Mein Konto</a><?php endif; ?></td>
@@ -118,10 +118,37 @@ function page_user_edit(): void
             if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) $errors[] = 'Bitte eine gültige E-Mail-Adresse angeben.';
             $dup = row('SELECT id FROM users WHERE email = ? AND id <> ?', [$data['email'], $id ?: 0]);
             if ($dup) $errors[] = 'Diese E-Mail-Adresse wird bereits verwendet.';
+            // Rechte eines Verwaltungsadmins (nur der Superadmin legt sie fest)
+            $permSave = [];
+            if ($companyId === null && $data['role'] === 'admin' && $me['role'] === 'superadmin') {
+                if (post('perm_mode') === 'full') {
+                    $permSave = ['admin_perms' => null, 'admin_companies' => ''];
+                } else {
+                    $perms = [];
+                    foreach (array_keys(ADMIN_AREAS) as $area) {
+                        $perms[$area] = max(PERM_NONE, min(PERM_EDIT, (int)(($_POST['perm'] ?? [])[$area] ?? PERM_NONE)));
+                    }
+                    if ($perms['audit'] > PERM_VIEW) $perms['audit'] = PERM_VIEW;
+                    if ($perms['updates'] > PERM_VIEW) $perms['updates'] = PERM_VIEW;
+                    $permSave = ['admin_perms' => json_encode($perms)];
+                }
+                if (post('company_mode') === 'some') {
+                    $valid = array_map('intval', array_column(rows('SELECT id FROM companies'), 'id'));
+                    $ids = array_values(array_intersect($valid, array_map('intval', (array)($_POST['companies'] ?? []))));
+                    if (!$ids) $errors[] = 'Bitte mindestens eine Firma auswählen oder „alle Firmen“ wählen.';
+                    $permSave['admin_companies'] = implode(',', $ids);
+                } else {
+                    $permSave['admin_companies'] = '';
+                }
+                $data = array_merge($data, $permSave);
+            }
             if (!$errors) {
-                $save = ['name' => $data['name'], 'email' => $data['email'], 'role' => $data['role'], 'active' => $data['active']];
+                $save = ['name' => $data['name'], 'email' => $data['email'], 'role' => $data['role'], 'active' => $data['active']] + $permSave;
                 if ($target) {
                     update('users', $id, $save);
+                    if ($permSave && (($target['admin_perms'] ?? null) !== ($save['admin_perms'] ?? null) || ($target['admin_companies'] ?? '') !== ($save['admin_companies'] ?? ''))) {
+                        audit('admin_rights_changed', $save['email'] . ': ' . admin_rights_summary($save), null);
+                    }
                     audit('user_updated', $save['email'] . ($target['role'] !== $save['role'] ? ' (Rolle: ' . ROLES[$target['role']] . ' → ' . ROLES[$save['role']] . ')' : ''), $companyId);
                     flash('success', 'Der Benutzer wurde gespeichert.');
                 } else {
@@ -140,8 +167,12 @@ function page_user_edit(): void
                 'must_change_password' => 1, 'failed_attempts' => 0, 'locked_until' => null]);
             audit('user_password_reset', $target['email'], $companyId);
         } elseif ($target && !$isSelf && $action === 'reset_2fa') {
-            update('users', $id, ['totp_enabled' => 0, 'totp_secret' => null, 'totp_last_step' => 0]);
+            if ($me['role'] !== 'superadmin') abort(403, 'Die Zwei-Faktor-Anmeldung kann nur der Superadmin zurücksetzen.');
+            update('users', $id, ['totp_enabled' => 0, 'totp_secret' => null, 'totp_last_step' => 0, 'totp_reset_requested_at' => null]);
             audit('user_2fa_reset', $target['email'], $companyId);
+            send_mail([$target['email']], 'Zwei-Faktor-Anmeldung zurückgesetzt',
+                "Guten Tag " . $target['name'] . ",\n\nIhre Zwei-Faktor-Anmeldung wurde zurückgesetzt. Melden Sie sich mit Ihrem Passwort an und richten Sie die Authenticator-App neu ein:\n\n"
+                . portal_link('login') . "\n\nWaren Sie das nicht? Bitte melden Sie sich sofort bei Ihrem IT-Dienstleister.", $companyId);
             flash('success', 'Die Zwei-Faktor-Authentifizierung wurde zurückgesetzt. Der Benutzer richtet sie bei der nächsten Anmeldung neu ein.');
             redirect('user_edit', ['id' => $id]);
         } elseif ($target && !$isSelf && $action === 'delete') {
@@ -165,6 +196,17 @@ function page_user_edit(): void
                 flash('success', 'Die Superadmin-Rolle wurde an ' . $target['name'] . ' übertragen. Sie sind jetzt Verwaltungsadmin.');
                 redirect('users', ['admins' => 1]);
             }
+        } elseif ($target && $action === 'verify_email') {
+            update('users', $id, ['email_verified' => 1]);
+            q("DELETE FROM user_tokens WHERE user_id = ? AND purpose = 'verify'", [$id]);
+            audit('email_verified_by_admin', $target['email'], $companyId);
+            flash('success', 'Die E-Mail-Adresse wurde als bestätigt markiert. Der Benutzer kann sich jetzt anmelden.');
+            redirect('user_edit', ['id' => $id]);
+        } elseif ($target && $action === 'resend_verification') {
+            send_verification_mail($target);
+            audit('verification_resent', $target['email'], $companyId);
+            flash('success', 'Der Bestätigungslink wurde erneut an ' . $target['email'] . ' gesendet. Kommt nichts an, prüfen Sie unter „E-Mail-Versand“ das Postfach und senden Sie eine Testmail.');
+            redirect('user_edit', ['id' => $id]);
         } elseif ($target && $action === 'unlock') {
             update('users', $id, ['failed_attempts' => 0, 'locked_until' => null]);
             audit('user_unlocked', $target['email'], $companyId);
@@ -175,7 +217,8 @@ function page_user_edit(): void
     }
 
     $backParams = $companyId === null ? ['admins' => 1] : (is_staff_role($me['role']) ? ['company' => $companyId] : []);
-    render_page($target ? 'Benutzer bearbeiten' : 'Neuer Benutzer', function () use ($data, $errors, $target, $allowedRoles, $isSelf, $newPassword, $backParams, $companyId) {
+    $showRights = $companyId === null && ($data['role'] ?? '') === 'admin' && $me['role'] === 'superadmin';
+    render_page($target ? 'Benutzer bearbeiten' : 'Neuer Benutzer', function () use ($data, $errors, $target, $allowedRoles, $isSelf, $newPassword, $backParams, $companyId, $showRights) {
         foreach ($errors as $err) echo '<div class="alert error">' . e($err) . '</div>';
         if ($newPassword): ?>
             <div class="alert success">
@@ -202,7 +245,8 @@ function page_user_edit(): void
                 </label>
             </div>
             <?php if ($companyId === null): ?>
-            <p class="muted small">Verwaltungsadmins verwalten alle Firmen, deren Benutzer, Apps und Aufträge. Es gibt genau einen Superadmin; nur er verwaltet die Administratoren-Konten und kann seine Rolle an einen Verwaltungsadmin übertragen.</p>
+            <p class="muted small">Was ein Verwaltungsadmin darf, legen Sie unten unter „Rechte“ fest. Es gibt genau einen Superadmin; er darf immer alles, verwaltet die Administratoren-Konten und kann seine Rolle an einen Verwaltungsadmin übertragen.</p>
+            <?php if ($showRights) render_admin_rights_fields($data); ?>
             <?php else: ?>
             <p class="muted small">Firmen-Benutzer können Aufträge erstellen und verfolgen. Firmen-Administratoren pflegen zusätzlich Firmenprofil, Benutzer, Abteilungen, Positionen, Katalog und Vorlagen der Firma.</p>
             <?php endif; ?>
@@ -212,19 +256,37 @@ function page_user_edit(): void
                 <a class="btn" href="<?= e(url('users', $backParams)) ?>">Zurück zur Liste</a>
             </div>
         </form>
+        <?php if ($target && !(int)$target['email_verified']): ?>
+        <div class="card review">
+            <h2>E-Mail-Adresse noch nicht bestätigt</h2>
+            <p class="muted">Ohne Bestätigung ist keine Anmeldung möglich. Ist die Bestätigungsmail nicht angekommen, können Sie sie erneut senden oder die Adresse selbst bestätigen.</p>
+            <div class="buttons">
+                <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="resend_verification">
+                    <button class="btn">Bestätigungslink erneut senden</button></form>
+                <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="verify_email">
+                    <button class="btn primary" data-confirm="E-Mail-Adresse <?= e($target['email']) ?> als bestätigt markieren?">Als bestätigt markieren</button></form>
+            </div>
+        </div>
+        <?php endif; ?>
         <?php if ($target && !$isSelf): ?>
         <div class="card">
             <h2>Zugang zurücksetzen</h2>
             <div class="buttons">
                 <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="reset_password">
                     <button class="btn" data-confirm="Neues Startpasswort erzeugen? Das bisherige Passwort wird ungültig.">Neues Startpasswort</button></form>
+                <?php if (is_superadmin()): ?>
                 <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="reset_2fa">
-                    <button class="btn" data-confirm="Zwei-Faktor-Authentifizierung zurücksetzen?">2FA zurücksetzen</button></form>
+                    <button class="btn" data-confirm="Zwei-Faktor-Authentifizierung zurücksetzen? Bitte vorher die Identität prüfen (z. B. Rückruf).">2FA zurücksetzen</button></form>
+                <?php endif; ?>
                 <?php if ($target['locked_until'] && strtotime($target['locked_until']) > time()): ?>
                 <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="unlock">
                     <button class="btn">Sperre aufheben</button></form>
                 <?php endif; ?>
             </div>
+            <?php if ($target['totp_reset_requested_at']): ?>
+                <p class="alert info small">Zurücksetzen der 2FA beantragt am <?= fmt_dt($target['totp_reset_requested_at']) ?>. Bitte Identität prüfen (z. B. telefonischer Rückruf).</p>
+            <?php endif; ?>
+            <?php if (!is_superadmin()): ?><p class="muted small">Die Zwei-Faktor-Anmeldung kann nur der Superadmin zurücksetzen.</p><?php endif; ?>
         </div>
         <?php endif; ?>
         <?php if ($target && !$isSelf && is_superadmin() && $target['role'] === 'admin'): ?>
@@ -244,3 +306,67 @@ function page_user_edit(): void
         <?php endif; ?>
     <?php });
 }
+
+/** Kurzbeschreibung der Rechte eines Verwaltungsadmins */
+function admin_rights_summary(array $u): string
+{
+    $u['role'] = 'admin';
+    $perms = admin_perms_of($u);
+    $ids = admin_company_ids($u);
+    $firms = $ids === null ? 'alle Firmen' : (count($ids) === 1 ? '1 Firma' : count($ids) . ' Firmen');
+    if ($perms === null) return 'alle Bereiche bearbeiten · ' . $firms;
+    $edit = count(array_filter($perms, fn($v) => (int)$v === PERM_EDIT));
+    $view = count(array_filter($perms, fn($v) => (int)$v === PERM_VIEW));
+    $parts = [];
+    if ($edit) $parts[] = $edit . ' Bereich' . ($edit === 1 ? '' : 'e') . ' bearbeiten';
+    if ($view) $parts[] = $view . ' ansehen';
+    return ($parts ? implode(', ', $parts) : 'keine Bereiche') . ' · ' . $firms;
+}
+
+/** Eingabefelder für die Rechte eines Verwaltungsadmins (im Formular „Benutzer bearbeiten“) */
+function render_admin_rights_fields(array $data): void
+{
+    $perms = admin_perms_of(['role' => 'admin'] + $data);
+    $full = $perms === null;
+    $ids = admin_company_ids(['role' => 'admin'] + $data);
+    $companies = rows('SELECT id, name, active FROM companies ORDER BY active DESC, name'); ?>
+    <fieldset class="rights">
+        <legend>Rechte</legend>
+        <label class="check"><input type="radio" name="perm_mode" value="full" <?= $full ? 'checked' : '' ?>> <strong>Uneingeschränkt</strong> – darf alle Bereiche ansehen und bearbeiten</label>
+        <label class="check"><input type="radio" name="perm_mode" value="custom" <?= $full ? '' : 'checked' ?>> <strong>Eingeschränkt</strong> – Rechte je Bereich festlegen</label>
+        <div class="rights-detail" data-show-if="perm_mode=custom">
+            <div class="btn-row rights-presets">
+                <span class="muted small">Schnellauswahl:</span>
+                <button type="button" class="btn small" data-perm-preset="2">alles bearbeiten</button>
+                <button type="button" class="btn small" data-perm-preset="1">alles nur ansehen</button>
+                <button type="button" class="btn small" data-perm-preset="0">nichts</button>
+            </div>
+            <table class="table compact rights-table">
+                <thead><tr><th>Bereich</th><?php foreach (PERM_LABELS as $lv => $lbl): ?><th class="center"><?= e($lbl) ?></th><?php endforeach; ?></tr></thead>
+                <tbody>
+                <?php foreach (ADMIN_AREAS as $area => [$name, $hint]):
+                    $cur = $full ? PERM_EDIT : (int)($perms[$area] ?? PERM_NONE);
+                    $maxLv = in_array($area, ['audit', 'updates'], true) ? PERM_VIEW : PERM_EDIT;
+                    if ($cur > $maxLv) $cur = $maxLv; ?>
+                    <tr><td><strong><?= e($name) ?></strong><br><span class="muted small"><?= e($hint) ?></span></td>
+                        <?php foreach (PERM_LABELS as $lv => $lbl): ?>
+                            <td class="center"><?php if ($lv <= $maxLv): ?><input type="radio" name="perm[<?= e($area) ?>]" value="<?= $lv ?>" <?= $cur === $lv ? 'checked' : '' ?> aria-label="<?= e($name . ': ' . $lbl) ?>"><?php else: ?><span class="muted">–</span><?php endif; ?></td>
+                        <?php endforeach; ?></tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <h3>Firmen</h3>
+        <label class="check"><input type="radio" name="company_mode" value="all" <?= $ids === null ? 'checked' : '' ?>> Alle Firmen (auch neu hinzukommende)</label>
+        <label class="check"><input type="radio" name="company_mode" value="some" <?= $ids !== null ? 'checked' : '' ?>> Nur ausgewählte Firmen</label>
+        <div data-show-if="company_mode=some">
+            <input type="search" class="filter-input" placeholder="Firmen filtern …" data-filter-list="#rights-companies">
+            <div class="pick-list" id="rights-companies">
+                <?php foreach ($companies as $c): ?>
+                    <label class="check"><input type="checkbox" name="companies[]" value="<?= (int)$c['id'] ?>" <?= $ids !== null && in_array((int)$c['id'], $ids, true) ? 'checked' : '' ?>> <?= e($c['name']) ?><?= (int)$c['active'] ? '' : ' <span class="tag">inaktiv</span>' ?></label>
+                <?php endforeach; ?>
+            </div>
+            <p class="muted small">Mit ausgewählten Firmen sieht der Administrator nur deren Daten. Firmenübergreifendes (neue Firmen, eigene Apps, zentrales Postfach, Portal-Sicherungen, Katalogeinträge für alle Firmen) bleibt Administratoren mit Zugriff auf alle Firmen vorbehalten.</p>
+        </div>
+    </fieldset>
+<?php }

@@ -57,6 +57,7 @@ function page_dashboard(): void
     if (is_staff_role($u['role'])) {
         $companyFilter = query_int('company');
         if ($companyFilter) { $where[] = 'r.company_id = ?'; $params[] = $companyFilter; }
+        if (($scope = company_scope_sql('r.company_id')) !== '') $where[] = substr($scope, 5);
     } else {
         $where[] = 'r.company_id = ?';
         $params[] = $u['company_id'];
@@ -104,7 +105,7 @@ function page_dashboard(): void
         $keep = ($companyFilter ? ['company' => $companyFilter] : []) + ($type ? ['type' => $type] : []);
         $keepNoType = $companyFilter ? ['company' => $companyFilter] : []; ?>
         <div class="new-buttons">
-            <?php foreach (REQUEST_TYPES as $t => $label): ?>
+            <?php if (!is_admin() || admin_can('onboarding', true)) foreach (REQUEST_TYPES as $t => $label): ?>
                 <a class="btn <?= $t === 'onboarding' ? 'primary' : '' ?>" title="<?= e(REQUEST_TYPE_HINTS[$t]) ?>"
                    href="<?= e(url($t === 'onboarding' ? 'request_new' : 'change_new', ['type' => $t] + ($companyFilter ? ['company' => $companyFilter] : []))) ?>">+ <?= e($label) ?></a>
             <?php endforeach; ?>
@@ -187,14 +188,14 @@ function page_request_form(): void
     } else {
         $cid = (int)$u['company_id'];
     }
-    $company = $cid ? row('SELECT * FROM companies WHERE id = ? AND active = 1', [$cid]) : null;
+    $company = $cid && can_access_company($cid) ? row('SELECT * FROM companies WHERE id = ? AND active = 1', [$cid]) : null;
     // Firmen-Benutzer brauchen die App-Freigabe; der IT-Service darf für jede aktive Firma Aufträge anlegen
     if ($company && !is_admin() && !company_has_app($cid, 'onboarding')) $company = null;
 
     // Admin muss zuerst die Firma wählen
     if (!$company) {
         if (!is_staff_role($u['role'])) abort(403);
-        $companies = rows('SELECT id, name FROM companies WHERE active = 1 ORDER BY name');
+        $companies = rows('SELECT id, name FROM companies WHERE active = 1' . company_scope_sql('id') . ' ORDER BY name');
         render_page('Neuer Auftrag', function () use ($companies) { ?>
             <form method="get" class="card form narrow">
                 <input type="hidden" name="r" value="request_new">
@@ -301,6 +302,7 @@ function page_request_form(): void
             }
             request_log($id, 'system', $existing ? 'Auftrag geändert' : (is_admin() ? 'Vom IT-Service angelegt und in Bearbeitung genommen' : 'Auftrag eingereicht'));
             db()->commit();
+            employee_sync_request($id);
 
             $r = load_request($id);
             $subject = ($existing ? 'Onboarding-Auftrag geändert: ' : 'Neuer Onboarding-Auftrag: ') . request_title($r) . ' (' . $r['company_name'] . ')';
@@ -684,6 +686,7 @@ function page_request_action(): void
     } else {
         abort(400);
     }
+    employee_sync_request($id);
     redirect('request', ['id' => $id]);
 }
 

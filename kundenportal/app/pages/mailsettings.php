@@ -12,7 +12,14 @@ function mail_settings_target(): ?int
     if (is_staff_role($u['role'])) {
         $cid = query_int('company') ?: (int)post('company_id', 0);
         if ($cid && !row('SELECT id FROM companies WHERE id = ?', [$cid])) abort(404);
-        return $cid ?: null;
+        if ($cid) { require_company_access($cid); return $cid; }
+        // zentrales Postfach nur mit Zugriff auf alle Firmen; sonst erste eigene Firma
+        if (!admin_all_companies()) {
+            $first = (int)context_company_id();
+            if (!$first) abort(403, 'Ihnen ist keine Firma zugeordnet.');
+            return $first;
+        }
+        return null;
     }
     return (int)$u['company_id'];
 }

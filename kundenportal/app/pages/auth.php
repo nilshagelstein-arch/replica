@@ -60,6 +60,9 @@ function page_login(): void
         } elseif (!$u || !$ok || !(int)$u['active'] || !user_company_active($u)) {
             login_fail($ok ? null : $u);
             $error = 'E-Mail-Adresse oder Passwort ist falsch, oder der Zugang ist deaktiviert.';
+        } elseif (!(int)($u['email_verified'] ?? 1)) {
+            if (!token_recently_sent((int)$u['id'], 'verify', 10)) send_verification_mail($u);
+            $error = 'Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse. Wir haben Ihnen einen Bestätigungslink geschickt (bitte auch im Spam-Ordner nachsehen). Ein Klick auf den Link genügt, danach können Sie sich anmelden.';
         } else {
             if (password_needs_rehash($u['password_hash'], PASSWORD_DEFAULT)) {
                 update('users', (int)$u['id'], ['password_hash' => password_hash($pw, PASSWORD_DEFAULT)]);
@@ -85,8 +88,11 @@ function page_login(): void
                 <label>Passwort<input type="password" name="password" required autocomplete="current-password"></label>
                 <button class="btn primary">Weiter</button>
             </form>
-            <p class="muted small">Die Anmeldung erfolgt mit Zwei-Faktor-Authentifizierung (Authenticator-App).
-                Passwort vergessen? Wenden Sie sich an den Administrator Ihrer Firma.</p>
+            <p class="small"><a href="<?= e(url('forgot_password')) ?>">Passwort vergessen?</a></p>
+            <?php if (registration_enabled()): ?>
+            <p class="small">Noch kein Zugang? <a href="<?= e(url('register')) ?>">Firma registrieren</a></p>
+            <?php endif; ?>
+            <p class="muted small">Die Anmeldung erfolgt mit Zwei-Faktor-Authentifizierung (Authenticator-App).</p>
         </div>
     <?php });
 }
@@ -113,6 +119,11 @@ function page_login_2fa(): void
             flash('error', 'Die Anmeldung ist nicht möglich.');
             redirect('login');
         }
+        if (post('action') === 'request_reset') {
+            request_2fa_reset($u);
+            unset($_SESSION['pending_uid'], $_SESSION['pending_at']);
+            redirect('login');
+        }
         $step = totp_verify((string)$u['totp_secret'], post('code'), (int)$u['totp_last_step']);
         if ($step !== null) {
             finish_login($u, $step);
@@ -130,7 +141,13 @@ function page_login_2fa(): void
                 <label>Code<input name="code" inputmode="numeric" pattern="[0-9 ]{6,7}" maxlength="7" required autofocus autocomplete="one-time-code" class="code"></label>
                 <button class="btn primary">Anmelden</button>
             </form>
-            <p class="muted small">Kein Zugriff auf die App mehr? Ihr Administrator kann die Zwei-Faktor-Anmeldung zurücksetzen.</p>
+            <details class="small">
+                <summary>Kein Zugriff mehr auf die Authenticator-App?</summary>
+                <p class="muted">Aus Sicherheitsgründen kann nur der Administrator des Portals die Zwei-Faktor-Anmeldung zurücksetzen.
+                    Er prüft vorher Ihre Identität. Danach richten Sie die App bei der nächsten Anmeldung neu ein.</p>
+                <form method="post"><?= csrf_field() ?><input type="hidden" name="action" value="request_reset">
+                    <button class="btn small">Zurücksetzen beantragen</button></form>
+            </details>
         </div>
     <?php });
 }

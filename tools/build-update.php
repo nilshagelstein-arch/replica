@@ -5,7 +5,9 @@
  * Browser aufrufen (als Administrator angemeldet). config.php und app/data/
  * bleiben unverändert, die Datei löscht sich danach selbst.
  *
- * Aufruf (im Repository-Ordner):  php tools/build-update.php
+ * Aufruf (im Repository-Ordner):
+ *   php tools/build-update.php --author="Name" --summary="Was ist neu" [--summary-file=notes.txt] [--date=2026-11-21]
+ * Zusammenfassung, Datum und Autor stehen danach im Paket und erscheinen im Portal unter Administration → Updates.
  */
 declare(strict_types=1);
 
@@ -13,6 +15,16 @@ $root = dirname(__DIR__);
 $src = $root . '/kundenportal';
 $outDir = $root . '/build';
 if (!is_dir($outDir)) mkdir($outDir, 0775, true);
+
+$opt = getopt('', ['summary:', 'summary-file:', 'author:', 'date:']);
+$summary = isset($opt['summary-file']) ? trim((string)file_get_contents($opt['summary-file'])) : trim((string)($opt['summary'] ?? ''));
+$commit = trim((string)@shell_exec('git -C ' . escapeshellarg($root) . ' rev-parse --short HEAD 2>/dev/null'));
+$updateInfo = [
+    'date'    => (string)($opt['date'] ?? date('Y-m-d')),
+    'author'  => (string)($opt['author'] ?? trim((string)@shell_exec('git -C ' . escapeshellarg($root) . ' config user.name 2>/dev/null'))),
+    'summary' => $summary,
+    'build'   => date('Y-m-d H:i') . ($commit !== '' ? ' · ' . $commit : ''),
+];
 
 $zipFile = tempnam(sys_get_temp_dir(), 'kp');
 $zip = new ZipArchive();
@@ -27,13 +39,16 @@ foreach ($it as $file) {
     $n++;
 }
 $zip->close();
+$updateInfo['files'] = $n;
 
 $head = <<<'PHP'
 <?php
 /**
  * Update des Kundenportals. In den Portal-Ordner hochladen und im Browser aufrufen.
- * Ersetzt die Programmdateien, behält config.php und app/data/ und löscht sich danach selbst.
+ * Ersetzt die Programmdateien, behält config.php und app/data/ und legt sich danach unter
+ * Administration → Updates ab (app/data/updates/).
  */
+// UPDATE-INFO: __UPDATE_INFO__
 declare(strict_types=1);
 header('Content-Type: text/html; charset=utf-8');
 header('X-Robots-Tag: noindex');
@@ -90,11 +105,23 @@ $zip->close();
 @unlink($tmp);
 if (function_exists('opcache_reset')) @opcache_reset();
 if ($errors) upd_page('Update unvollständig', '<p class="err">Diese Dateien konnten nicht geschrieben werden:</p><ul><li>' . implode('</li><li>', array_map('htmlspecialchars', $errors)) . '</li></ul><p>Bitte Schreibrechte prüfen und erneut versuchen.</p>');
-@unlink(__FILE__);
-upd_page('Update eingespielt', '<p>' . $written . ' Dateien wurden aktualisiert. Die update.php hat sich selbst gelöscht.</p><p><a class="btn" href="index.php">Zum Portal</a></p>');
+// Paket im Update-Archiv ablegen (Administration → Updates) statt es zu löschen
+$archived = false;
+if (is_file($dir . '/app/updates.php')) {
+    try {
+        require_once $dir . '/app/updates.php';
+        update_store(__FILE__, ['applied_at' => date('Y-m-d H:i:s'), 'applied_by' => $u['name'], 'stored_by' => $u['name'], 'original_name' => basename(__FILE__)], true);
+        $archived = true;
+    } catch (Throwable $ex) {
+        error_log('[kundenportal] Update-Archiv: ' . $ex->getMessage());
+    }
+}
+if (!$archived) @unlink(__FILE__);
+upd_page('Update eingespielt', '<p>' . $written . ' Dateien wurden aktualisiert. Die update.php ' . ($archived ? 'liegt jetzt unter <strong>Administration → Updates</strong>.' : 'hat sich selbst gelöscht.') . '</p><p><a class="btn" href="index.php?r=updates">Zum Portal</a></p>');
 __HALT_COMPILER();
 PHP;
 
+$head = str_replace('__UPDATE_INFO__', base64_encode(json_encode($updateInfo, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)), $head);
 $out = $outDir . '/update.php';
 // Paket als Base64-Text anhängen: so übersteht die Datei auch Downloads, die sie als Text behandeln
 file_put_contents($out, $head . "\n" . chunk_split(base64_encode((string)file_get_contents($zipFile)), 76, "\n"));

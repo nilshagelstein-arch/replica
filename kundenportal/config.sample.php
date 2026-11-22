@@ -32,6 +32,13 @@ return [
         'admin_recipients' => ['it-service@example.de'],
     ],
 
+    // Selbstregistrierung von Firmen (Link „Firma registrieren“ auf der Anmeldeseite)
+    'registration' => [
+        'enabled'      => true,
+        'privacy_url'  => '',   // Link zu Ihren Datenschutzhinweisen, z. B. https://www.example.de/datenschutz
+        'max_per_hour' => 5,    // Registrierungen je IP-Adresse und Stunde
+    ],
+
     // Name des Ausstellers in der Authenticator-App
     'totp_issuer' => 'Kundenportal',
 
