@@ -6,10 +6,11 @@ declare(strict_types=1);
 
 define('APP_DIR', __DIR__);
 define('ROOT_DIR', dirname(__DIR__));
+require_once APP_DIR . '/i18n.php';
 
 if (!is_file(ROOT_DIR . '/config.php')) {
     http_response_code(500);
-    exit('Bitte zuerst config.sample.php nach config.php kopieren und anpassen, dann install.php aufrufen.');
+    exit(t('Bitte zuerst config.sample.php nach config.php kopieren und anpassen, dann install.php aufrufen.'));
 }
 $GLOBALS['config'] = require ROOT_DIR . '/config.php';
 date_default_timezone_set(cfg('timezone', 'Europe/Berlin'));
@@ -120,13 +121,13 @@ const LOCK_OPTIONS = [
 
 function status_label(string $status, string $type = 'onboarding'): string
 {
-    return TYPE_STATUS_LABELS[$type][$status] ?? (STATUSES[$status] ?? $status);
+    return t(TYPE_STATUS_LABELS[$type][$status] ?? (STATUSES[$status] ?? $status));
 }
 
 function item_type_label(string $itemType, string $requestType = 'onboarding'): string
 {
-    if ($itemType === 'task') return 'Aufgaben';
-    return TYPE_ITEM_LABELS[$requestType][$itemType] ?? (ITEM_TYPES[$itemType] ?? $itemType);
+    if ($itemType === 'task') return t('Aufgaben');
+    return t(TYPE_ITEM_LABELS[$requestType][$itemType] ?? (ITEM_TYPES[$itemType] ?? $itemType));
 }
 
 // ---------------------------------------------------------------------------
@@ -156,14 +157,14 @@ function fmt_dt(?string $s): string
 {
     if (!$s) return '–';
     $t = strtotime($s);
-    return $t ? date('d.m.Y H:i', $t) : e($s);
+    return $t ? date(lang_date_format(true), $t) : e($s);
 }
 
 function fmt_date(?string $s): string
 {
     if (!$s) return '–';
     $t = strtotime($s);
-    return $t ? date('d.m.Y', $t) : e($s);
+    return $t ? date(lang_date_format(), $t) : e($s);
 }
 
 function url(string $route, array $params = []): string
@@ -231,12 +232,12 @@ function client_ip(): string
 function abort(int $code, string $msg = ''): never
 {
     http_response_code($code);
-    $titles = [403 => 'Kein Zugriff', 404 => 'Nicht gefunden', 400 => 'Ungültige Anfrage'];
-    render_page($titles[$code] ?? 'Fehler', function () use ($msg, $code) {
+    $titles = [403 => t('Kein Zugriff'), 404 => t('Nicht gefunden'), 400 => t('Ungültige Anfrage')];
+    render_page($titles[$code] ?? t('Fehler'), function () use ($msg, $code) {
         echo '<div class="card"><p>' . e($msg ?: ($code === 403
-            ? 'Sie haben keine Berechtigung für diese Seite.'
-            : 'Die angeforderte Seite wurde nicht gefunden.')) . '</p>';
-        echo '<p><a class="btn" href="' . e(url('home')) . '">Zur Startseite</a></p></div>';
+            ? t('Sie haben keine Berechtigung für diese Seite.')
+            : t('Die angeforderte Seite wurde nicht gefunden.'))) . '</p>';
+        echo '<p><a class="btn" href="' . e(url('home')) . ('">' . e(t('Zur Startseite')) . '</a></p></div>');
     });
     exit;
 }
@@ -334,7 +335,7 @@ function start_session(): void
     if (isset($_SESSION['last_seen']) && time() - $_SESSION['last_seen'] > $limit) {
         $_SESSION = [];
         session_regenerate_id(true);
-        $_SESSION['flash'][] = ['info', 'Sie wurden wegen Inaktivität abgemeldet.'];
+        $_SESSION['flash'][] = ['info', t('Sie wurden wegen Inaktivität abgemeldet.')];
     }
     $_SESSION['last_seen'] = time();
 }
@@ -355,7 +356,7 @@ function require_post_csrf(): void
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') abort(400);
     $t = $_POST['_csrf'] ?? '';
     if (!is_string($t) || !hash_equals(csrf_token(), $t)) {
-        abort(400, 'Das Formular ist abgelaufen. Bitte laden Sie die Seite neu und versuchen Sie es erneut.');
+        abort(400, t('Das Formular ist abgelaufen. Bitte laden Sie die Seite neu und versuchen Sie es erneut.'));
     }
 }
 
@@ -402,7 +403,7 @@ function is_superadmin(): bool
 function require_superadmin(): array
 {
     $u = require_login();
-    if ($u['role'] !== 'superadmin') abort(403, 'Diese Aktion ist nur für Superadmins erlaubt.');
+    if ($u['role'] !== 'superadmin') abort(403, t('Diese Aktion ist nur für Superadmins erlaubt.'));
     return $u;
 }
 
@@ -474,10 +475,10 @@ function admin_can(string $area, bool $edit = false): bool
 function require_area(string $area, bool $edit = false): void
 {
     if (!is_admin() || admin_can($area, $edit)) return;
-    $name = ADMIN_AREAS[$area][0] ?? $area;
+    $name = t(ADMIN_AREAS[$area][0] ?? $area);
     abort(403, $edit && admin_can($area)
-        ? "Sie dürfen den Bereich „{$name}“ nur ansehen, nicht ändern."
-        : "Sie haben keinen Zugriff auf den Bereich „{$name}“.");
+        ? t('Sie dürfen den Bereich „{name}“ nur ansehen, nicht ändern.', ['name' => $name])
+        : t('Sie haben keinen Zugriff auf den Bereich „{name}“.', ['name' => $name]));
 }
 
 /** Firmen, die ein Verwaltungsadmin betreuen darf; null = alle */
@@ -498,7 +499,7 @@ function admin_all_companies(): bool
 
 function require_all_companies(): void
 {
-    if (!admin_all_companies()) abort(403, 'Diese Einstellung gilt für alle Firmen und ist nur für Administratoren mit Zugriff auf alle Firmen möglich.');
+    if (!admin_all_companies()) abort(403, t('Diese Einstellung gilt für alle Firmen und ist nur für Administratoren mit Zugriff auf alle Firmen möglich.'));
 }
 
 /** SQL-Bedingung für Listen des Dienstleisters, z. B. " AND c.id IN (3,5)" (leer = alle Firmen) */
@@ -515,12 +516,12 @@ function require_login(): array
     $u = current_user();
     if (!$u) redirect('login');
     if ((int)$u['must_change_password'] && ($_GET['r'] ?? '') !== 'account') {
-        flash('info', 'Bitte vergeben Sie zuerst ein eigenes Passwort.');
+        flash('info', t('Bitte vergeben Sie zuerst ein eigenes Passwort.'));
         redirect('account');
     }
     // Selbst registrierte Firma vor der Freischaltung: nur Startseite und eigenes Konto
     if (company_pending($u) && !in_array($_GET['r'] ?? '', ['home', 'account', 'setup_2fa'], true)) {
-        flash('info', 'Ihre Registrierung wird noch geprüft. Nach der Freischaltung stehen Ihnen die Module zur Verfügung.');
+        flash('info', t('Ihre Registrierung wird noch geprüft. Nach der Freischaltung stehen Ihnen die Module zur Verfügung.'));
         redirect('home');
     }
     return $u;
@@ -619,7 +620,7 @@ function require_app(string $slug): array
         return $u;
     }
     if (!company_has_app((int)$u['company_id'], $slug)) {
-        abort(403, 'Diese App ist für Ihre Firma nicht freigeschaltet. Bitte wenden Sie sich an Ihren IT-Dienstleister.');
+        abort(403, t('Diese App ist für Ihre Firma nicht freigeschaltet. Bitte wenden Sie sich an Ihren IT-Dienstleister.'));
     }
     return $u;
 }
@@ -648,7 +649,7 @@ function status_badge(string $status, string $type = 'onboarding'): string
 
 function type_badge(string $type): string
 {
-    return '<span class="badge type-' . e($type) . '">' . e(REQUEST_TYPES[$type] ?? $type) . '</span>';
+    return '<span class="badge type-' . e($type) . '">' . e(t(REQUEST_TYPES[$type] ?? $type)) . '</span>';
 }
 
 function render_page(string $title, callable $content): void
@@ -664,20 +665,20 @@ function company_switcher(int $current, string $route, array $extra = []): strin
     if (!is_admin()) return '';
     $html = '<form method="get" class="company-switch"><input type="hidden" name="r" value="' . e($route) . '">';
     foreach ($extra as $k => $v) $html .= '<input type="hidden" name="' . e($k) . '" value="' . e($v) . '">';
-    $html .= '<label>Firma: <select name="company" onchange="this.form.submit()">';
+    $html .= ('<label>' . e(t('Firma:')) . ' <select name="company" onchange="this.form.submit()">');
     foreach (companies_for_select() as $c) {
         $sel = (int)$c['id'] === $current ? ' selected' : '';
-        $html .= '<option value="' . (int)$c['id'] . "\"$sel>" . e($c['name']) . ((int)$c['active'] ? '' : ' (inaktiv)') . '</option>';
+        $html .= '<option value="' . (int)$c['id'] . "\"$sel>" . e($c['name']) . ((int)$c['active'] ? '' : t(' (inaktiv)')) . '</option>';
     }
-    $html .= '</select></label><noscript><button class="btn small">Wechseln</button></noscript></form>';
+    $html .= ('</select></label><noscript><button class="btn small">' . e(t('Wechseln')) . '</button></noscript></form>');
     return $html;
 }
 
 function validate_password(string $pw): ?string
 {
-    if (mb_strlen($pw) < 10) return 'Das Passwort muss mindestens 10 Zeichen lang sein.';
+    if (mb_strlen($pw) < 10) return t('Das Passwort muss mindestens 10 Zeichen lang sein.');
     if (!preg_match('/[A-Za-zÄÖÜäöüß]/u', $pw) || !preg_match('/\d/', $pw)) {
-        return 'Das Passwort muss Buchstaben und Ziffern enthalten.';
+        return t('Das Passwort muss Buchstaben und Ziffern enthalten.');
     }
     return null;
 }

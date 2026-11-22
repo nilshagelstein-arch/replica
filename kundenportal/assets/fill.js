@@ -1,6 +1,9 @@
 /* Kundenportal – Formulare direkt im Dokument ausfüllen */
 (function () {
   'use strict';
+  // Übersetzung (Wörterbuch aus index.php?r=i18n_js)
+  function T(s) { return (window.KP_T && window.KP_T[s]) || s; }
+  var LANG = window.KP_LANG || 'de', DSEP = LANG === 'de' ? '.' : '/';
 
   var root = document.querySelector('[data-fill]');
   if (!root) return;
@@ -11,7 +14,7 @@
   function persist() { try { sessionStorage.setItem(key, JSON.stringify(store)); } catch (e) { /* privat */ } }
   function $$(sel, el) { return Array.prototype.slice.call((el || root).querySelectorAll(sel)); }
   function same(el) { return $$('[data-key]').filter(function (x) { return x !== el && x.getAttribute('data-key') === el.getAttribute('data-key'); }); }
-  function fmtDate(v) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ''); return m ? m[3] + '.' + m[2] + '.' + m[1] : ''; }
+  function fmtDate(v) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ''); return m ? m[3] + DSEP + m[2] + DSEP + m[1] : ''; }
 
   // ---------------------------------------------------------------- Felder
   function setField(el, v) {
@@ -61,13 +64,13 @@
 
   // Datum des Dokuments
   var dateInput = document.querySelector('[data-doc-date]');
-  var MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+  var MONTHS = [T('Januar'), T('Februar'), T('März'), T('April'), T('Mai'), T('Juni'), T('Juli'), T('August'), T('September'), T('Oktober'), T('November'), T('Dezember')];
   function applyDate() {
     if (!dateInput) return;
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateInput.value);
     if (!m) return;
-    $$('[data-auto="datum"]').forEach(function (x) { x.textContent = m[3] + '.' + m[2] + '.' + m[1]; });
-    $$('[data-auto="datum.lang"]').forEach(function (x) { x.textContent = (+m[3]) + '. ' + MONTHS[+m[2] - 1] + ' ' + m[1]; });
+    $$('[data-auto="datum"]').forEach(function (x) { x.textContent = m[3] + DSEP + m[2] + DSEP + m[1]; });
+    $$('[data-auto="datum.lang"]').forEach(function (x) { x.textContent = (+m[3]) + (LANG === 'de' ? '. ' : ' ') + MONTHS[+m[2] - 1] + ' ' + m[1]; });
   }
   if (dateInput) {
     if (store.__datum) dateInput.value = store.__datum;
@@ -97,7 +100,7 @@
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'grow-btn';
-      b.textContent = '+ Zeile hinzufügen';
+      b.textContent = T('+ Zeile hinzufügen');
       b.addEventListener('click', function () {
         var rows = Array.prototype.filter.call(t.rows, function (tr) { return tr.querySelector('[data-input]'); });
         var last = rows[rows.length - 1];
@@ -137,7 +140,7 @@
       var ids = Array.prototype.map.call(document.querySelectorAll('[data-customer]:checked'), function (x) { return x.value; });
       window.location.href = b.getAttribute('data-base') + (ids.length ? '&kunden=' + ids.join(',') : '');
     }
-    if (ev.target.closest('[data-fill-reset]') && window.confirm('Alle Eingaben in diesem Dokument leeren?')) {
+    if (ev.target.closest('[data-fill-reset]') && window.confirm(T('Alle Eingaben in diesem Dokument leeren?'))) {
       try { sessionStorage.removeItem(key); } catch (e) { /* privat */ }
       window.location.reload();
     }

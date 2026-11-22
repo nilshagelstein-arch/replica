@@ -1,6 +1,8 @@
 /* Kundenportal – Formular-Editor im Stil von Word, Rechentabellen wie in Excel (ohne externe Bibliotheken) */
 (function () {
   'use strict';
+  // Übersetzung (Wörterbuch aus index.php?r=i18n_js)
+  function T(s) { return (window.KP_T && window.KP_T[s]) || s; }
 
   var root = document.querySelector('[data-word]');
   if (!root) return;
@@ -71,7 +73,7 @@
   var stateEl = document.querySelector('[data-save-state]');
   function touch() {
     dirty = true;
-    if (stateEl) stateEl.textContent = 'Nicht gespeichert';
+    if (stateEl) stateEl.textContent = T('Nicht gespeichert');
     caretFix();
     if (active && active !== regions.body && form && form.elements[active.getAttribute('data-region') + '_dirty']) {
       form.elements[active.getAttribute('data-region') + '_dirty'].value = '1';
@@ -182,14 +184,14 @@
     insertHtml('<span class="ph' + (field ? ' ph-f' : '') + '" contenteditable="false">{{' + esc(key) + '}}</span>&nbsp;');
   }
   function insertField(type) {
-    var q = { eingabe: 'Bezeichnung des Eingabefelds (z. B. Betreff)', text: 'Bezeichnung des Textfelds (z. B. Brieftext)', zahl: 'Bezeichnung des Zahlenfelds (z. B. Anzahl)',
-      datum: 'Bezeichnung des Datumsfelds (z. B. Liefertermin)', ankreuzen: 'Text neben dem Kästchen (z. B. Rückruf erwünscht)', auswahl: 'Bezeichnung der Auswahlliste (z. B. Zahlungsart)' }[type];
+    var q = { eingabe: T('Bezeichnung des Eingabefelds (z. B. Betreff)'), text: T('Bezeichnung des Textfelds (z. B. Brieftext)'), zahl: T('Bezeichnung des Zahlenfelds (z. B. Anzahl)'),
+      datum: T('Bezeichnung des Datumsfelds (z. B. Liefertermin)'), ankreuzen: T('Text neben dem Kästchen (z. B. Rückruf erwünscht)'), auswahl: T('Bezeichnung der Auswahlliste (z. B. Zahlungsart)') }[type];
     var label = window.prompt(q, '');
     if (!label || !label.trim()) return;
     label = label.replace(/[{}<>|]/g, '').trim().slice(0, 60);
     var key = type + ':' + label;
     if (type === 'auswahl') {
-      var opts = window.prompt('Antwortmöglichkeiten, getrennt durch Komma', 'Rechnung, Lastschrift, Barzahlung');
+      var opts = window.prompt(T('Antwortmöglichkeiten, getrennt durch Komma'), T('Rechnung, Lastschrift, Barzahlung'));
       if (!opts) return;
       key += '|' + opts.split(',').map(function (o) { return o.replace(/[{}<>|]/g, '').trim(); }).filter(Boolean).join('|');
     }
@@ -210,7 +212,7 @@
     var th = function (t, w, al) { return '<th style="width: ' + w + '%; background-color: #f2f2f2' + (al ? '; text-align: ' + al : '') + '">' + t + '</th>'; };
     var h;
     if (kind === 'positions') {
-      h = '<table class="tbl-grid" data-grow="1"><tbody><tr>' + th('Pos.', 8) + th('Leistung', 44) + th('Menge', 12, 'right') + th('Einzelpreis', 18, 'right') + th('Gesamt', 18, 'right') + '</tr>';
+      h = '<table class="tbl-grid" data-grow="1"><tbody><tr>' + th(T('Pos.'), 8) + th(T('Leistung'), 44) + th(T('Menge'), 12, 'right') + th(T('Einzelpreis'), 18, 'right') + th(T('Gesamt'), 18, 'right') + '</tr>';
       for (var r = 2; r <= 4; r++) {
         h += '<tr><td>' + (r - 1) + '</td><td data-input="1"><br></td><td data-input="1" data-format="ganz" style="text-align: right"><br></td>'
           + '<td data-input="1" data-format="euro" style="text-align: right"><br></td><td data-formula="=C' + r + '*D' + r + '" data-format="euro" style="text-align: right"></td></tr>';
@@ -219,11 +221,11 @@
         return '<tr><td colspan="3" style="border: none"><br></td><td style="text-align: right' + (bold ? '; font-weight: bold' : '') + '">' + label + '</td>'
           + '<td data-formula="' + f + '" data-format="euro" style="text-align: right' + (bold ? '; font-weight: bold' : '') + '"></td></tr>';
       };
-      h += tot('Netto', '=SUMME(E2:E4)') + tot('MwSt. 19 %', '=RUNDEN(E5*0,19;2)') + tot('Brutto', '=E5+E6', true) + '</tbody></table><p><br></p>';
+      h += tot(T('Netto'), '=SUMME(E2:E4)') + tot(T('MwSt. 19 %'), '=RUNDEN(E5*0,19;2)') + tot(T('Brutto'), '=E5+E6', true) + '</tbody></table><p><br></p>';
     } else if (kind === 'hours') {
-      h = '<table class="tbl-grid" data-grow="1"><tbody><tr>' + th('Datum', 20) + th('Tätigkeit', 60) + th('Stunden', 20, 'right') + '</tr>';
+      h = '<table class="tbl-grid" data-grow="1"><tbody><tr>' + th(T('Datum'), 20) + th(T('Tätigkeit'), 60) + th(T('Stunden'), 20, 'right') + '</tr>';
       for (var k = 2; k <= 6; k++) h += '<tr><td data-input="1"><br></td><td data-input="1"><br></td><td data-input="1" data-format="zahl" style="text-align: right"><br></td></tr>';
-      h += '<tr><td colspan="2" style="text-align: right; font-weight: bold">Summe Stunden</td><td data-formula="=SUMME(C2:C6)" data-format="zahl" style="text-align: right; font-weight: bold"></td></tr></tbody></table><p><br></p>';
+      h += '<tr><td colspan="2" style="text-align: right; font-weight: bold">' + T('Summe Stunden') + '</td><td data-formula="=SUMME(C2:C6)" data-format="zahl" style="text-align: right; font-weight: bold"></td></tr></tbody></table><p><br></p>';
     } else {
       h = tableHtml(4, 5);
     }
@@ -300,7 +302,7 @@
     restore();
     var cells = selectedCells();
     var td = cells[0];
-    if (!td) { alert('Bitte den Cursor in eine Tabellenzelle setzen.'); return; }
+    if (!td) { alert(T('Bitte den Cursor in eine Tabellenzelle setzen.')); return; }
     var table = td.closest('table'), g = C.grid(table), rc = rectOf(cells, g);
     var tr, r, c;
     switch (cmd) {
@@ -357,7 +359,7 @@
         activeCell = null;
         break;
       case 'merge':
-        if (cells.length < 2) { alert('Bitte zuerst mehrere Zellen markieren (mit gedrückter Maustaste über die Zellen ziehen).'); return; }
+        if (cells.length < 2) { alert(T('Bitte zuerst mehrere Zellen markieren (mit gedrückter Maustaste über die Zellen ziehen).')); return; }
         var tl = g.m[rc.r1][rc.c1], parts = [];
         cells.forEach(function (x) { if (x !== tl && x.textContent.replace(/​/g, '').trim() !== '') parts.push(x.innerHTML); });
         for (r = rc.r1; r <= rc.r2; r++) for (c = rc.c1; c <= rc.c2; c++) { var x = g.m[r][c]; if (x !== tl && x.parentNode) x.remove(); }
@@ -729,9 +731,9 @@
     else if (d.insert === 'hr') exec('insertHorizontalRule');
     else if (d.insert === 'pagebreak') insertHtml('<div class="page-break"></div><p><br></p>');
     else if (d.insert === 'image') { saveSel(); imgInput.click(); }
-    else if (d.insert === 'signature') insertHtml('<table class="tbl-plain sig"><tbody><tr><td style="width: 50%"><p><br></p><p class="sig">Ort, Datum</p></td><td style="width: 50%"><p><br></p><p class="sig">Unterschrift</p></td></tr></tbody></table><p><br></p>');
+    else if (d.insert === 'signature') insertHtml('<table class="tbl-plain sig"><tbody><tr><td style="width: 50%"><p><br></p><p class="sig">' + T('Ort, Datum') + '</p></td><td style="width: 50%"><p><br></p><p class="sig">' + T('Unterschrift') + '</p></td></tr></tbody></table><p><br></p>');
     else if (d.insert === 'link') {
-      var url = window.prompt('Adresse des Links (https://…, mailto:… oder tel:…)', 'https://');
+      var url = window.prompt(T('Adresse des Links (https://…, mailto:… oder tel:…)'), 'https://');
       if (url && /^(https?:\/\/|mailto:|tel:)/i.test(url)) exec('createLink', url);
     }
   });
@@ -756,7 +758,7 @@
     else if (s.matches('[data-zoom-range]')) setZoom(+s.value);
     else if (s.matches('[data-custom-color]')) pickColor(s.getAttribute('data-custom-color'), s.value);
   });
-  function markDirty() { dirty = true; if (stateEl) stateEl.textContent = 'Nicht gespeichert'; }
+  function markDirty() { dirty = true; if (stateEl) stateEl.textContent = T('Nicht gespeichert'); }
 
   // Farbpaletten
   var PAL = {
@@ -767,8 +769,8 @@
   };
   $$('[data-palette]').forEach(function (box) {
     var kind = box.getAttribute('data-palette'), html = '<div class="sw-grid">';
-    PAL[kind].forEach(function (c) { html += '<button type="button" class="sw' + (c === 'none' ? ' sw-none' : '') + '" data-color="' + c + '" title="' + (c === 'none' ? 'Keine Farbe' : c) + '"></button>'; });
-    html += '</div><label class="sw-more">Weitere Farben … <input type="color" data-custom-color="' + kind + '"></label>';
+    PAL[kind].forEach(function (c) { html += '<button type="button" class="sw' + (c === 'none' ? ' sw-none' : '') + '" data-color="' + c + '" title="' + (c === 'none' ? T('Keine Farbe') : c) + '"></button>'; });
+    html += '</div><label class="sw-more">' + T('Weitere Farben …') + ' <input type="color" data-custom-color="' + kind + '"></label>';
     box.innerHTML = html;
     $$('.sw', box).forEach(function (sw) { if (sw.dataset.color !== 'none') sw.style.background = sw.dataset.color; });
   });
@@ -802,7 +804,7 @@
       if (!b) return;
       var rr = +b.dataset.tr, cc = +b.dataset.tc;
       $$('button', tg).forEach(function (x) { x.classList.toggle('on', +x.dataset.tr <= rr && +x.dataset.tc <= cc); });
-      tl.textContent = 'Tabelle ' + cc + ' × ' + rr;
+      tl.textContent = T('Tabelle') + ' ' + cc + ' × ' + rr;
     });
     tg.addEventListener('click', function (ev) {
       var b = ev.target.closest('button');
@@ -818,7 +820,7 @@
     var f = imgInput.files[0];
     imgInput.value = '';
     if (!f) return;
-    if (f.size > 1048576) { alert('Das Bild ist zu groß (höchstens 1 MB).'); return; }
+    if (f.size > 1048576) { alert(T('Das Bild ist zu groß (höchstens 1 MB).')); return; }
     var rd = new FileReader();
     rd.onload = function () { insertHtml('<img class="img-m" alt="" src="' + rd.result + '">'); };
     rd.readAsDataURL(f);
@@ -898,7 +900,7 @@
       var mm = m[3] + k * 5, major = k % 2 === 0;
       h += '<span class="rl-tick' + (major ? ' major' : '') + '" style="left:' + mm + 'mm">' + (major && k > 0 && mm < 210 - m[1] - 2 ? k / 2 : '') + '</span>';
     }
-    h += '<span class="rl-indent" style="left:' + m[3] + 'mm" title="linker Seitenrand"></span><span class="rl-indent" style="left:' + (210 - m[1]) + 'mm" title="rechter Seitenrand"></span>';
+    h += '<span class="rl-indent" style="left:' + m[3] + 'mm" title="' + T('linker Seitenrand') + '"></span><span class="rl-indent" style="left:' + (210 - m[1]) + 'mm" title="' + T('rechter Seitenrand') + '"></span>';
     ruler.innerHTML = h;
     if (form && form.elements.page) form.elements.page.value = JSON.stringify(pageSet);
     status();
@@ -950,7 +952,7 @@
     stopHf();
     var id = +form.elements[kind + '_id'].value;
     var l = layoutBody(kind, id);
-    var label = kind === 'header' ? 'Briefkopf' : 'Fußzeile';
+    var label = kind === 'header' ? T('Briefkopf') : T('Fußzeile');
     var editable = cfg.canManage && id >= 0 && !!l;
     page.classList.add('hf-editing');
     reg.classList.add('hf-active');
@@ -963,7 +965,7 @@
     var src = root.querySelector('[data-layout-select="' + kind + '"]');
     var pick = '';
     if (src) {
-      pick = '<label class="hf-pick">Vorlage <select data-hf-pick aria-label="' + label + '-Vorlage">';
+      pick = '<label class="hf-pick">' + T('Vorlage') + ' <select data-hf-pick aria-label="' + esc(T('Vorlage')) + ': ' + label + '">';
       Array.prototype.forEach.call(src.options, function (o) {
         pick += '<option value="' + esc(o.value) + '"' + (+o.value === id ? ' selected' : '') + '>' + esc(o.textContent) + '</option>';
       });
@@ -972,15 +974,15 @@
     hfBar = document.createElement('div');
     hfBar.className = 'hf-bar';
     hfBar.innerHTML = '<strong>' + label + '</strong> ' + pick
-      + (editable ? '<span class="hf-note">Änderungen am Inhalt gelten für alle Formulare mit dieser Vorlage.</span> '
-        + '<button type="button" class="btn small" data-hf-new>Als neue Vorlage speichern …</button> ' : '')
-      + '<button type="button" class="btn small primary" data-hf-done>Fertig</button>';
+      + (editable ? '<span class="hf-note">' + T('Änderungen am Inhalt gelten für alle Formulare mit dieser Vorlage.') + '</span> '
+        + '<button type="button" class="btn small" data-hf-new>' + T('Als neue Vorlage speichern …') + '</button> ' : '')
+      + '<button type="button" class="btn small primary" data-hf-done>' + T('Fertig') + '</button>';
     root.querySelector('[data-canvas]').insertBefore(hfBar, ruler);
     hfBar.querySelector('[data-hf-done]').addEventListener('click', stopHf);
     var sel = hfBar.querySelector('[data-hf-pick]');
     if (sel) sel.addEventListener('change', function () {
       var dirtyEl = form.elements[kind + '_dirty'];
-      if (dirtyEl && dirtyEl.value === '1' && !window.confirm('Ihre Änderungen an diesem ' + label + ' gehen beim Wechsel der Vorlage verloren. Trotzdem wechseln?')) {
+      if (dirtyEl && dirtyEl.value === '1' && !window.confirm(T('Ihre Änderungen an dieser Vorlage gehen beim Wechsel verloren. Trotzdem wechseln?'))) {
         sel.value = String(id);
         return;
       }
@@ -989,11 +991,11 @@
     });
     var nb = hfBar.querySelector('[data-hf-new]');
     if (nb) nb.addEventListener('click', function () {
-      var n = window.prompt('Name der neuen Vorlage', (l ? l.name : '') + ' (Kopie)');
+      var n = window.prompt(T('Name der neuen Vorlage'), (l ? l.name : '') + ' (' + T('Kopie') + ')');
       if (!n) return;
       form.elements[kind + '_new_name'].value = n.slice(0, 190);
       form.elements[kind + '_dirty'].value = '1';
-      var tag = root.querySelector('[data-hf-name="' + kind + '"]'); if (tag) tag.textContent = ' „' + n + '“ (neu)';
+      var tag = root.querySelector('[data-hf-name="' + kind + '"]'); if (tag) tag.textContent = ' „' + n + '“ (' + T('neu') + ')';
       markDirty();
     });
     if (editable) {

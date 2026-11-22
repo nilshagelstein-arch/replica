@@ -1,6 +1,8 @@
 /* Linksammlung: Bild-, Titel- und Beschreibungsvorschläge nach Eingabe der Adresse */
 (function () {
   'use strict';
+  // Übersetzung (Wörterbuch aus index.php?r=i18n_js)
+  function T(s) { return (window.KP_T && window.KP_T[s]) || s; }
   var url = document.getElementById('link-url');
   if (!url) return;
   var btn = document.getElementById('link-suggest-btn');
@@ -38,17 +40,17 @@
     running = new AbortController();
     box.hidden = false;
     grid.innerHTML = '';
-    status.textContent = 'Suche Bilder auf der Webseite …';
+    status.textContent = T('Suche Bilder auf der Webseite …');
     btn.disabled = true;
     fetch(url.getAttribute('data-suggest') + '&url=' + encodeURIComponent(v), { credentials: 'same-origin', signal: running.signal })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         btn.disabled = false;
-        if (!d.ok) { status.textContent = d.error || 'Keine Vorschläge gefunden.'; return; }
+        if (!d.ok) { status.textContent = d.error || T('Keine Vorschläge gefunden.'); return; }
         if (d.title && form.title && !form.title.value.trim()) form.title.value = d.title;
         if (d.description && form.description && !form.description.value.trim()) form.description.value = d.description;
-        if (!d.images.length) { status.textContent = 'Auf der Webseite wurden keine passenden Bilder gefunden. Sie können selbst ein Bild hochladen.'; return; }
-        status.textContent = 'Bildvorschläge – zum Übernehmen anklicken:';
+        if (!d.images.length) { status.textContent = T('Auf der Webseite wurden keine passenden Bilder gefunden. Sie können selbst ein Bild hochladen.'); return; }
+        status.textContent = T('Bildvorschläge – zum Übernehmen anklicken:');
         d.images.forEach(function (im) {
           var t = document.createElement('button');
           t.type = 'button';
@@ -72,7 +74,7 @@
       })
       .catch(function (e) {
         btn.disabled = false;
-        if (e.name !== 'AbortError') status.textContent = 'Die Vorschläge konnten nicht geladen werden.';
+        if (e.name !== 'AbortError') status.textContent = T('Die Vorschläge konnten nicht geladen werden.');
       });
   }
 

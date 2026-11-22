@@ -5,6 +5,9 @@
  * Pakete aus tools/build-update.php tragen ihre Angaben in der Zeile "// UPDATE-INFO: <base64-json>".
  */
 
+// Beim Einspielen über update.php läuft noch die alte bootstrap.php; t() dann hier nachladen
+if (!function_exists('t')) require_once __DIR__ . '/i18n.php';
+
 function updates_dir(): string
 {
     $dir = APP_DIR . '/data/updates';
@@ -24,16 +27,16 @@ function update_embedded_info(string $file): array
 /** Prüft, ob die Datei ein Update-Paket des Portals ist; liefert die Zahl der Dateien oder eine Fehlermeldung */
 function update_check_package(string $file): int|string
 {
-    if (!class_exists('ZipArchive')) return 'Auf dem Server fehlt die PHP-Erweiterung „zip“.';
+    if (!class_exists('ZipArchive')) return t('Auf dem Server fehlt die PHP-Erweiterung „zip“.');
     $zipPath = update_extract_zip($file);
-    if ($zipPath === null) return 'Die Datei ist kein Update-Paket des Kundenportals.';
+    if ($zipPath === null) return t('Die Datei ist kein Update-Paket des Kundenportals.');
     $zip = new ZipArchive();
     $ok = $zip->open($zipPath) === true;
     $n = $ok ? $zip->numFiles : 0;
     $valid = $ok && $zip->locateName('index.php') !== false && $zip->locateName('app/bootstrap.php') !== false;
     if ($ok) $zip->close();
     @unlink($zipPath);
-    return $valid ? $n : 'Das Update-Paket ist beschädigt oder enthält kein Kundenportal.';
+    return $valid ? $n : t('Das Update-Paket ist beschädigt oder enthält kein Kundenportal.');
 }
 
 /** Schreibt das eingebettete ZIP in eine temporäre Datei */

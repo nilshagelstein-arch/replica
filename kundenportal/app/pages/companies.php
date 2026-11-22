@@ -26,33 +26,33 @@ function page_companies(): void
         FROM companies c WHERE 1 = 1" . company_scope_sql('c.id') . " ORDER BY CASE c.registration_status WHEN 'pending' THEN 0 ELSE 1 END, c.active DESC, c.name");
     $appNames = [];
     foreach (rows('SELECT ca.company_id, a.name FROM company_apps ca JOIN apps a ON a.id = ca.app_id ORDER BY a.sort, a.name') as $g) {
-        $appNames[(int)$g['company_id']][] = $g['name'];
+        $appNames[(int)$g['company_id']][] = t($g['name']);
     }
-    render_page('Firmen', function () use ($list, $appNames) { ?>
-        <?php if (admin_all_companies() && admin_can('companies', true)): ?><p><a class="btn primary" href="<?= e(url('company_edit', ['new' => 1])) ?>">+ Neue Firma anlegen</a></p><?php endif; ?>
+    render_page(t('Firmen'), function () use ($list, $appNames) { ?>
+        <?php if (admin_all_companies() && admin_can('companies', true)): ?><p><a class="btn primary" href="<?= e(url('company_edit', ['new' => 1])) ?>"><?= e(t('+ Neue Firma anlegen')) ?></a></p><?php endif; ?>
         <div class="card">
         <?php if (!$list): ?>
-            <p class="muted">Noch keine Firmen angelegt.</p>
+            <p class="muted"><?= e(t('Noch keine Firmen angelegt.')) ?></p>
         <?php else: ?>
             <table class="table">
-                <thead><tr><th>Firma</th><th>Ort</th><th>Ansprechpartner/in</th><th>Apps</th><th class="num">Benutzer</th><th class="num">Offene Aufträge</th><th>Status</th><th></th></tr></thead>
+                <thead><tr><th><?= e(t('Firma')) ?></th><th><?= e(t('Ort')) ?></th><th><?= e(t('Ansprechpartner/in')) ?></th><th><?= e(t('Apps')) ?></th><th class="num"><?= e(t('Benutzer')) ?></th><th class="num"><?= e(t('Offene Aufträge')) ?></th><th><?= e(t('Status')) ?></th><th></th></tr></thead>
                 <tbody>
                 <?php foreach ($list as $c): ?>
                     <tr class="<?= (int)$c['active'] ? '' : 'inactive' ?>">
                         <td><strong><?= e($c['name']) ?></strong><?= $c['short_name'] ? ' <span class="muted">(' . e($c['short_name']) . ')</span>' : '' ?></td>
                         <td><?= e(trim($c['zip'] . ' ' . $c['city'])) ?></td>
                         <td><?= e($c['contact_name']) ?></td>
-                        <td><?= $appNames[(int)$c['id']] ?? null ? e(implode(', ', $appNames[(int)$c['id']])) : '<span class="muted">keine</span>' ?></td>
+                        <td><?= $appNames[(int)$c['id']] ?? null ? e(implode(', ', $appNames[(int)$c['id']])) : ('<span class="muted">' . e(t('keine')) . '</span>') ?></td>
                         <td class="num"><?= (int)$c['user_count'] ?></td>
                         <td class="num"><?= (int)$c['open_count'] ?></td>
-                        <td><?php if ($c['registration_status'] === 'pending'): ?><a class="badge st-rueckfrage" href="<?= e(url('company_edit', ['id' => $c['id']])) ?>">Freischaltung offen</a><?php elseif ($c['registration_status'] === 'rejected'): ?>abgelehnt<?php else: ?><?= (int)$c['active'] ? 'aktiv' : 'inaktiv' ?><?php endif; ?></td>
+                        <td><?php if ($c['registration_status'] === 'pending'): ?><a class="badge st-rueckfrage" href="<?= e(url('company_edit', ['id' => $c['id']])) ?>"><?= e(t('Freischaltung offen')) ?></a><?php elseif ($c['registration_status'] === 'rejected'): ?><?= e(t('abgelehnt')) ?><?php else: ?><?= (int)$c['active'] ? 'aktiv' : 'inaktiv' ?><?php endif; ?></td>
                         <td class="actions">
-                            <a href="<?= e(url('company_edit', ['id' => $c['id']])) ?>">Profil</a>
-                            <?php if (admin_can('users')): ?><a href="<?= e(url('users', ['company' => $c['id']])) ?>">Benutzer</a><?php endif; ?>
-                            <?php if (admin_can('onboarding')): ?><a href="<?= e(url('dashboard', ['company' => $c['id']])) ?>">Aufträge</a><?php endif; ?>
+                            <a href="<?= e(url('company_edit', ['id' => $c['id']])) ?>"><?= e(t('Profil')) ?></a>
+                            <?php if (admin_can('users')): ?><a href="<?= e(url('users', ['company' => $c['id']])) ?>"><?= e(t('Benutzer')) ?></a><?php endif; ?>
+                            <?php if (admin_can('onboarding')): ?><a href="<?= e(url('dashboard', ['company' => $c['id']])) ?>"><?= e(t('Aufträge')) ?></a><?php endif; ?>
                             <?php if ((int)$c['active'] && admin_can('onboarding', true)): ?>
-                            <a href="<?= e(url('request_new', ['company' => $c['id']])) ?>">+ Onboarding</a>
-                            <a href="<?= e(url('change_new', ['type' => 'offboarding', 'company' => $c['id']])) ?>">+ Offboarding</a>
+                            <a href="<?= e(url('request_new', ['company' => $c['id']])) ?>"><?= e(t('+ Onboarding')) ?></a>
+                            <a href="<?= e(url('change_new', ['type' => 'offboarding', 'company' => $c['id']])) ?>"><?= e(t('+ Offboarding')) ?></a>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -81,7 +81,8 @@ function page_company_edit(): void
     if ($company) require_company_access((int)$company['id']);
 
     $errors = [];
-    $data = $company ?? array_fill_keys(array_keys(COMPANY_FIELDS), '') + ['it_notes' => '', 'active' => 1];
+    $data = $company ?? array_fill_keys(array_keys(COMPANY_FIELDS), '') + ['it_notes' => '', 'active' => 1, 'lang' => DEFAULT_LANG];
+    $data['lang'] = lang_valid($data['lang'] ?? null) ?? DEFAULT_LANG;
 
     if (is_post()) {
         require_post_csrf();
@@ -91,28 +92,29 @@ function page_company_edit(): void
         }
         foreach (COMPANY_FIELDS as $f => [$label, $type, $required]) {
             $data[$f] = mb_substr(post($f), 0, 190);
-            if ($required && $data[$f] === '') $errors[] = "Bitte „{$label}“ ausfüllen.";
+            if ($required && $data[$f] === '') $errors[] = t('Bitte „{label}“ ausfüllen.', ['label' => t($label)]);
             if ($type === 'email' && $data[$f] !== '' && !filter_var($data[$f], FILTER_VALIDATE_EMAIL)) {
-                $errors[] = "„{$label}“ ist keine gültige E-Mail-Adresse.";
+                $errors[] = t('„{label}“ ist keine gültige E-Mail-Adresse.', ['label' => t($label)]);
             }
         }
         $data['email_domain'] = strtolower(ltrim($data['email_domain'], '@'));
         $data['it_notes'] = mb_substr(post('it_notes'), 0, 5000);
+        $data['lang'] = lang_valid(post('lang')) ?? DEFAULT_LANG;
         if (is_staff_role($u['role'])) $data['active'] = post('active') === '1' ? 1 : 0;
 
         $wantApps = array_map('intval', (array)($_POST['apps'] ?? []));
         if (!$errors) {
-            $save = array_intersect_key($data, COMPANY_FIELDS + ['it_notes' => 1, 'active' => 1]);
+            $save = array_intersect_key($data, COMPANY_FIELDS + ['it_notes' => 1, 'active' => 1, 'lang' => 1]);
             $save['updated_at'] = now();
             if ($isNew) {
                 $save['created_at'] = now();
                 $id = insert('companies', $save);
                 audit('company_created', $save['name'], $id);
-                flash('success', 'Die Firma wurde angelegt. Legen Sie jetzt Benutzer, Abteilungen und Positionen an.');
+                flash('success', t('Die Firma wurde angelegt. Legen Sie jetzt Benutzer, Abteilungen und Positionen an.'));
             } else {
                 update('companies', $id, $save);
                 audit('company_updated', $save['name'], $id);
-                flash('success', 'Das Firmenprofil wurde gespeichert.');
+                flash('success', t('Das Firmenprofil wurde gespeichert.'));
             }
             if (is_staff_role($u['role'])) {
                 $valid = array_map('intval', array_column(rows('SELECT id FROM apps'), 'id'));
@@ -131,7 +133,7 @@ function page_company_edit(): void
         }
     }
 
-    $title = $isNew ? 'Neue Firma' : 'Firmenprofil: ' . $data['name'];
+    $title = $isNew ? t('Neue Firma') : t('Firmenprofil: ') . $data['name'];
     render_page($title, function () use ($data, $errors, $u, $isNew, $id, $company) {
         foreach ($errors as $err) echo '<div class="alert error">' . e($err) . '</div>';
         if ($company && is_staff_role($u['role']) && $company['registration_status'] === 'pending') render_registration_review($company); ?>
@@ -139,51 +141,53 @@ function page_company_edit(): void
             <?= csrf_field() ?>
             <div class="grid2">
                 <?php foreach (COMPANY_FIELDS as $f => [$label, $type, $required]): ?>
-                    <label><?= e($label) ?><?= $required ? ' *' : '' ?>
+                    <label><?= e(t($label)) ?><?= $required ? ' *' : '' ?>
                         <input type="<?= $type === 'email' ? 'email' : 'text' ?>" name="<?= e($f) ?>" value="<?= e($data[$f]) ?>" <?= $required ? 'required' : '' ?> maxlength="190">
                     </label>
                 <?php endforeach; ?>
             </div>
-            <label>Hinweise für die IT (z. B. Standorte, Druckerumgebung, Besonderheiten)
+            <label><?= e(t('Sprache')) ?> <?= lang_select('lang', $data['lang']) ?>
+                <span class="muted small"><?= e(t('Gilt für Oberfläche und E-Mails aller Benutzer der Firma, sofern beim Benutzer keine eigene Sprache eingestellt ist.')) ?></span></label>
+            <label><?= e(t('Hinweise für die IT (z. B. Standorte, Druckerumgebung, Besonderheiten)')) ?>
                 <textarea name="it_notes" rows="5"><?= e($data['it_notes']) ?></textarea>
             </label>
             <?php if (is_staff_role($u['role'])):
                 $allApps = rows('SELECT * FROM apps ORDER BY sort, name');
                 $has = $id ? array_map('intval', array_column(rows('SELECT app_id FROM company_apps WHERE company_id = ?', [$id]), 'app_id')) : [];
                 if (is_post()) $has = array_map('intval', (array)($_POST['apps'] ?? [])); ?>
-                <fieldset><legend>Freigeschaltete Apps</legend>
+                <fieldset><legend><?= e(t('Freigeschaltete Apps')) ?></legend>
                     <div class="checks">
                     <?php foreach ($allApps as $a): ?>
                         <label class="check"><input type="checkbox" name="apps[]" value="<?= (int)$a['id'] ?>" <?= in_array((int)$a['id'], $has, true) ? 'checked' : '' ?>>
-                            <?= e(($a['icon'] ? $a['icon'] . ' ' : '') . $a['name']) ?><?= (int)$a['active'] ? '' : ' <span class="tag">inaktiv</span>' ?></label>
+                            <?= e(($a['icon'] ? $a['icon'] . ' ' : '') . t($a['name'])) ?><?= (int)$a['active'] ? '' : (' <span class="tag">' . e(t('inaktiv')) . '</span>') ?></label>
                     <?php endforeach; ?>
                     </div>
                 </fieldset>
-                <label class="check"><input type="checkbox" name="active" value="1" <?= (int)$data['active'] ? 'checked' : '' ?>> Firma aktiv (Benutzer können sich anmelden und Aufträge senden)</label>
+                <label class="check"><input type="checkbox" name="active" value="1" <?= (int)$data['active'] ? 'checked' : '' ?>> <?= e(t('Firma aktiv (Benutzer können sich anmelden und Aufträge senden)')) ?></label>
             <?php endif; ?>
             <div class="buttons">
-                <button class="btn primary"><?= $isNew ? 'Firma anlegen' : 'Speichern' ?></button>
-                <?php if (is_staff_role($u['role'])): ?><a class="btn" href="<?= e(url('companies')) ?>">Zurück</a><?php endif; ?>
+                <button class="btn primary"><?= $isNew ? t('Firma anlegen') : t('Speichern') ?></button>
+                <?php if (is_staff_role($u['role'])): ?><a class="btn" href="<?= e(url('companies')) ?>"><?= e(t('Zurück')) ?></a><?php endif; ?>
             </div>
         </form>
         <?php if (!$isNew && !is_staff_role($u['role'])): $mine = apps_for_user(); ?>
         <div class="card">
-            <h2>Freigeschaltete Apps</h2>
-            <p><?= $mine ? e(implode(', ', array_column($mine, 'name'))) : '<span class="muted">keine</span>' ?></p>
-            <p class="muted small">Weitere Apps schaltet Ihr IT-Dienstleister frei.</p>
+            <h2><?= e(t('Freigeschaltete Apps')) ?></h2>
+            <p><?= $mine ? e(implode(', ', array_map('t', array_column($mine, 'name')))) : ('<span class="muted">' . e(t('keine')) . '</span>') ?></p>
+            <p class="muted small"><?= e(t('Weitere Apps schaltet Ihr IT-Dienstleister frei.')) ?></p>
         </div>
         <?php endif; ?>
         <?php if (!$isNew): ?>
         <div class="card">
-            <h2>Weitere Einstellungen</h2>
+            <h2><?= e(t('Weitere Einstellungen')) ?></h2>
             <p class="links">
                 <?php $p = is_staff_role($u['role']) ? ['company' => $id] : []; ?>
-                <a href="<?= e(url('users', $p)) ?>">Benutzer verwalten</a>
-                <a href="<?= e(url('mail_settings', $p)) ?>">E-Mail-Versand über eigenes Postfach</a>
+                <a href="<?= e(url('users', $p)) ?>"><?= e(t('Benutzer verwalten')) ?></a>
+                <a href="<?= e(url('mail_settings', $p)) ?>"><?= e(t('E-Mail-Versand über eigenes Postfach')) ?></a>
                 <?php if (is_staff_role($u['role']) || company_has_app($id, 'onboarding')): ?>
-                <a href="<?= e(url('structure', $p)) ?>">Onboarding: Abteilungen & Positionen</a>
-                <a href="<?= e(url('catalog', $p)) ?>">Onboarding: Netzlaufwerke, Freigaben & Katalog</a>
-                <a href="<?= e(url('templates', $p)) ?>">Onboarding: Vorlagen je Abteilung/Position</a>
+                <a href="<?= e(url('structure', $p)) ?>"><?= e(t('Onboarding: Abteilungen & Positionen')) ?></a>
+                <a href="<?= e(url('catalog', $p)) ?>"><?= e(t('Onboarding: Netzlaufwerke, Freigaben & Katalog')) ?></a>
+                <a href="<?= e(url('templates', $p)) ?>"><?= e(t('Onboarding: Vorlagen je Abteilung/Position')) ?></a>
                 <?php endif; ?>
             </p>
         </div>

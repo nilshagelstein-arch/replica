@@ -8,29 +8,33 @@
 const CHANGE_TYPES = ['offboarding', 'stilllegung', 'reaktivierung'];
 
 /** Aufgaben, die sich aus den Angaben ergeben und in der Checkliste erscheinen */
+/**
+ * Aufgaben der Checkliste. Wird immer auf Deutsch gebildet (with_lang('de')), weil sync_request_items()
+ * Aufgaben über den Namen wiedererkennt; die Anzeige übersetzt sie mit t().
+ */
 function change_tasks(string $type, array $d): array
 {
     $t = [];
-    $lock = LOCK_OPTIONS[$d['lock_option']] ?? '';
-    if ($d['lock_option'] === 'termin' && $d['lock_at']) $lock = date('d.m.Y H:i', strtotime(str_replace('T', ' ', $d['lock_at'])));
+    $lock = t(LOCK_OPTIONS[$d['lock_option']] ?? '');
+    if ($d['lock_option'] === 'termin' && $d['lock_at']) $lock = date(lang_date_format(true), strtotime(str_replace('T', ' ', $d['lock_at'])));
     $succ = trim($d['successor_name'] . ($d['successor_email'] ? ' (' . $d['successor_email'] . ')' : ''));
     if ($type === 'offboarding') {
-        $t[] = 'Benutzerkonto sperren – ' . $lock;
+        $t[] = t('Benutzerkonto sperren – ') . $lock;
         $t[] = 'Passwort zurücksetzen und angemeldete Sitzungen beenden';
         $t[] = 'MFA-Methoden und mobile Geräte aus der Geräteverwaltung entfernen';
         $t[] = 'Aus Gruppen, Teams und Verteilerlisten entfernen';
-        if ($d['mailbox_action']) $t[] = 'Postfach: ' . MAILBOX_ACTIONS['offboarding'][$d['mailbox_action']] . ($succ && $d['mailbox_action'] !== 'sperren' ? ' – ' . $succ : '');
-        if ($d['forward_until']) $t[] = 'Weiterleitung befristen bis ' . fmt_date($d['forward_until']);
+        if ($d['mailbox_action']) $t[] = t('Postfach: ') . t(MAILBOX_ACTIONS['offboarding'][$d['mailbox_action']]) . ($succ && $d['mailbox_action'] !== 'sperren' ? ' – ' . $succ : '');
+        if ($d['forward_until']) $t[] = t('Weiterleitung befristen bis ') . fmt_date($d['forward_until']);
         if ($d['auto_reply']) $t[] = 'Abwesenheitsnotiz einrichten (Text siehe Auftrag)';
-        if ($d['data_action']) $t[] = 'Dateien: ' . DATA_ACTIONS[$d['data_action']] . ($d['data_action'] === 'uebergeben' && $succ ? ' – ' . $succ : '');
-        if ($d['phone_action']) $t[] = 'Telefon / Rufnummer: ' . $d['phone_action'];
+        if ($d['data_action']) $t[] = t('Dateien: ') . t(DATA_ACTIONS[$d['data_action']]) . ($d['data_action'] === 'uebergeben' && $succ ? ' – ' . $succ : '');
+        if ($d['phone_action']) $t[] = t('Telefon / Rufnummer: ') . $d['phone_action'];
     } elseif ($type === 'stilllegung') {
-        $t[] = 'Benutzerkonto deaktivieren (nicht löschen) – ' . $lock;
-        if ($d['mailbox_action']) $t[] = 'Postfach: ' . MAILBOX_ACTIONS['stilllegung'][$d['mailbox_action']] . ($succ && $d['mailbox_action'] !== 'abwesenheit' ? ' – ' . $succ : '');
-        $t[] = 'Abwesenheitsnotiz einrichten' . ($d['auto_reply'] ? ' (Text siehe Auftrag)' : '');
-        if ($d['phone_action']) $t[] = 'Telefon / Rufnummer: ' . $d['phone_action'];
+        $t[] = t('Benutzerkonto deaktivieren (nicht löschen) – ') . $lock;
+        if ($d['mailbox_action']) $t[] = t('Postfach: ') . t(MAILBOX_ACTIONS['stilllegung'][$d['mailbox_action']]) . ($succ && $d['mailbox_action'] !== 'abwesenheit' ? ' – ' . $succ : '');
+        $t[] = ($d['auto_reply'] ? 'Abwesenheitsnotiz einrichten (Text siehe Auftrag)' : 'Abwesenheitsnotiz einrichten');
+        if ($d['phone_action']) $t[] = t('Telefon / Rufnummer: ') . $d['phone_action'];
         $t[] = 'Zugewiesene Lizenzen und Berechtigungen für die Rückkehr dokumentieren';
-        if ($d['return_date']) $t[] = 'Wiedervorlage: Reaktivierung vor Rückkehr am ' . fmt_date($d['return_date']) . ' vorbereiten';
+        if ($d['return_date']) $t[] = t('Wiedervorlage: Reaktivierung vor Rückkehr am {x} vorbereiten', ['x' => fmt_date($d['return_date'])]);
     } elseif ($type === 'reaktivierung') {
         $t[] = 'Benutzerkonto reaktivieren und Startpasswort setzen';
         $t[] = 'MFA neu einrichten bzw. prüfen';
@@ -101,7 +105,7 @@ function page_change_form(): void
     if ($type === 'onboarding') redirect('request_new', array_filter(['company' => query_int('company')]));
     if (!in_array($type, CHANGE_TYPES, true)) abort(404);
     if ($existing && !request_editable($existing)) {
-        flash('error', 'Dieser Auftrag kann im aktuellen Status nicht mehr geändert werden.');
+        flash('error', t('Dieser Auftrag kann im aktuellen Status nicht mehr geändert werden.'));
         redirect('request', ['id' => $id]);
     }
 
@@ -124,19 +128,19 @@ function page_change_form(): void
     else $cid = (int)$u['company_id'];
     $company = $cid && can_access_company($cid) ? row('SELECT * FROM companies WHERE id = ? AND active = 1', [$cid]) : null;
     if ($company && !is_admin() && !company_has_app($cid, 'onboarding')) $company = null;
-    $typeLabel = REQUEST_TYPES[$type];
+    $typeLabel = t(REQUEST_TYPES[$type]);
 
     if (!$company) {
         if (!is_staff_role($u['role'])) abort(403);
         $companies = rows('SELECT id, name FROM companies WHERE active = 1' . company_scope_sql('id') . ' ORDER BY name');
-        render_page('Neue ' . $typeLabel, function () use ($companies, $type) { ?>
+        render_page(t('Neu: {type}', ['type' => $typeLabel]), function () use ($companies, $type) { ?>
             <form method="get" class="card form narrow">
                 <input type="hidden" name="r" value="change_new"><input type="hidden" name="type" value="<?= e($type) ?>">
-                <label>Für welche Firma?
-                    <select name="company" required><option value="">– bitte wählen –</option>
-                    <?php foreach ($companies as $c): ?><option value="<?= (int)$c['id'] ?>"><?= e($c['name']) ?><?= company_has_app((int)$c['id'], 'onboarding') ? '' : ' (App nicht freigeschaltet)' ?></option><?php endforeach; ?>
+                <label><?= e(t('Für welche Firma?')) ?>
+                    <select name="company" required><option value=""><?= e(t('– bitte wählen –')) ?></option>
+                    <?php foreach ($companies as $c): ?><option value="<?= (int)$c['id'] ?>"><?= e($c['name']) ?><?= company_has_app((int)$c['id'], 'onboarding') ? '' : t(' (App nicht freigeschaltet)') ?></option><?php endforeach; ?>
                     </select></label>
-                <button class="btn primary">Weiter</button>
+                <button class="btn primary"><?= e(t('Weiter')) ?></button>
             </form>
         <?php });
         return;
@@ -196,32 +200,32 @@ function page_change_form(): void
         foreach ((array)($_POST['item_note'] ?? []) as $iid => $note) $itemNotes[(int)$iid] = mb_substr(trim((string)$note), 0, 500);
         foreach (ITEM_TYPES as $t => $_) $extras[$t] = mb_substr(trim((string)($_POST['extra'][$t] ?? '')), 0, 2000);
 
-        foreach (['first_name' => 'den Vornamen', 'last_name' => 'den Nachnamen', 'employee_no' => 'die Mitarbeiternummer'] as $f => $l) {
-            if ($data[$f] === '') $errors[] = "Bitte $l angeben.";
+        foreach (['first_name' => t('den Vornamen'), 'last_name' => t('den Nachnamen'), 'employee_no' => t('die Mitarbeiternummer')] as $f => $l) {
+            if ($data[$f] === '') $errors[] = t('Bitte {x} angeben.', ['x' => $l]);
         }
         $dep = $data['department_id'] ? row('SELECT * FROM departments WHERE id = ? AND company_id = ?', [$data['department_id'], $cid]) : null;
         $pos = $data['position_id'] ? row('SELECT * FROM positions WHERE id = ? AND company_id = ?', [$data['position_id'], $cid]) : null;
-        if (!$dep) $errors[] = 'Bitte eine Abteilung wählen.';
-        if (!$pos) $errors[] = 'Bitte eine Position wählen.';
+        if (!$dep) $errors[] = t('Bitte eine Abteilung wählen.');
+        if (!$pos) $errors[] = t('Bitte eine Position wählen.');
         $validDate = function (string $v): bool { $d = DateTime::createFromFormat('!Y-m-d', $v); return $d && $d->format('Y-m-d') === $v; };
-        if (!$validDate($data['entry_date'])) $errors[] = 'Bitte ein gültiges Datum für „' . TYPE_DATE_LABELS[$type] . '“ angeben.';
-        foreach (['return_date' => 'geplante Rückkehr', 'forward_until' => 'Weiterleitung bis'] as $f => $l) {
-            if ($data[$f] !== '' && !$validDate($data[$f])) $errors[] = "Das Datum „{$l}“ ist ungültig.";
+        if (!$validDate($data['entry_date'])) $errors[] = t('Bitte ein gültiges Datum für „') . t(TYPE_DATE_LABELS[$type]) . t('“ angeben.');
+        foreach (['return_date' => t('geplante Rückkehr'), 'forward_until' => t('Weiterleitung bis')] as $f => $l) {
+            if ($data[$f] !== '' && !$validDate($data[$f])) $errors[] = t('Das Datum „{x}“ ist ungültig.', ['x' => $l]);
         }
         if ($type === 'stilllegung') {
-            if (!in_array($data['absence_reason'], ABSENCE_REASONS, true)) $errors[] = 'Bitte den Grund der Abwesenheit wählen.';
-            if ($data['return_date'] !== '' && $data['return_date'] <= $data['entry_date']) $errors[] = 'Die geplante Rückkehr muss nach dem Beginn liegen.';
+            if (!in_array($data['absence_reason'], ABSENCE_REASONS, true)) $errors[] = t('Bitte den Grund der Abwesenheit wählen.');
+            if ($data['return_date'] !== '' && $data['return_date'] <= $data['entry_date']) $errors[] = t('Die geplante Rückkehr muss nach dem Beginn liegen.');
         }
         if (in_array($type, ['offboarding', 'stilllegung'], true)) {
-            if (!isset(LOCK_OPTIONS[$data['lock_option']])) $errors[] = 'Bitte angeben, wann das Konto gesperrt werden soll.';
-            if ($data['lock_option'] === 'termin' && !preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $data['lock_at'])) $errors[] = 'Bitte Datum und Uhrzeit der Sperrung angeben.';
+            if (!isset(LOCK_OPTIONS[$data['lock_option']])) $errors[] = t('Bitte angeben, wann das Konto gesperrt werden soll.');
+            if ($data['lock_option'] === 'termin' && !preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/', $data['lock_at'])) $errors[] = t('Bitte Datum und Uhrzeit der Sperrung angeben.');
             if ($data['lock_option'] !== 'termin') $data['lock_at'] = '';
-            if (!isset(MAILBOX_ACTIONS[$type][$data['mailbox_action']])) $errors[] = 'Bitte festlegen, was mit dem Postfach passiert.';
-            if ($data['successor_email'] !== '' && !filter_var($data['successor_email'], FILTER_VALIDATE_EMAIL)) $errors[] = 'Die E-Mail-Adresse der Nachfolge/Vertretung ist ungültig.';
+            if (!isset(MAILBOX_ACTIONS[$type][$data['mailbox_action']])) $errors[] = t('Bitte festlegen, was mit dem Postfach passiert.');
+            if ($data['successor_email'] !== '' && !filter_var($data['successor_email'], FILTER_VALIDATE_EMAIL)) $errors[] = t('Die E-Mail-Adresse der Nachfolge/Vertretung ist ungültig.');
             $needsSucc = in_array($data['mailbox_action'], ['freigeben', 'weiterleiten', 'zugriff'], true) || $data['data_action'] === 'uebergeben';
-            if ($needsSucc && $data['successor_email'] === '') $errors[] = 'Bitte die E-Mail-Adresse der Nachfolge bzw. Vertretung angeben.';
+            if ($needsSucc && $data['successor_email'] === '') $errors[] = t('Bitte die E-Mail-Adresse der Nachfolge bzw. Vertretung angeben.');
         }
-        if ($type === 'offboarding' && !isset(DATA_ACTIONS[$data['data_action']])) $errors[] = 'Bitte festlegen, was mit den persönlichen Dateien passiert.';
+        if ($type === 'offboarding' && !isset(DATA_ACTIONS[$data['data_action']])) $errors[] = t('Bitte festlegen, was mit den persönlichen Dateien passiert.');
         if ($type !== 'stilllegung') { $data['return_date'] = ''; $data['absence_reason'] = ''; }
         if ($type === 'reaktivierung') {
             foreach (['lock_option', 'lock_at', 'mailbox_action', 'successor_name', 'successor_email', 'forward_until', 'auto_reply', 'data_action', 'phone_action'] as $f) $data[$f] = '';
@@ -230,7 +234,7 @@ function page_change_form(): void
         if ($data['employee_no'] !== '') {
             $dup = row("SELECT id FROM requests WHERE company_id = ? AND employee_no = ? AND type = ? AND status NOT IN ('freigegeben','storniert') AND id <> ?",
                 [$cid, $data['employee_no'], $type, $id ?: 0]);
-            if ($dup) $errors[] = "Für diese Mitarbeiternummer gibt es bereits eine offene {$typeLabel} (#{$dup['id']}).";
+            if ($dup) $errors[] = t('Für diese Mitarbeiternummer gibt es bereits eine offene {type} (#{id}).', ['type' => $typeLabel, 'id' => $dup['id']]);
         }
 
         if (!$errors) {
@@ -247,23 +251,24 @@ function page_change_form(): void
                     'created_by' => $u['id'], 'status' => is_admin() ? 'in_bearbeitung' : 'eingereicht', 'created_at' => now()];
                 $id = insert('requests', $save);
             }
-            sync_request_items($id, $selected, $itemNotes, $extras, $catalogIds, change_tasks($type, $data));
-            request_log($id, 'system', $existing ? 'Auftrag geändert' : (is_admin() ? $typeLabel . ' vom IT-Service angelegt und in Bearbeitung genommen' : $typeLabel . ' eingereicht'));
+            sync_request_items($id, $selected, $itemNotes, $extras, $catalogIds, with_lang('de', fn() => change_tasks($type, $data)));
+            request_log($id, 'system', $existing ? 'Auftrag geändert' : (is_admin() ? $typeLabel . t(' vom IT-Service angelegt und in Bearbeitung genommen') : $typeLabel . t(' eingereicht')));
             db()->commit();
             employee_sync_request($id);
 
             $r = load_request($id);
-            $subject = ($existing ? 'Geändert: ' : 'Neu: ') . request_subject($r) . ' (' . $r['company_name'] . ')';
-            $body = "Firma: {$r['company_name']}\nMitarbeiter/in: {$r['first_name']} {$r['last_name']} (Pers.-Nr. {$r['employee_no']})\n"
-                . TYPE_DATE_LABELS[$type] . ': ' . fmt_date($r['entry_date'])
-                . ($type === 'stilllegung' ? "\nGrund: {$r['absence_reason']}\nGeplante Rückkehr: " . ($r['return_date'] ? fmt_date($r['return_date']) : 'offen') : '')
-                . "\nErstellt/geändert von: {$u['name']}\n\nZum Auftrag: " . request_link($id);
+            // Betreff und Text erst beim Versand bilden, damit jeder Empfänger seine Sprache bekommt
+            $subject = fn() => ($existing ? t('Geändert: ') : t('Neu: ')) . request_subject($r) . ' (' . $r['company_name'] . ')';
+            $body = fn() => t("Firma: {company}\nMitarbeiter/in: {name} (Pers.-Nr. {no})\n", ['company' => $r['company_name'], 'name' => $r['first_name'] . ' ' . $r['last_name'], 'no' => $r['employee_no']])
+                . t(TYPE_DATE_LABELS[$type]) . ': ' . fmt_date($r['entry_date'])
+                . ($type === 'stilllegung' ? t("\nGrund: {reason}\nGeplante Rückkehr: ", ['reason' => t($r['absence_reason'])]) . ($r['return_date'] ? fmt_date($r['return_date']) : t('offen')) : '')
+                . t("\nErstellt/geändert von: {name}\n\nZum Auftrag: ", ['name' => $u['name']]) . request_link($id);
             if (is_staff_role($u['role'])) {
-                if (!$existing && post('notify') === '1') send_mail(company_recipients($cid, $u['id']), $subject, "Unser IT-Service hat für Ihre Firma einen Auftrag angelegt und bearbeitet ihn.\n\n" . $body, $cid);
+                if (!$existing && post('notify') === '1') send_mail_t(company_recipients($cid, $u['id']), fn() => [$subject(), t("Unser IT-Service hat für Ihre Firma einen Auftrag angelegt und bearbeitet ihn.\n\n") . $body()], $cid);
             } else {
-                send_mail((array)cfg('mail.admin_recipients', []), $subject, $body);
+                send_mail_t((array)cfg('mail.admin_recipients', []), fn() => [$subject(), $body()]);
             }
-            flash('success', $existing ? 'Der Auftrag wurde aktualisiert.' : (is_admin() ? "Die {$typeLabel} wurde angelegt und ist in Bearbeitung." : "Die {$typeLabel} wurde eingereicht. Sie werden über Statusänderungen informiert."));
+            flash('success', $existing ? t('Der Auftrag wurde aktualisiert.') : (is_admin() ? t('Die {type} wurde angelegt und ist in Bearbeitung.', ['type' => $typeLabel]) : t('Die {type} wurde eingereicht. Sie werden über Statusänderungen informiert.', ['type' => $typeLabel])));
             redirect('request', ['id' => $id]);
         }
     }
@@ -275,105 +280,105 @@ function page_change_form(): void
     $people = (!$existing && !$source && !$employee) ? employees_for_change($cid, $type) : [];
 
     $hints = [
-        'offboarding'   => 'Markieren Sie alles, was zurückgegeben bzw. entzogen werden muss. Aus einem früheren Auftrag übernommene Einträge sind bereits ausgewählt.',
-        'stilllegung'   => 'Markieren Sie, was während der Abwesenheit deaktiviert bzw. pausiert werden soll. Bei Geräten können Sie in der Bemerkung angeben, ob sie beim Mitarbeitenden verbleiben.',
-        'reaktivierung' => 'Markieren Sie, was zur Rückkehr wieder bereitgestellt werden soll. Aus der Stilllegung übernommene Einträge sind bereits ausgewählt.',
+        'offboarding'   => t('Markieren Sie alles, was zurückgegeben bzw. entzogen werden muss. Aus einem früheren Auftrag übernommene Einträge sind bereits ausgewählt.'),
+        'stilllegung'   => t('Markieren Sie, was während der Abwesenheit deaktiviert bzw. pausiert werden soll. Bei Geräten können Sie in der Bemerkung angeben, ob sie beim Mitarbeitenden verbleiben.'),
+        'reaktivierung' => t('Markieren Sie, was zur Rückkehr wieder bereitgestellt werden soll. Aus der Stilllegung übernommene Einträge sind bereits ausgewählt.'),
     ];
-    $title = $existing ? 'Bearbeiten: ' . request_subject($existing) : 'Neue ' . $typeLabel;
+    $title = $existing ? t('Bearbeiten: ') . request_subject($existing) : t('Neu: {type}', ['type' => $typeLabel]);
     render_page($title, function () use ($type, $typeLabel, $company, $cid, $data, $errors, $deps, $poss, $catalog, $selected, $itemNotes, $extras, $jsData, $existing, $source, $people, $hints, $employee) {
         foreach ($errors as $err) echo '<div class="alert error">' . e($err) . '</div>'; ?>
-        <p class="muted">Firma: <strong><?= e($company['name']) ?></strong> · <?= e(REQUEST_TYPE_HINTS[$type]) ?></p>
+        <p class="muted"><?= e(t('Firma:')) ?> <strong><?= e($company['name']) ?></strong> · <?= e(t(REQUEST_TYPE_HINTS[$type])) ?></p>
         <?php if ($employee && !$existing): ?>
-            <div class="alert info">Daten aus der <a href="<?= e(url('employee_edit', ['id' => $employee['id']] + (is_admin() ? ['company' => $cid] : []))) ?>">Mitarbeiterliste</a> übernommen<?= $source ? ', Ausstattung aus <a href="' . e(url('request', ['id' => $source['id']])) . '">' . e(REQUEST_TYPES[$source['type']]) . ' #' . (int)$source['id'] . '</a>' : ' (kein früherer Auftrag im Portal – bitte Ausstattung unten auswählen)' ?>. Bitte prüfen und ergänzen.</div>
+            <div class="alert info"><?= e(t('Daten aus der')) ?> <a href="<?= e(url('employee_edit', ['id' => $employee['id']] + (is_admin() ? ['company' => $cid] : []))) ?>"><?= e(t('Mitarbeiterliste')) ?></a> <?= e(t('übernommen')) ?><?= $source ? (e(t(', Ausstattung aus')) . ' <a href="') . e(url('request', ['id' => $source['id']])) . '">' . e(t(REQUEST_TYPES[$source['type']])) . ' #' . (int)$source['id'] . '</a>' : t(' (kein früherer Auftrag im Portal – bitte Ausstattung unten auswählen)') ?><?= e(t('. Bitte prüfen und ergänzen.')) ?></div>
         <?php elseif ($source && !$existing): ?>
-            <div class="alert info">Daten und Ausstattung wurden aus <a href="<?= e(url('request', ['id' => $source['id']])) ?>"><?= e(REQUEST_TYPES[$source['type']]) ?> #<?= (int)$source['id'] ?></a> übernommen. Bitte prüfen und ergänzen.</div>
+            <div class="alert info"><?= e(t('Daten und Ausstattung wurden aus')) ?> <a href="<?= e(url('request', ['id' => $source['id']])) ?>"><?= e(t(REQUEST_TYPES[$source['type']])) ?> #<?= (int)$source['id'] ?></a> <?= e(t('übernommen. Bitte prüfen und ergänzen.')) ?></div>
         <?php elseif ($people): ?>
             <form method="get" class="card form inline-form">
                 <input type="hidden" name="r" value="change_new"><input type="hidden" name="type" value="<?= e($type) ?>">
                 <?php if (is_admin()): ?><input type="hidden" name="company" value="<?= (int)$cid ?>"><?php endif; ?>
-                <label class="grow">Mitarbeiter/in aus der Mitarbeiterliste wählen
-                    <select name="employee" required><option value="">– bitte wählen –</option>
-                    <?php foreach ($people as $p): ?><option value="<?= (int)$p['id'] ?>"><?= e($p['last_name'] . ', ' . $p['first_name'] . ' (Pers.-Nr. ' . $p['employee_no'] . ', ' . (EMPLOYEE_STATUSES[$p['status']] ?? $p['status']) . ')') ?></option><?php endforeach; ?>
+                <label class="grow"><?= e(t('Mitarbeiter/in aus der Mitarbeiterliste wählen')) ?>
+                    <select name="employee" required><option value=""><?= e(t('– bitte wählen –')) ?></option>
+                    <?php foreach ($people as $p): ?><option value="<?= (int)$p['id'] ?>"><?= e($p['last_name'] . ', ' . $p['first_name'] . t(' (Pers.-Nr. ') . $p['employee_no'] . ', ' . (t(EMPLOYEE_STATUSES[$p['status']] ?? $p['status'])) . ')') ?></option><?php endforeach; ?>
                     </select></label>
-                <button class="btn">Übernehmen</button>
+                <button class="btn"><?= e(t('Übernehmen')) ?></button>
             </form>
-            <p class="muted small">Oder füllen Sie die Angaben unten manuell aus. Tipp: Unter <a href="<?= e(url('employees', is_admin() ? ['company' => $cid] : [])) ?>">Mitarbeiter</a> können Sie auch Personen ergänzen, die nicht über das Portal eingerichtet wurden.</p>
+            <p class="muted small"><?= e(t('Oder füllen Sie die Angaben unten manuell aus. Tipp: Unter')) ?> <a href="<?= e(url('employees', is_admin() ? ['company' => $cid] : [])) ?>"><?= e(t('Mitarbeiter')) ?></a> <?= e(t('können Sie auch Personen ergänzen, die nicht über das Portal eingerichtet wurden.')) ?></p>
         <?php endif; ?>
         <form method="post" class="form request-form" id="request-form"
               action="<?= e($existing ? url('request_edit', ['id' => $existing['id']]) : url('change_new', ['type' => $type] + ($employee ? ['employee' => $employee['id']] : ($source ? ['from' => $source['id']] : [])) + (is_admin() ? ['company' => $cid] : []))) ?>">
             <?= csrf_field() ?><input type="hidden" name="company_id" value="<?= (int)$cid ?>">
             <script type="application/json" id="template-data"><?= json_encode($jsData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
             <div class="card">
-                <h2>1. Mitarbeiter/in</h2>
+                <h2><?= e(t('1. Mitarbeiter/in')) ?></h2>
                 <div class="grid3">
-                    <label>Anrede
-                        <select name="salutation"><?php foreach (['', 'Frau', 'Herr', 'Divers'] as $s): ?><option <?= $data['salutation'] === $s ? 'selected' : '' ?> value="<?= e($s) ?>"><?= $s === '' ? '–' : e($s) ?></option><?php endforeach; ?></select>
+                    <label><?= e(t('Anrede')) ?>
+                        <select name="salutation"><?php foreach (['', 'Frau', 'Herr', 'Divers'] as $s): ?><option <?= $data['salutation'] === $s ? 'selected' : '' ?> value="<?= e($s) ?>"><?= $s === '' ? '–' : e(t($s)) ?></option><?php endforeach; ?></select>
                     </label>
-                    <label>Vorname *<input name="first_name" required maxlength="120" value="<?= e($data['first_name']) ?>"></label>
-                    <label>Nachname *<input name="last_name" required maxlength="120" value="<?= e($data['last_name']) ?>"></label>
-                    <label>Mitarbeiternummer *<input name="employee_no" required maxlength="60" value="<?= e($data['employee_no']) ?>"></label>
-                    <label>Abteilung *
-                        <select name="department_id" id="department_id" required><option value="">– bitte wählen –</option>
+                    <label><?= e(t('Vorname *')) ?><input name="first_name" required maxlength="120" value="<?= e($data['first_name']) ?>"></label>
+                    <label><?= e(t('Nachname *')) ?><input name="last_name" required maxlength="120" value="<?= e($data['last_name']) ?>"></label>
+                    <label><?= e(t('Mitarbeiternummer *')) ?><input name="employee_no" required maxlength="60" value="<?= e($data['employee_no']) ?>"></label>
+                    <label><?= e(t('Abteilung *')) ?>
+                        <select name="department_id" id="department_id" required><option value=""><?= e(t('– bitte wählen –')) ?></option>
                         <?php foreach ($deps as $d): ?><option value="<?= (int)$d['id'] ?>" <?= (int)$data['department_id'] === (int)$d['id'] ? 'selected' : '' ?>><?= e($d['name']) ?></option><?php endforeach; ?>
                         </select></label>
-                    <label>Position *
-                        <select name="position_id" id="position_id" required><option value="">– bitte wählen –</option>
+                    <label><?= e(t('Position *')) ?>
+                        <select name="position_id" id="position_id" required><option value=""><?= e(t('– bitte wählen –')) ?></option>
                         <?php foreach ($poss as $p): ?><option value="<?= (int)$p['id'] ?>" data-dep="<?= (int)$p['department_id'] ?>" <?= (int)$data['position_id'] === (int)$p['id'] ? 'selected' : '' ?>><?= e($p['name']) ?></option><?php endforeach; ?>
                         </select></label>
                 </div>
             </div>
 
             <div class="card">
-                <h2>2. <?= $type === 'offboarding' ? 'Austritt' : ($type === 'stilllegung' ? 'Abwesenheit' : 'Rückkehr') ?></h2>
+                <h2>2. <?= $type === 'offboarding' ? t('Austritt') : ($type === 'stilllegung' ? t('Abwesenheit') : t('Rückkehr')) ?></h2>
                 <div class="grid3">
-                    <label><?= e(TYPE_DATE_LABELS[$type]) ?> *<input type="date" name="entry_date" required value="<?= e($data['entry_date']) ?>"></label>
+                    <label><?= e(t(TYPE_DATE_LABELS[$type])) ?> *<input type="date" name="entry_date" required value="<?= e($data['entry_date']) ?>"></label>
                     <?php if ($type === 'stilllegung'): ?>
-                        <label>Grund *
-                            <select name="absence_reason" required><option value="">– bitte wählen –</option>
-                            <?php foreach (ABSENCE_REASONS as $reason): ?><option <?= $data['absence_reason'] === $reason ? 'selected' : '' ?>><?= e($reason) ?></option><?php endforeach; ?>
+                        <label><?= e(t('Grund *')) ?>
+                            <select name="absence_reason" required><option value=""><?= e(t('– bitte wählen –')) ?></option>
+                            <?php foreach (ABSENCE_REASONS as $reason): ?><option value="<?= e($reason) ?>" <?= $data['absence_reason'] === $reason ? 'selected' : '' ?>><?= e(t($reason)) ?></option><?php endforeach; ?>
                             </select></label>
-                        <label>Geplante Rückkehr<input type="date" name="return_date" value="<?= e($data['return_date']) ?>"></label>
+                        <label><?= e(t('Geplante Rückkehr')) ?><input type="date" name="return_date" value="<?= e($data['return_date']) ?>"></label>
                     <?php endif; ?>
                     <?php if ($type === 'reaktivierung'): ?>
-                        <label>Standort / Büro<input name="location" maxlength="190" value="<?= e($data['location']) ?>"></label>
-                        <label>Vorgesetzte/r<input name="manager_name" maxlength="190" value="<?= e($data['manager_name']) ?>"></label>
+                        <label><?= e(t('Standort / Büro')) ?><input name="location" maxlength="190" value="<?= e($data['location']) ?>"></label>
+                        <label><?= e(t('Vorgesetzte/r')) ?><input name="manager_name" maxlength="190" value="<?= e($data['manager_name']) ?>"></label>
                     <?php endif; ?>
                     <?php if ($type !== 'reaktivierung'): ?>
-                        <label><?= $type === 'offboarding' ? 'Konto sperren' : 'Konto deaktivieren' ?> *
-                            <select name="lock_option" id="lock_option"><?php foreach (LOCK_OPTIONS as $k => $l): ?><option value="<?= e($k) ?>" <?= $data['lock_option'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></label>
-                        <label data-show-if="lock_option=termin">Zeitpunkt der Sperrung<input type="datetime-local" name="lock_at" value="<?= e($data['lock_at']) ?>"></label>
+                        <label><?= $type === 'offboarding' ? t('Konto sperren') : t('Konto deaktivieren') ?> *
+                            <select name="lock_option" id="lock_option"><?php foreach (LOCK_OPTIONS as $k => $l): ?><option value="<?= e($k) ?>" <?= $data['lock_option'] === $k ? 'selected' : '' ?>><?= e(t($l)) ?></option><?php endforeach; ?></select></label>
+                        <label data-show-if="lock_option=termin"><?= e(t('Zeitpunkt der Sperrung')) ?><input type="datetime-local" name="lock_at" value="<?= e($data['lock_at']) ?>"></label>
                     <?php endif; ?>
                 </div>
                 <?php if ($type === 'stilllegung'): ?>
-                    <p class="muted small">Gesundheitsdaten oder Details zum Grund der Abwesenheit gehören nicht in das Portal – die Auswahl oben genügt.</p>
+                    <p class="muted small"><?= e(t('Gesundheitsdaten oder Details zum Grund der Abwesenheit gehören nicht in das Portal – die Auswahl oben genügt.')) ?></p>
                 <?php endif; ?>
             </div>
 
             <?php if ($type !== 'reaktivierung'): ?>
             <div class="card">
-                <h2>3. Postfach, Dateien und Telefon</h2>
+                <h2><?= e(t('3. Postfach, Dateien und Telefon')) ?></h2>
                 <div class="grid3">
-                    <label>Postfach *
-                        <select name="mailbox_action" required><option value="">– bitte wählen –</option>
-                        <?php foreach (MAILBOX_ACTIONS[$type] as $k => $l): ?><option value="<?= e($k) ?>" <?= $data['mailbox_action'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?>
+                    <label><?= e(t('Postfach *')) ?>
+                        <select name="mailbox_action" required><option value=""><?= e(t('– bitte wählen –')) ?></option>
+                        <?php foreach (MAILBOX_ACTIONS[$type] as $k => $l): ?><option value="<?= e($k) ?>" <?= $data['mailbox_action'] === $k ? 'selected' : '' ?>><?= e(t($l)) ?></option><?php endforeach; ?>
                         </select></label>
-                    <label><?= $type === 'offboarding' ? 'Nachfolger/in' : 'Vertretung' ?> (Name)<input name="successor_name" maxlength="190" value="<?= e($data['successor_name']) ?>"></label>
-                    <label><?= $type === 'offboarding' ? 'Nachfolger/in' : 'Vertretung' ?> (E-Mail)<input type="email" name="successor_email" maxlength="190" value="<?= e($data['successor_email']) ?>"></label>
+                    <label><?= $type === 'offboarding' ? t('Nachfolger/in') : t('Vertretung') ?> <?= e(t('(Name)')) ?><input name="successor_name" maxlength="190" value="<?= e($data['successor_name']) ?>"></label>
+                    <label><?= $type === 'offboarding' ? t('Nachfolger/in') : t('Vertretung') ?> <?= e(t('(E-Mail)')) ?><input type="email" name="successor_email" maxlength="190" value="<?= e($data['successor_email']) ?>"></label>
                     <?php if ($type === 'offboarding'): ?>
-                        <label>Weiterleitung befristen bis<input type="date" name="forward_until" value="<?= e($data['forward_until']) ?>"></label>
-                        <label>Persönliche Dateien *
-                            <select name="data_action" required><option value="">– bitte wählen –</option>
-                            <?php foreach (DATA_ACTIONS as $k => $l): ?><option value="<?= e($k) ?>" <?= $data['data_action'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?>
+                        <label><?= e(t('Weiterleitung befristen bis')) ?><input type="date" name="forward_until" value="<?= e($data['forward_until']) ?>"></label>
+                        <label><?= e(t('Persönliche Dateien *')) ?>
+                            <select name="data_action" required><option value=""><?= e(t('– bitte wählen –')) ?></option>
+                            <?php foreach (DATA_ACTIONS as $k => $l): ?><option value="<?= e($k) ?>" <?= $data['data_action'] === $k ? 'selected' : '' ?>><?= e(t($l)) ?></option><?php endforeach; ?>
                             </select></label>
                     <?php endif; ?>
-                    <label>Telefon / Rufnummer<input name="phone_action" maxlength="190" value="<?= e($data['phone_action']) ?>" placeholder="z. B. Umleitung auf Durchwahl 123"></label>
+                    <label><?= e(t('Telefon / Rufnummer')) ?><input name="phone_action" maxlength="190" value="<?= e($data['phone_action']) ?>" placeholder="<?= e(t('z. B. Umleitung auf Durchwahl 123')) ?>"></label>
                 </div>
-                <label>Text der Abwesenheitsnotiz (optional)<textarea name="auto_reply" rows="3" placeholder="<?= $type === 'offboarding' ? 'z. B. Frau Müller ist nicht mehr im Unternehmen. Bitte wenden Sie sich an …' : 'z. B. Ich bin bis voraussichtlich … nicht erreichbar. Bitte wenden Sie sich an …' ?>"><?= e($data['auto_reply']) ?></textarea></label>
+                <label><?= e(t('Text der Abwesenheitsnotiz (optional)')) ?><textarea name="auto_reply" rows="3" placeholder="<?= $type === 'offboarding' ? t('z. B. Frau Müller ist nicht mehr im Unternehmen. Bitte wenden Sie sich an …') : t('z. B. Ich bin bis voraussichtlich … nicht erreichbar. Bitte wenden Sie sich an …') ?>"><?= e($data['auto_reply']) ?></textarea></label>
             </div>
             <?php endif; ?>
 
             <div class="card">
-                <h2><?= $type === 'reaktivierung' ? '3' : '4' ?>. Ausstattung, Zugänge und Freigaben</h2>
+                <h2><?= $type === 'reaktivierung' ? '3' : '4' ?><?= e(t('. Ausstattung, Zugänge und Freigaben')) ?></h2>
                 <p class="muted"><?= e($hints[$type]) ?></p>
                 <?php foreach (ITEM_TYPES as $itype => $label): ?>
                     <fieldset>
@@ -382,34 +387,34 @@ function page_change_form(): void
                         <?php foreach ($catalog[$itype] as $it): $iid = (int)$it['id']; $on = in_array($iid, $selected, true); ?>
                             <div class="check-row">
                                 <label class="check"><input type="checkbox" name="items[]" value="<?= $iid ?>" <?= $on ? 'checked' : '' ?>>
-                                    <?= e($it['name']) ?><?= $it['description'] ? ' <span class="muted small">' . e($it['description']) . '</span>' : '' ?></label>
-                                <input class="item-note" name="item_note[<?= $iid ?>]" value="<?= e($itemNotes[$iid] ?? '') ?>" placeholder="<?= $itype === 'device' && $type === 'stilllegung' ? 'z. B. verbleibt beim Mitarbeitenden' : 'Bemerkung' ?>" maxlength="500">
+                                    <?= e(t_parts($it['name'])) ?><?= $it['description'] ? ' <span class="muted small">' . e($it['description']) . '</span>' : '' ?></label>
+                                <input class="item-note" name="item_note[<?= $iid ?>]" value="<?= e($itemNotes[$iid] ?? '') ?>" placeholder="<?= $itype === 'device' && $type === 'stilllegung' ? t('z. B. verbleibt beim Mitarbeitenden') : t('Bemerkung') ?>" maxlength="500">
                             </div>
                         <?php endforeach; ?>
-                        <?php if (!$catalog[$itype]): ?><p class="muted small">Keine Einträge im Katalog.</p><?php endif; ?>
+                        <?php if (!$catalog[$itype]): ?><p class="muted small"><?= e(t('Keine Einträge im Katalog.')) ?></p><?php endif; ?>
                         </div>
-                        <label class="small">Weitere (eine pro Zeile)<textarea name="extra[<?= e($itype) ?>]" rows="2"><?= e($extras[$itype]) ?></textarea></label>
+                        <label class="small"><?= e(t('Weitere (eine pro Zeile)')) ?><textarea name="extra[<?= e($itype) ?>]" rows="2"><?= e($extras[$itype]) ?></textarea></label>
                     </fieldset>
                 <?php endforeach; ?>
-                <p class="muted small">Aufgaben wie Konto sperren, Postfach und Abwesenheitsnotiz werden automatisch aus Ihren Angaben in die Checkliste übernommen.</p>
+                <p class="muted small"><?= e(t('Aufgaben wie Konto sperren, Postfach und Abwesenheitsnotiz werden automatisch aus Ihren Angaben in die Checkliste übernommen.')) ?></p>
             </div>
 
             <div class="card">
-                <h2>Hinweise</h2>
-                <label>Weitere Informationen für die IT<textarea name="notes" rows="4"><?= e($data['notes']) ?></textarea></label>
-                <p class="muted small">Bitte keine Passwörter oder Gesundheitsdaten eintragen.</p>
+                <h2><?= e(t('Hinweise')) ?></h2>
+                <label><?= e(t('Weitere Informationen für die IT')) ?><textarea name="notes" rows="4"><?= e($data['notes']) ?></textarea></label>
+                <p class="muted small"><?= e(t('Bitte keine Passwörter oder Gesundheitsdaten eintragen.')) ?></p>
             </div>
             <?php if (!$existing && is_admin()): $hasApp = company_has_app((int)$cid, 'onboarding'); ?>
             <div class="card staff-box">
-                <strong>Durchführung durch den IT-Service</strong>
-                <p class="muted small">Der Auftrag startet direkt mit „In Bearbeitung“. Sie können ihn anschließend abhaken und abschließen.</p>
-                <label class="check"><input type="checkbox" name="notify" value="1" <?= $hasApp ? 'checked' : '' ?>> Firma per E-Mail über den neuen Auftrag informieren</label>
-                <?php if (!$hasApp): ?><p class="muted small">Die Firma hat die App nicht freigeschaltet und sieht den Auftrag nicht im Portal.</p><?php endif; ?>
+                <strong><?= e(t('Durchführung durch den IT-Service')) ?></strong>
+                <p class="muted small"><?= e(t('Der Auftrag startet direkt mit „In Bearbeitung“. Sie können ihn anschließend abhaken und abschließen.')) ?></p>
+                <label class="check"><input type="checkbox" name="notify" value="1" <?= $hasApp ? 'checked' : '' ?>> <?= e(t('Firma per E-Mail über den neuen Auftrag informieren')) ?></label>
+                <?php if (!$hasApp): ?><p class="muted small"><?= e(t('Die Firma hat die App nicht freigeschaltet und sieht den Auftrag nicht im Portal.')) ?></p><?php endif; ?>
             </div>
             <?php endif; ?>
             <div class="buttons">
-                <button class="btn primary"><?= $existing ? 'Änderungen speichern' : e($typeLabel) . ' absenden' ?></button>
-                <a class="btn" href="<?= e($existing ? url('request', ['id' => $existing['id']]) : url('dashboard')) ?>">Abbrechen</a>
+                <button class="btn primary"><?= $existing ? t('Änderungen speichern') : e($typeLabel) . ' absenden' ?></button>
+                <a class="btn" href="<?= e($existing ? url('request', ['id' => $existing['id']]) : url('dashboard')) ?>"><?= e(t('Abbrechen')) ?></a>
             </div>
         </form>
     <?php });

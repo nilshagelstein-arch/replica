@@ -14,9 +14,9 @@ $errors = [];
 $done = false;
 
 if (is_file($lock)) {
-    render_page('Installation', function () {
-        echo '<div class="card"><p>Das Portal ist bereits installiert. Bitte löschen Sie <code>install.php</code> vom Server.</p>'
-            . '<p><a class="btn" href="index.php">Zur Anmeldung</a></p></div>';
+    render_page(t('Installation'), function () {
+        echo ('<div class="card"><p>' . e(t('Das Portal ist bereits installiert. Bitte löschen Sie')) . ' <code>' . e(t('install.php')) . '</code> ' . e(t('vom Server.')) . '</p>')
+            . ('<p><a class="btn" href="index.php">' . e(t('Zur Anmeldung')) . '</a></p></div>');
     });
     exit;
 }
@@ -24,7 +24,7 @@ if (is_file($lock)) {
 try {
     db()->query('SELECT 1');
 } catch (Throwable $ex) {
-    $errors[] = 'Keine Verbindung zur Datenbank: ' . $ex->getMessage();
+    $errors[] = t('Keine Verbindung zur Datenbank: ') . $ex->getMessage();
 }
 
 if (!$errors && is_post()) {
@@ -33,15 +33,15 @@ if (!$errors && is_post()) {
     $email = strtolower(post('email'));
     $pw    = (string)($_POST['password'] ?? '');
     $pw2   = (string)($_POST['password2'] ?? '');
-    if ($name === '') $errors[] = 'Bitte einen Namen angeben.';
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Bitte eine gültige E-Mail-Adresse angeben.';
+    if ($name === '') $errors[] = t('Bitte einen Namen angeben.');
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = t('Bitte eine gültige E-Mail-Adresse angeben.');
     if ($e = validate_password($pw)) $errors[] = $e;
-    if ($pw !== $pw2) $errors[] = 'Die Passwörter stimmen nicht überein.';
+    if ($pw !== $pw2) $errors[] = t('Die Passwörter stimmen nicht überein.');
 
     if (!$errors) {
         run_migrations();
         if (row('SELECT id FROM users WHERE email = ?', [$email])) {
-            $errors[] = 'Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.';
+            $errors[] = t('Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.');
         } else {
             insert('users', [
                 'company_id'    => null,
@@ -54,11 +54,11 @@ if (!$errors && is_post()) {
             ]);
             if (!row('SELECT id FROM catalog_items LIMIT 1')) {
                 $defaults = [
-                    'device'     => ['Notebook', 'Desktop-PC', 'Monitor', 'Dockingstation', 'Headset', 'Tastatur & Maus', 'Smartphone', 'Mobilfunkvertrag / SIM'],
-                    'license'    => ['Microsoft 365 Business Basic', 'Microsoft 365 Business Standard', 'Microsoft 365 Business Premium', 'Adobe Acrobat Pro'],
-                    'software'   => ['Microsoft Office', 'Microsoft Teams', 'Adobe Acrobat Reader', 'Webbrowser (Chrome/Edge)', 'Virenschutz'],
+                    'device'     => [t('Notebook'), t('Desktop-PC'), t('Monitor'), t('Dockingstation'), t('Headset'), t('Tastatur & Maus'), t('Smartphone'), t('Mobilfunkvertrag / SIM')],
+                    'license'    => [t('Microsoft 365 Business Basic'), t('Microsoft 365 Business Standard'), t('Microsoft 365 Business Premium'), t('Adobe Acrobat Pro')],
+                    'software'   => [t('Microsoft Office'), t('Microsoft Teams'), t('Adobe Acrobat Reader'), t('Webbrowser (Chrome/Edge)'), t('Virenschutz')],
                     'drive'      => [],
-                    'permission' => ['E-Mail-Postfach', 'VPN-Zugang', 'WLAN-Zugang', 'Zutrittskarte / Schlüssel'],
+                    'permission' => [t('E-Mail-Postfach'), t('VPN-Zugang'), t('WLAN-Zugang'), t('Zutrittskarte / Schlüssel')],
                 ];
                 foreach ($defaults as $type => $names) {
                     foreach ($names as $i => $n) {
@@ -74,27 +74,27 @@ if (!$errors && is_post()) {
     }
 }
 
-render_page('Installation', function () use ($errors, $done) {
+render_page(t('Installation'), function () use ($errors, $done) {
     if ($done) {
-        echo '<div class="card"><h2>Installation abgeschlossen</h2>'
-            . '<p>Die Datenbank wurde eingerichtet und der Administrator angelegt. Unter <em>Apps &amp; Freigaben</em> legen Sie fest, welche Firma welche Apps nutzen darf. Bei der ersten Anmeldung '
-            . 'richten Sie die Zwei-Faktor-Authentifizierung mit einer Authenticator-App ein.</p>'
-            . '<p><strong>Wichtig:</strong> Löschen Sie jetzt die Datei <code>install.php</code> vom Server.</p>'
-            . '<p><a class="btn primary" href="index.php">Zur Anmeldung</a></p></div>';
+        echo ('<div class="card"><h2>' . e(t('Installation abgeschlossen')) . '</h2>')
+            . ('<p>' . e(t('Die Datenbank wurde eingerichtet und der Administrator angelegt. Unter')) . ' <em>' . e(t('Apps & Freigaben')) . '</em> ' . e(t('legen Sie fest, welche Firma welche Apps nutzen darf. Bei der ersten Anmeldung')) . ' ')
+            . (e(t('richten Sie die Zwei-Faktor-Authentifizierung mit einer Authenticator-App ein.')) . '</p>')
+            . ('<p><strong>' . e(t('Wichtig:')) . '</strong> ' . e(t('Löschen Sie jetzt die Datei')) . ' <code>' . e(t('install.php')) . '</code> ' . e(t('vom Server.')) . '</p>')
+            . ('<p><a class="btn primary" href="index.php">' . e(t('Zur Anmeldung')) . '</a></p></div>');
         return;
     }
     foreach ($errors as $err) echo '<div class="alert error">' . e($err) . '</div>';
     ?>
     <div class="card narrow">
-        <h2>Superadmin anlegen</h2>
-        <p class="muted">Datenbank: <?= e(cfg('db.driver')) ?> · Dieser Zugang ist der einzige Superadmin: Er verwaltet alle Firmen und als Einziger die Administratoren-Konten.</p>
+        <h2><?= e(t('Superadmin anlegen')) ?></h2>
+        <p class="muted"><?= e(t('Datenbank:')) ?> <?= e(cfg('db.driver')) ?> <?= e(t('· Dieser Zugang ist der einzige Superadmin: Er verwaltet alle Firmen und als Einziger die Administratoren-Konten.')) ?></p>
         <form method="post" class="form">
             <?= csrf_field() ?>
-            <label>Name<input name="name" required value="<?= e(post('name')) ?>"></label>
-            <label>E-Mail-Adresse<input type="email" name="email" required value="<?= e(post('email')) ?>"></label>
-            <label>Passwort (mind. 10 Zeichen, Buchstaben und Ziffern)<input type="password" name="password" required minlength="10" autocomplete="new-password"></label>
-            <label>Passwort wiederholen<input type="password" name="password2" required minlength="10" autocomplete="new-password"></label>
-            <button class="btn primary">Installation starten</button>
+            <label><?= e(t('Name')) ?><input name="name" required value="<?= e(post('name')) ?>"></label>
+            <label><?= e(t('E-Mail-Adresse')) ?><input type="email" name="email" required value="<?= e(post('email')) ?>"></label>
+            <label><?= e(t('Passwort (mind. 10 Zeichen, Buchstaben und Ziffern)')) ?><input type="password" name="password" required minlength="10" autocomplete="new-password"></label>
+            <label><?= e(t('Passwort wiederholen')) ?><input type="password" name="password2" required minlength="10" autocomplete="new-password"></label>
+            <button class="btn primary"><?= e(t('Installation starten')) ?></button>
         </form>
     </div>
     <?php

@@ -20,6 +20,7 @@ header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style
 require APP_DIR . '/schema.php';
 ensure_schema();
 start_session();
+if (!current_user()) apply_lang_param();
 
 require APP_DIR . '/pages/auth.php';
 require APP_DIR . '/pages/selfservice.php';
@@ -56,6 +57,7 @@ $routes = [
     'home'           => 'page_home',
     'apps'           => 'page_apps',
     'app_css'        => 'page_app_css',
+    'i18n_js'        => 'page_i18n_js',
     'mail_settings'  => 'page_mail_settings',
     'oauth_start'    => 'page_oauth_start',
     'oauth_callback' => 'page_oauth_callback',
@@ -136,7 +138,7 @@ const ROUTE_AREAS = [
  * damit eine neue Seite nicht versehentlich ohne Rechteprüfung erreichbar ist).
  */
 const ROUTES_WITHOUT_AREA = ['login', 'login_2fa', 'setup_2fa', 'logout', 'register', 'verify_email',
-    'forgot_password', 'reset_password', 'account', 'home', 'app_css'];
+    'forgot_password', 'reset_password', 'account', 'home', 'app_css', 'i18n_js'];
 
 $r = (string)($_GET['r'] ?? '');
 if ($r === '') {
@@ -158,5 +160,5 @@ try {
     $routes[$r]();
 } catch (PDOException $ex) {
     error_log('[onboarding] ' . $ex->getMessage());
-    abort(500, 'Es ist ein Datenbankfehler aufgetreten. Bitte versuchen Sie es später erneut.');
+    abort(500, t('Es ist ein Datenbankfehler aufgetreten. Bitte versuchen Sie es später erneut.'));
 }

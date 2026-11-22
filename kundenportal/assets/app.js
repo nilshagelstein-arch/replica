@@ -1,6 +1,8 @@
 /* Kundenportal – kleine Komfortfunktionen (ohne externe Bibliotheken) */
 (function () {
   'use strict';
+  // Übersetzung (Wörterbuch aus index.php?r=i18n_js)
+  function T(s) { return (window.KP_T && window.KP_T[s]) || s; }
 
   // Sicherheitsabfrage für Buttons mit data-confirm
   document.addEventListener('click', function (ev) {
@@ -143,8 +145,8 @@
     var hint = document.getElementById('template-hint');
     if (hint && (dep.value || pos.value)) {
       hint.textContent = wanted.size
-        ? wanted.size + ' Einträge aus den Vorlagen für Abteilung/Position vorausgewählt. Sie können die Auswahl anpassen.'
-        : 'Für diese Abteilung/Position ist keine Vorlage hinterlegt. Bitte wählen Sie die Einträge manuell aus.';
+        ? T('{n} Einträge aus den Vorlagen für Abteilung/Position vorausgewählt. Sie können die Auswahl anpassen.').replace('{n}', wanted.size)
+        : T('Für diese Abteilung/Position ist keine Vorlage hinterlegt. Bitte wählen Sie die Einträge manuell aus.');
     }
   }
 

@@ -48,43 +48,42 @@ function page_home(): void
     $pendingCompany = company_pending($u) ? row('SELECT * FROM companies WHERE id = ?', [$u['company_id']]) : null;
     $openRegs = is_staff_role($u['role']) && admin_can('companies') ? rows("SELECT id, name, registered_at FROM companies WHERE registration_status = 'pending'" . company_scope_sql('id') . " ORDER BY registered_at") : [];
     $open2fa = $u['role'] === 'superadmin' ? rows('SELECT id, name, email FROM users WHERE totp_reset_requested_at IS NOT NULL AND active = 1 ORDER BY totp_reset_requested_at') : [];
-    render_page('Willkommen, ' . $u['name'], function () use ($u, $apps, $grantCounts, $pendingCompany, $openRegs, $open2fa) {
+    render_page(t('Willkommen, ') . $u['name'], function () use ($u, $apps, $grantCounts, $pendingCompany, $openRegs, $open2fa) {
         if ($pendingCompany): ?>
             <div class="card">
-                <h2>Ihre Registrierung wird geprüft</h2>
-                <p>Vielen Dank für die Registrierung von <strong><?= e($pendingCompany['name']) ?></strong>. Ihr Zugang und die Zwei-Faktor-Anmeldung sind eingerichtet.
-                    Sobald wir die Module freigeschaltet haben, erhalten Sie eine E-Mail und sehen die Apps hier.</p>
-                <p class="muted">Angefragte Module: <?= e(implode(', ', app_names_by_ids(requested_app_ids($pendingCompany))) ?: '–') ?></p>
+                <h2><?= e(t('Ihre Registrierung wird geprüft')) ?></h2>
+                <p><?= e(t('Vielen Dank für die Registrierung von')) ?> <strong><?= e($pendingCompany['name']) ?></strong><?= e(t('. Ihr Zugang und die Zwei-Faktor-Anmeldung sind eingerichtet. Sobald wir die Module freigeschaltet haben, erhalten Sie eine E-Mail und sehen die Apps hier.')) ?></p>
+                <p class="muted"><?= e(t('Angefragte Module:')) ?> <?= e(implode(', ', app_names_by_ids(requested_app_ids($pendingCompany))) ?: '–') ?></p>
             </div>
         <?php return; endif;
         if ($openRegs): ?>
-            <div class="alert info"><strong><?= count($openRegs) ?> Registrierung(en) warten auf Freischaltung:</strong>
+            <div class="alert info"><strong><?= count($openRegs) ?> <?= e(t('Registrierung(en) warten auf Freischaltung:')) ?></strong>
                 <?php foreach ($openRegs as $i => $c): ?><?= $i ? ', ' : ' ' ?><a href="<?= e(url('company_edit', ['id' => $c['id']])) ?>"><?= e($c['name']) ?></a><?php endforeach; ?></div>
         <?php endif;
         if ($open2fa): ?>
-            <div class="alert info"><strong>2FA-Zurücksetzung beantragt:</strong>
+            <div class="alert info"><strong><?= e(t('2FA-Zurücksetzung beantragt:')) ?></strong>
                 <?php foreach ($open2fa as $i => $x): ?><?= $i ? ', ' : ' ' ?><a href="<?= e(url('user_edit', ['id' => $x['id']])) ?>"><?= e($x['name']) ?></a><?php endforeach; ?></div>
         <?php endif; ?>
-        <p class="muted">Wählen Sie eine Anwendung.</p>
+        <p class="muted"><?= e(t('Wählen Sie eine Anwendung.')) ?></p>
         <?php if (!$apps): ?>
-            <div class="card"><p>Für Ihre Firma sind noch keine Apps freigeschaltet. Bitte wenden Sie sich an Ihren IT-Dienstleister.</p></div>
+            <div class="card"><p><?= e(t('Für Ihre Firma sind noch keine Apps freigeschaltet. Bitte wenden Sie sich an Ihren IT-Dienstleister.')) ?></p></div>
         <?php else: ?>
         <div class="app-grid">
             <?php foreach ($apps as $a): $ext = $a['kind'] !== 'intern'; $badge = app_badge($a); ?>
                 <a class="app-tile app-<?= (int)$a['id'] ?>" href="<?= e(app_href($a)) ?>" <?= $ext ? 'target="_blank" rel="noopener noreferrer"' : '' ?>>
                     <span class="app-icon"><?= e($a['icon'] ?: mb_substr($a['name'], 0, 1)) ?></span>
-                    <span class="app-name"><?= e($a['name']) ?><?= $ext ? ' <span class="muted small">↗</span>' : '' ?></span>
-                    <span class="app-desc"><?= e($a['description']) ?></span>
+                    <span class="app-name"><?= e(t($a['name'])) ?><?= $ext ? ' <span class="muted small">↗</span>' : '' ?></span>
+                    <span class="app-desc"><?= e(t($a['description'])) ?></span>
                     <span class="app-foot">
                         <?php if ($badge): ?><span class="badge st-eingereicht"><?= e($badge) ?></span><?php endif; ?>
-                        <?php if (is_staff_role($u['role'])): ?><span class="muted small">freigeschaltet für <?= $grantCounts[(int)$a['id']] ?? 0 ?> Firma/Firmen</span><?php endif; ?>
+                        <?php if (is_staff_role($u['role'])): ?><span class="muted small"><?= e(t('freigeschaltet für')) ?> <?= $grantCounts[(int)$a['id']] ?? 0 ?> <?= e(t('Firma/Firmen')) ?></span><?php endif; ?>
                     </span>
                 </a>
             <?php endforeach; ?>
         </div>
         <?php endif; ?>
         <?php if (is_staff_role($u['role']) && admin_can('apps')): ?>
-            <p><a class="btn" href="<?= e(url('apps')) ?>">Apps &amp; Freigaben verwalten</a></p>
+            <p><a class="btn" href="<?= e(url('apps')) ?>"><?= e(t('Apps & Freigaben verwalten')) ?></a></p>
         <?php endif;
     });
 }
@@ -114,7 +113,7 @@ function page_apps(): void
                     $changes++;
                 }
             }
-            flash('success', $changes ? "Die Freigaben wurden gespeichert ($changes Änderungen)." : 'Keine Änderungen.');
+            flash('success', $changes ? t('Die Freigaben wurden gespeichert ({n} Änderungen).', ['n' => $changes]) : t('Keine Änderungen.'));
         } elseif ($action === 'add' || $action === 'save') {
             require_all_companies();
             $name = mb_substr(post('name'), 0, 120);
@@ -136,19 +135,19 @@ function page_apps(): void
                 $data['target'] = mb_substr($target, 0, 500);
             }
             if ($name === '') {
-                flash('error', 'Bitte einen Namen angeben.');
+                flash('error', t('Bitte einen Namen angeben.'));
             } elseif ($app) {
                 $data['active'] = post('active') === '1' ? 1 : 0;
                 update('apps', (int)$app['id'], $data);
                 audit('app_updated', $name);
-                flash('success', 'Die App wurde gespeichert.');
+                flash('success', t('Die App wurde gespeichert.'));
             } else {
                 $base = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower(iconv('UTF-8', 'ASCII//TRANSLIT', $name) ?: 'app')), '-') ?: 'app';
                 $slug = $base;
                 for ($i = 2; row('SELECT id FROM apps WHERE slug = ?', [$slug]); $i++) $slug = $base . '-' . $i;
                 insert('apps', $data + ['slug' => $slug, 'kind' => 'extern', 'active' => 1, 'created_at' => now()]);
                 audit('app_created', $name);
-                flash('success', 'Die App wurde angelegt. Schalten Sie sie jetzt für die gewünschten Firmen frei.');
+                flash('success', t('Die App wurde angelegt. Schalten Sie sie jetzt für die gewünschten Firmen frei.'));
             }
         } elseif ($action === 'delete') {
             require_all_companies();
@@ -157,7 +156,7 @@ function page_apps(): void
             q('DELETE FROM company_apps WHERE app_id = ?', [$app['id']]);
             q('DELETE FROM apps WHERE id = ?', [$app['id']]);
             audit('app_deleted', $app['name']);
-            flash('success', 'Die App wurde gelöscht.');
+            flash('success', t('Die App wurde gelöscht.'));
         }
         redirect('apps');
     }
@@ -167,77 +166,76 @@ function page_apps(): void
     $granted = [];
     foreach (rows('SELECT company_id, app_id FROM company_apps') as $g) $granted[(int)$g['company_id']][(int)$g['app_id']] = true;
 
-    render_page('Apps & Freigaben', function () use ($apps, $companies, $granted) { ?>
+    render_page(t('Apps & Freigaben'), function () use ($apps, $companies, $granted) { ?>
         <div class="card">
-            <h2>Welche Firma darf welche App nutzen?</h2>
+            <h2><?= e(t('Welche Firma darf welche App nutzen?')) ?></h2>
             <?php if (!$companies): ?>
-                <p class="muted">Noch keine Firmen angelegt. <a href="<?= e(url('company_edit', ['new' => 1])) ?>">Firma anlegen</a></p>
+                <p class="muted"><?= e(t('Noch keine Firmen angelegt.')) ?> <a href="<?= e(url('company_edit', ['new' => 1])) ?>"><?= e(t('Firma anlegen')) ?></a></p>
             <?php else: ?>
             <form method="post">
                 <?= csrf_field() ?><input type="hidden" name="action" value="matrix">
                 <div class="matrix-wrap">
                 <table class="table matrix">
-                    <thead><tr><th>Firma</th>
+                    <thead><tr><th><?= e(t('Firma')) ?></th>
                         <?php foreach ($apps as $a): ?>
-                            <th class="center app-<?= (int)$a['id'] ?>-col"><?= e($a['name']) ?><?= (int)$a['active'] ? '' : '<br><span class="tag">inaktiv</span>' ?>
-                                <br><button type="button" class="linkbtn small" data-toggle-col="<?= (int)$a['id'] ?>">alle / keine</button></th>
+                            <th class="center app-<?= (int)$a['id'] ?>-col"><?= e(t($a['name'])) ?><?= (int)$a['active'] ? '' : ('<br><span class="tag">' . e(t('inaktiv')) . '</span>') ?>
+                                <br><button type="button" class="linkbtn small" data-toggle-col="<?= (int)$a['id'] ?>"><?= e(t('alle / keine')) ?></button></th>
                         <?php endforeach; ?></tr></thead>
                     <tbody>
                     <?php foreach ($companies as $c): ?>
                         <tr class="<?= (int)$c['active'] ? '' : 'inactive' ?>">
-                            <td><a href="<?= e(url('company_edit', ['id' => $c['id']])) ?>"><?= e($c['name']) ?></a><?= (int)$c['active'] ? '' : ' <span class="tag">inaktiv</span>' ?></td>
+                            <td><a href="<?= e(url('company_edit', ['id' => $c['id']])) ?>"><?= e($c['name']) ?></a><?= (int)$c['active'] ? '' : (' <span class="tag">' . e(t('inaktiv')) . '</span>') ?></td>
                             <?php foreach ($apps as $a): ?>
                                 <td class="center"><input type="checkbox" name="grant[<?= (int)$c['id'] ?>][]" value="<?= (int)$a['id'] ?>" data-col="<?= (int)$a['id'] ?>"
-                                    aria-label="<?= e($a['name'] . ' für ' . $c['name']) ?>" <?= isset($granted[(int)$c['id']][(int)$a['id']]) ? 'checked' : '' ?>></td>
+                                    aria-label="<?= e(t($a['name']) . t(' für ') . $c['name']) ?>" <?= isset($granted[(int)$c['id']][(int)$a['id']]) ? 'checked' : '' ?>></td>
                             <?php endforeach; ?>
                         </tr>
                     <?php endforeach; ?>
                     </tbody>
                 </table>
                 </div>
-                <button class="btn primary">Freigaben speichern</button>
+                <button class="btn primary"><?= e(t('Freigaben speichern')) ?></button>
             </form>
             <?php endif; ?>
         </div>
 
         <div class="card">
-            <h2>Apps</h2>
-            <p class="muted">Interne Apps sind Bereiche dieses Portals. Externe Apps sind Links zu anderen Anwendungen,
-                die auf der Startseite der freigeschalteten Firmen erscheinen. Diese Anwendungen haben eine eigene Anmeldung.</p>
+            <h2><?= e(t('Apps')) ?></h2>
+            <p class="muted"><?= e(t('Interne Apps sind Bereiche dieses Portals. Externe Apps sind Links zu anderen Anwendungen, die auf der Startseite der freigeschalteten Firmen erscheinen. Diese Anwendungen haben eine eigene Anmeldung.')) ?></p>
             <table class="table compact">
-                <thead><tr><th>Symbol</th><th>Name</th><th>Beschreibung</th><th>Ziel</th><th>Farbe</th><th class="num">Sort.</th><th>Aktiv</th><th></th></tr></thead>
+                <thead><tr><th><?= e(t('Symbol')) ?></th><th><?= e(t('Name')) ?></th><th><?= e(t('Beschreibung')) ?></th><th><?= e(t('Ziel')) ?></th><th><?= e(t('Farbe')) ?></th><th class="num"><?= e(t('Sort.')) ?></th><th><?= e(t('Aktiv')) ?></th><th></th></tr></thead>
                 <tbody>
                 <?php foreach ($apps as $a): $f = 'app' . $a['id']; ?>
                     <tr class="<?= (int)$a['active'] ? '' : 'inactive' ?>">
                         <td><input form="<?= $f ?>" name="icon" value="<?= e($a['icon']) ?>" maxlength="4" class="tiny"></td>
                         <td><input form="<?= $f ?>" name="name" value="<?= e($a['name']) ?>" required maxlength="120"></td>
                         <td><input form="<?= $f ?>" name="description" value="<?= e($a['description']) ?>" maxlength="500"></td>
-                        <td><?php if ($a['kind'] === 'intern'): ?><span class="tag">intern</span><?php else: ?>
+                        <td><?php if ($a['kind'] === 'intern'): ?><span class="tag"><?= e(t('intern')) ?></span><?php else: ?>
                             <input form="<?= $f ?>" type="url" name="target" value="<?= e($a['target']) ?>" required maxlength="500"><?php endif; ?></td>
                         <td><input form="<?= $f ?>" type="color" name="color" value="<?= e(valid_color($a['color'])) ?>"></td>
                         <td class="num"><input form="<?= $f ?>" type="number" name="sort" value="<?= (int)$a['sort'] ?>" class="tiny"></td>
                         <td><input form="<?= $f ?>" type="checkbox" name="active" value="1" <?= (int)$a['active'] ? 'checked' : '' ?>></td>
                         <td class="actions">
                             <form id="<?= $f ?>" method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="save">
-                                <input type="hidden" name="id" value="<?= (int)$a['id'] ?>"><button class="btn small">Speichern</button></form>
+                                <input type="hidden" name="id" value="<?= (int)$a['id'] ?>"><button class="btn small"><?= e(t('Speichern')) ?></button></form>
                             <?php if ($a['kind'] !== 'intern'): ?>
                             <form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                                <button class="btn small danger" data-confirm="App „<?= e($a['name']) ?>“ löschen? Alle Freigaben dafür werden entfernt.">Löschen</button></form>
+                                <button class="btn small danger" data-confirm="<?= e(t('App „{x}“ löschen? Alle Freigaben dafür werden entfernt.', ['x' => $a['name']])) ?>"><?= e(t('Löschen')) ?></button></form>
                             <?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
             </table>
-            <h3>Externe App hinzufügen</h3>
+            <h3><?= e(t('Externe App hinzufügen')) ?></h3>
             <form method="post" class="form inline-form">
                 <?= csrf_field() ?><input type="hidden" name="action" value="add">
-                <input name="icon" placeholder="Symbol, z. B. 🎫" maxlength="4" class="tiny">
-                <input name="name" placeholder="Name, z. B. Ticketsystem" required maxlength="120">
+                <input name="icon" placeholder="<?= e(t('Symbol, z. B. 🎫')) ?>" maxlength="4" class="tiny">
+                <input name="name" placeholder="<?= e(t('Name, z. B. Ticketsystem')) ?>" required maxlength="120">
                 <input type="url" name="target" placeholder="https://…" required maxlength="500">
-                <input name="description" placeholder="Kurzbeschreibung" maxlength="500">
-                <input type="color" name="color" value="#1f5fa8" aria-label="Farbe">
-                <button class="btn primary">Hinzufügen</button>
+                <input name="description" placeholder="<?= e(t('Kurzbeschreibung')) ?>" maxlength="500">
+                <input type="color" name="color" value="#1f5fa8" aria-label="<?= e(t('Farbe')) ?>">
+                <button class="btn primary"><?= e(t('Hinzufügen')) ?></button>
             </form>
         </div>
     <?php });

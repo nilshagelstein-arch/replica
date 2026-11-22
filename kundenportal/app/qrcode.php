@@ -31,7 +31,7 @@ final class QrCodeM
             $capBits = self::numDataCodewords($ver) * 8;
             if (4 + $ccBits + 8 * $len <= $capBits) break;
         }
-        if ($ver > 40) throw new RuntimeException('Text zu lang für QR-Code');
+        if ($ver > 40) throw new RuntimeException(t('Text zu lang für QR-Code'));
         $this->version = $ver;
         $this->size = $ver * 4 + 17;
 
@@ -337,7 +337,7 @@ final class QrCodeM
             }
         }
         return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' . $dim . ' ' . $dim . '" width="' . $pixelSize
-            . '" height="' . $pixelSize . '" shape-rendering="crispEdges" role="img" aria-label="QR-Code">'
+            . '" height="' . $pixelSize . ('" shape-rendering="crispEdges" role="img" aria-label="' . e(t('QR-Code')) . '">')
             . '<rect width="100%" height="100%" fill="#fff"/><path d="' . $path . '" fill="#000"/></svg>';
     }
 }
