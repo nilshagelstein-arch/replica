@@ -397,7 +397,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 14;
+const SCHEMA_VERSION = 15;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -460,6 +460,9 @@ function run_migrations(): void
         ['requests', 'change_requested_at', 'VARCHAR(19) NULL'],
         ['requests', 'change_requested_by', 'INT NULL'],
         ['requests', 'change_reason', 'TEXT NULL'],
+        // Mehrsprachigkeit (ab Version 15): Sprache der Firma, Benutzer leer = Sprache der Firma
+        ['companies', 'lang', "VARCHAR(5) NOT NULL DEFAULT 'de'"],
+        ['users', 'lang', "VARCHAR(5) NOT NULL DEFAULT ''"],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {

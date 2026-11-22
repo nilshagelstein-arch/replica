@@ -25,7 +25,7 @@ function links_company_id(): int
 {
     $u = require_app(LINKS_APP);
     $cid = context_company_id();
-    if (!$cid) abort(404, 'Es ist noch keine Firma angelegt.');
+    if (!$cid) abort(404, t('Es ist noch keine Firma angelegt.'));
     require_company_access($cid);
     if (!row('SELECT id FROM companies WHERE id = ?', [$cid])) abort(404);
     if (!is_staff_role($u['role']) && !company_has_app($cid, LINKS_APP)) abort(403);
@@ -45,7 +45,7 @@ function links_can_manage(): bool
 
 function links_require_manage(): void
 {
-    if (!links_can_manage()) abort(403, 'Die Linksammlung dürfen nur Firmen-Administratoren bearbeiten.');
+    if (!links_can_manage()) abort(403, t('Die Linksammlung dürfen nur Firmen-Administratoren bearbeiten.'));
 }
 
 /** URL innerhalb der App; Dienstleister behalten die gewählte Firma */
@@ -63,7 +63,7 @@ function lredirect(string $route, array $params = []): never
 
 function links_app_name(): string
 {
-    return (string)(row('SELECT name FROM apps WHERE slug = ?', [LINKS_APP])['name'] ?? 'Linksammlung');
+    return (string)(row('SELECT name FROM apps WHERE slug = ?', [LINKS_APP])['name'] ?? t('Linksammlung'));
 }
 
 /** Adresse prüfen und vervollständigen (www.beispiel.de → https://www.beispiel.de). Null = ungültig. */
@@ -82,8 +82,8 @@ function links_normalize_url(string $u): ?string
 /** Kurze Herkunftsangabe für die Kachel */
 function link_host(string $url): string
 {
-    if (stripos($url, 'mailto:') === 0) return 'E-Mail';
-    if (stripos($url, 'tel:') === 0) return 'Telefon';
+    if (stripos($url, 'mailto:') === 0) return t('E-Mail');
+    if (stripos($url, 'tel:') === 0) return t('Telefon');
     $h = (string)parse_url($url, PHP_URL_HOST);
     return preg_replace('/^www\./i', '', $h);
 }
@@ -96,8 +96,8 @@ function link_is_web(string $url): bool
 /** Hochgeladenes Bild prüfen und aufbereiten. Liefert [mime, base64] oder eine Fehlermeldung. */
 function links_read_image(array $f): array|string
 {
-    if ($f['error'] !== UPLOAD_ERR_OK) return 'Das Bild konnte nicht hochgeladen werden.';
-    if ($f['size'] > LINK_IMAGE_MAX_BYTES) return 'Das Bild ist zu groß (höchstens 3 MB).';
+    if ($f['error'] !== UPLOAD_ERR_OK) return t('Das Bild konnte nicht hochgeladen werden.');
+    if ($f['size'] > LINK_IMAGE_MAX_BYTES) return t('Das Bild ist zu groß (höchstens 3 MB).');
     return links_prepare_image((string)file_get_contents($f['tmp_name']));
 }
 
@@ -107,11 +107,11 @@ function links_read_image(array $f): array|string
  */
 function links_prepare_image(string $raw, int $maxW = LINK_FRAME_W, int $maxH = LINK_FRAME_H): array|string
 {
-    if ($raw === '' || strlen($raw) > LINK_IMAGE_MAX_BYTES) return 'Das Bild ist zu groß (höchstens 3 MB).';
+    if ($raw === '' || strlen($raw) > LINK_IMAGE_MAX_BYTES) return t('Das Bild ist zu groß (höchstens 3 MB).');
     $info = @getimagesizefromstring($raw);
     $mime = $info['mime'] ?? '';
-    if (!isset(LINK_IMAGE_MIMES[$mime])) return 'Bitte ein Bild im Format PNG, JPG, GIF oder WebP verwenden.';
-    if ($info[0] < 16 || $info[1] < 16) return 'Das Bild ist zu klein.';
+    if (!isset(LINK_IMAGE_MIMES[$mime])) return t('Bitte ein Bild im Format PNG, JPG, GIF oder WebP verwenden.');
+    if ($info[0] < 16 || $info[1] < 16) return t('Das Bild ist zu klein.');
     $scale = min(1, $maxW / $info[0], $maxH / $info[1]);
     if ($scale < 1 && $mime !== 'image/gif' && function_exists('imagecreatefromstring')) {
         $src = @imagecreatefromstring($raw);
@@ -234,7 +234,7 @@ function links_page_meta(string $url): array
         $out['title'] = $meta['og:title'] ?? $meta['twitter:title'] ?? ($titleNode ? trim(preg_replace('/\s+/u', ' ', $titleNode->textContent)) : '');
         $out['description'] = $meta['og:description'] ?? $meta['description'] ?? $meta['twitter:description'] ?? '';
         foreach (['og:image:secure_url', 'og:image', 'og:image:url', 'twitter:image', 'twitter:image:src'] as $k) {
-            if (!empty($meta[$k])) $add($meta[$k], 'Vorschaubild der Seite');
+            if (!empty($meta[$k])) $add($meta[$k], t('Vorschaubild der Seite'));
         }
         $icons = [];
         foreach ($xp->query('//link[@href and @rel]') as $l) {
@@ -245,12 +245,12 @@ function links_page_meta(string $url): array
             $icons[] = [$size, $l->getAttribute('href')];
         }
         usort($icons, fn($a, $b) => $b[0] <=> $a[0]);
-        foreach ($icons as [$size, $href]) $add($href, 'Logo / App-Symbol');
+        foreach ($icons as [$size, $href]) $add($href, t('Logo / App-Symbol'));
         $n = 0;
         foreach ($xp->query('//img') as $img) {
             $src = $img->getAttribute('src') ?: $img->getAttribute('data-src');
             if ($src === '' || preg_match('/(sprite|pixel|spacer|tracking|1x1)/i', $src)) continue;
-            $add($src, 'Bild von der Seite');
+            $add($src, t('Bild von der Seite'));
             if (++$n >= 6) break;
         }
         $out['title'] = mb_substr(html_entity_decode($out['title'], ENT_QUOTES | ENT_HTML5, 'UTF-8'), 0, 190);
@@ -258,10 +258,10 @@ function links_page_meta(string $url): array
     }
     $host = (string)parse_url($base, PHP_URL_HOST);
     if ($host !== '') {
-        $add('/apple-touch-icon.png', 'Logo / App-Symbol');
+        $add('/apple-touch-icon.png', t('Logo / App-Symbol'));
         // Google-Favicon-Dienst verrät Google jede verlinkte Website – daher nur auf ausdrücklichen Wunsch
         if (cfg('links.google_favicons', false)) {
-            $add('https://www.google.com/s2/favicons?sz=256&domain=' . rawurlencode($host), 'Symbol der Website');
+            $add('https://www.google.com/s2/favicons?sz=256&domain=' . rawurlencode($host), t('Symbol der Website'));
         }
     }
     return $out;
@@ -281,15 +281,15 @@ function page_link_suggest(): void
     $now = time();
     $calls = array_values(array_filter((array)($_SESSION['link_suggest_calls'] ?? []), fn($t) => (int)$t > $now - 600));
     if (count($calls) >= 30) {
-        echo json_encode(['ok' => false, 'error' => 'Zu viele Abrufe in kurzer Zeit. Bitte in einigen Minuten erneut versuchen.']);
+        echo json_encode(['ok' => false, 'error' => t('Zu viele Abrufe in kurzer Zeit. Bitte in einigen Minuten erneut versuchen.')]);
         exit;
     }
     $calls[] = $now;
     $_SESSION['link_suggest_calls'] = $calls;
     @set_time_limit(25);
     $url = links_normalize_url((string)($_GET['url'] ?? ''));
-    if ($url === null || !link_is_web($url)) { echo json_encode(['ok' => false, 'error' => 'Keine Webadresse.']); exit; }
-    if (!function_exists('curl_init')) { echo json_encode(['ok' => false, 'error' => 'Der Server kann keine Webseiten abrufen (PHP-Erweiterung curl fehlt).']); exit; }
+    if ($url === null || !link_is_web($url)) { echo json_encode(['ok' => false, 'error' => t('Keine Webadresse.')]); exit; }
+    if (!function_exists('curl_init')) { echo json_encode(['ok' => false, 'error' => t('Der Server kann keine Webseiten abrufen (PHP-Erweiterung curl fehlt).')]); exit; }
     $started = microtime(true);
     $meta = links_page_meta($url);
     $images = [];
@@ -378,18 +378,18 @@ function page_links(): void
         if (is_admin()) echo company_switcher($cid, 'links', $edit ? ['edit' => 1] : []);
         ?>
         <div class="links-bar">
-            <nav class="link-tabs" aria-label="Reiter">
+            <nav class="link-tabs" aria-label="<?= e(t('Reiter')) ?>">
                 <?php foreach ($tabs as $t): ?>
                     <a href="<?= e(lurl('links', ['tab' => $t['id']] + ($edit ? ['edit' => 1] : []))) ?>" class="<?= (int)$t['id'] === $tabId && $search === '' ? 'active' : '' ?>"><?= e($t['name']) ?></a>
                 <?php endforeach; ?>
                 <?php if ($edit): ?>
                 <details class="more">
-                    <summary class="link-tab-add" title="Reiter hinzufügen">+ Reiter</summary>
+                    <summary class="link-tab-add" title="<?= e(t('Reiter hinzufügen')) ?>"><?= e(t('+ Reiter')) ?></summary>
                     <div class="more-menu">
                         <form method="post" action="<?= e(lurl('link_action')) ?>" class="form">
                             <?= csrf_field() ?><input type="hidden" name="action" value="tab_add">
-                            <label>Name des neuen Reiters<input name="name" required maxlength="120" placeholder="z. B. Personal, IT, Vertrieb"></label>
-                            <button class="btn primary small">Reiter anlegen</button>
+                            <label><?= e(t('Name des neuen Reiters')) ?><input name="name" required maxlength="120" placeholder="<?= e(t('z. B. Personal, IT, Vertrieb')) ?>"></label>
+                            <button class="btn primary small"><?= e(t('Reiter anlegen')) ?></button>
                         </form>
                     </div>
                 </details>
@@ -399,20 +399,20 @@ function page_links(): void
                 <form method="get" class="link-search" role="search">
                     <input type="hidden" name="r" value="links">
                     <?php if (is_admin()): ?><input type="hidden" name="company" value="<?= (int)$cid ?>"><?php endif; ?>
-                    <input type="search" name="q" value="<?= e($search) ?>" placeholder="Links durchsuchen …" aria-label="Links durchsuchen">
+                    <input type="search" name="q" value="<?= e($search) ?>" placeholder="<?= e(t('Links durchsuchen …')) ?>" aria-label="<?= e(t('Links durchsuchen')) ?>">
                 </form>
                 <?php if (links_can_manage()): ?>
                     <?php if ($edit): ?>
-                        <a class="btn primary" href="<?= e(lurl('links', ['tab' => $tabId])) ?>">Fertig</a>
+                        <a class="btn primary" href="<?= e(lurl('links', ['tab' => $tabId])) ?>"><?= e(t('Fertig')) ?></a>
                     <?php else: ?>
-                        <a class="btn" href="<?= e(lurl('links', ['tab' => $tabId, 'edit' => 1])) ?>">✎ Seite bearbeiten</a>
+                        <a class="btn" href="<?= e(lurl('links', ['tab' => $tabId, 'edit' => 1])) ?>"><?= e(t('✎ Seite bearbeiten')) ?></a>
                     <?php endif; ?>
                 <?php endif; ?>
             </div>
         </div>
 
         <?php if ($search !== ''): ?>
-            <p class="muted"><?= count($results) ?> Treffer für „<?= e($search) ?>“ · <a href="<?= e(lurl('links', ['tab' => $tabId])) ?>">Suche beenden</a></p>
+            <p class="muted"><?= count($results) ?> <?= e(t('Treffer für „')) ?><?= e($search) ?>“ · <a href="<?= e(lurl('links', ['tab' => $tabId])) ?>"><?= e(t('Suche beenden')) ?></a></p>
             <?php if ($results): ?>
                 <div class="link-grid layout-tiles">
                     <?php foreach ($results as $l) links_tile($l, false, $l['tab_name'] . ' › ' . $l['section_name']); ?>
@@ -423,18 +423,17 @@ function page_links(): void
 
         <?php if ($edit): ?>
             <div class="card link-edit-hint">
-                <strong>Bearbeiten-Modus.</strong> Neue Überschriften fügen Sie unten hinzu, Links mit „+ Link hinzufügen“ im jeweiligen Bereich.
-                Mit ◀ ▶ und ▲ ▼ ändern Sie die Reihenfolge.
+                <strong><?= e(t('Bearbeiten-Modus.')) ?></strong> <?= e(t('Neue Überschriften fügen Sie unten hinzu, Links mit „+ Link hinzufügen“ im jeweiligen Bereich. Mit ◀ ▶ und ▲ ▼ ändern Sie die Reihenfolge.')) ?>
                 <details class="more">
-                    <summary class="btn small">Reiter „<?= e($tab['name']) ?>“ …</summary>
+                    <summary class="btn small"><?= e(t('Reiter „')) ?><?= e($tab['name']) ?>“ …</summary>
                     <div class="more-menu">
                         <form method="post" action="<?= e(lurl('link_action')) ?>" class="form">
                             <?= csrf_field() ?><input type="hidden" name="action" value="tab_save"><input type="hidden" name="id" value="<?= $tabId ?>">
-                            <label>Name<input name="name" value="<?= e($tab['name']) ?>" required maxlength="120"></label>
-                            <button class="btn small primary">Umbenennen</button>
+                            <label><?= e(t('Name')) ?><input name="name" value="<?= e($tab['name']) ?>" required maxlength="120"></label>
+                            <button class="btn small primary"><?= e(t('Umbenennen')) ?></button>
                         </form>
                         <div class="btn-row">
-                            <?php foreach ([-1 => '◀ nach links', 1 => 'nach rechts ▶'] as $dir => $label): ?>
+                            <?php foreach ([-1 => t('◀ nach links'), 1 => t('nach rechts ▶')] as $dir => $label): ?>
                             <form method="post" action="<?= e(lurl('link_action')) ?>" class="inline"><?= csrf_field() ?>
                                 <input type="hidden" name="action" value="tab_move"><input type="hidden" name="id" value="<?= $tabId ?>"><input type="hidden" name="dir" value="<?= $dir ?>">
                                 <button class="btn small"><?= $label ?></button></form>
@@ -442,7 +441,7 @@ function page_links(): void
                         </div>
                         <form method="post" action="<?= e(lurl('link_action')) ?>"><?= csrf_field() ?>
                             <input type="hidden" name="action" value="tab_delete"><input type="hidden" name="id" value="<?= $tabId ?>">
-                            <button class="btn small danger" data-confirm="Reiter „<?= e($tab['name']) ?>“ mit allen Überschriften und Links löschen?">Reiter löschen</button></form>
+                            <button class="btn small danger" data-confirm="<?= e(t('Reiter „{x}“ mit allen Überschriften und Links löschen?', ['x' => $tab['name']])) ?>"><?= e(t('Reiter löschen')) ?></button></form>
                     </div>
                 </details>
             </div>
@@ -450,11 +449,11 @@ function page_links(): void
 
         <?php if (!$sections): ?>
             <div class="card link-empty">
-                <p><strong>Auf diesem Reiter gibt es noch keine Links.</strong></p>
+                <p><strong><?= e(t('Auf diesem Reiter gibt es noch keine Links.')) ?></strong></p>
                 <?php if (links_can_manage() && !$edit): ?>
-                    <p><a class="btn primary" href="<?= e(lurl('links', ['tab' => $tabId, 'edit' => 1])) ?>">Seite bearbeiten und Links anlegen</a></p>
+                    <p><a class="btn primary" href="<?= e(lurl('links', ['tab' => $tabId, 'edit' => 1])) ?>"><?= e(t('Seite bearbeiten und Links anlegen')) ?></a></p>
                 <?php elseif (!links_can_manage()): ?>
-                    <p class="muted">Links werden von Ihrem Firmen-Administrator gepflegt.</p>
+                    <p class="muted"><?= e(t('Links werden von Ihrem Firmen-Administrator gepflegt.')) ?></p>
                 <?php endif; ?>
             </div>
         <?php endif; ?>
@@ -471,16 +470,16 @@ function page_links(): void
                             <button class="btn small" title="<?= $dir < 0 ? 'nach oben' : 'nach unten' ?>"><?= $sym ?></button></form>
                         <?php endforeach; ?>
                         <details class="more">
-                            <summary class="btn small">✎ Überschrift</summary>
+                            <summary class="btn small"><?= e(t('✎ Überschrift')) ?></summary>
                             <div class="more-menu">
                                 <form method="post" action="<?= e(lurl('link_action')) ?>" class="form">
                                     <?= csrf_field() ?><input type="hidden" name="action" value="section_save"><input type="hidden" name="id" value="<?= $sid ?>">
                                     <?php links_section_fields($cid, $s); ?>
-                                    <button class="btn small primary">Speichern</button>
+                                    <button class="btn small primary"><?= e(t('Speichern')) ?></button>
                                 </form>
                                 <form method="post" action="<?= e(lurl('link_action')) ?>"><?= csrf_field() ?>
                                     <input type="hidden" name="action" value="section_delete"><input type="hidden" name="id" value="<?= $sid ?>">
-                                    <button class="btn small danger" data-confirm="Überschrift „<?= e($s['name']) ?>“ mit <?= count($items) ?> Link(s) löschen?">Überschrift und Links löschen</button></form>
+                                    <button class="btn small danger" data-confirm="<?= e(t('Überschrift „{x}“ mit {n} Link(s) löschen?', ['x' => $s['name'], 'n' => count($items)])) ?>"><?= e(t('Überschrift und Links löschen')) ?></button></form>
                             </div>
                         </details>
                     </div>
@@ -490,24 +489,24 @@ function page_links(): void
                 <div class="link-grid layout-<?= e(isset(LINK_LAYOUTS[$s['layout']]) ? $s['layout'] : 'tiles') ?>">
                     <?php foreach ($items as $l) links_tile($l, $edit); ?>
                     <?php if ($edit): ?>
-                        <a class="link-tile lt-add" href="<?= e(lurl('link_edit', ['section' => $sid])) ?>"><span>＋</span> Link hinzufügen</a>
+                        <a class="link-tile lt-add" href="<?= e(lurl('link_edit', ['section' => $sid])) ?>"><span>＋</span> <?= e(t('Link hinzufügen')) ?></a>
                     <?php endif; ?>
                 </div>
-                <?php if (!$items && !$edit): ?><p class="muted small">Noch keine Links in diesem Bereich.</p><?php endif; ?>
+                <?php if (!$items && !$edit): ?><p class="muted small"><?= e(t('Noch keine Links in diesem Bereich.')) ?></p><?php endif; ?>
             </section>
         <?php endforeach; ?>
 
         <?php if ($edit): ?>
             <div class="card">
-                <h2>Überschrift hinzufügen</h2>
+                <h2><?= e(t('Überschrift hinzufügen')) ?></h2>
                 <form method="post" action="<?= e(lurl('link_action')) ?>" class="form">
                     <?= csrf_field() ?><input type="hidden" name="action" value="section_add"><input type="hidden" name="tab_id" value="<?= $tabId ?>">
                     <div class="grid2">
-                        <label>Überschrift / Kategorie<input name="name" required maxlength="190" placeholder="z. B. Wichtige Programme, Formulare, Ansprechpartner"></label>
-                        <label>Darstellung<select name="layout"><?php foreach (LINK_LAYOUTS as $k => $v): ?><option value="<?= $k ?>"><?= e($v) ?></option><?php endforeach; ?></select></label>
+                        <label><?= e(t('Überschrift / Kategorie')) ?><input name="name" required maxlength="190" placeholder="<?= e(t('z. B. Wichtige Programme, Formulare, Ansprechpartner')) ?>"></label>
+                        <label><?= e(t('Darstellung')) ?><select name="layout"><?php foreach (LINK_LAYOUTS as $k => $v): ?><option value="<?= $k ?>"><?= e(t($v)) ?></option><?php endforeach; ?></select></label>
                     </div>
-                    <label>Beschreibung (optional)<input name="description" maxlength="500"></label>
-                    <button class="btn primary">Überschrift anlegen</button>
+                    <label><?= e(t('Beschreibung (optional)')) ?><input name="description" maxlength="500"></label>
+                    <button class="btn primary"><?= e(t('Überschrift anlegen')) ?></button>
                 </form>
             </div>
         <?php endif;
@@ -518,10 +517,10 @@ function page_links(): void
 function links_section_fields(int $cid, array $s): void
 {
     $tabs = rows('SELECT id, name FROM link_tabs WHERE company_id = ? ORDER BY sort, id', [$cid]); ?>
-    <label>Überschrift<input name="name" value="<?= e($s['name']) ?>" required maxlength="190"></label>
-    <label>Beschreibung<input name="description" value="<?= e($s['description']) ?>" maxlength="500"></label>
-    <label>Darstellung<select name="layout"><?php foreach (LINK_LAYOUTS as $k => $v): ?><option value="<?= $k ?>" <?= $s['layout'] === $k ? 'selected' : '' ?>><?= e($v) ?></option><?php endforeach; ?></select></label>
-    <label>Reiter<select name="tab_id"><?php foreach ($tabs as $t): ?><option value="<?= (int)$t['id'] ?>" <?= (int)$t['id'] === (int)$s['tab_id'] ? 'selected' : '' ?>><?= e($t['name']) ?></option><?php endforeach; ?></select></label>
+    <label><?= e(t('Überschrift')) ?><input name="name" value="<?= e($s['name']) ?>" required maxlength="190"></label>
+    <label><?= e(t('Beschreibung')) ?><input name="description" value="<?= e($s['description']) ?>" maxlength="500"></label>
+    <label><?= e(t('Darstellung')) ?><select name="layout"><?php foreach (LINK_LAYOUTS as $k => $v): ?><option value="<?= $k ?>" <?= $s['layout'] === $k ? 'selected' : '' ?>><?= e(t($v)) ?></option><?php endforeach; ?></select></label>
+    <label><?= e(t('Reiter')) ?><select name="tab_id"><?php foreach ($tabs as $t): ?><option value="<?= (int)$t['id'] ?>" <?= (int)$t['id'] === (int)$s['tab_id'] ? 'selected' : '' ?>><?= e($t['name']) ?></option><?php endforeach; ?></select></label>
 <?php }
 
 /** Eine Link-Kachel */
@@ -552,10 +551,10 @@ function links_tile(array $l, bool $edit, string $where = ''): void
                 <input type="hidden" name="action" value="link_move"><input type="hidden" name="id" value="<?= $id ?>"><input type="hidden" name="dir" value="<?= $dir ?>">
                 <button class="btn small" title="<?= $dir < 0 ? 'nach vorne' : 'nach hinten' ?>"><?= $sym ?></button></form>
             <?php endforeach; ?>
-            <a class="btn small" href="<?= e(lurl('link_edit', ['id' => $id])) ?>">✎ Bearbeiten</a>
+            <a class="btn small" href="<?= e(lurl('link_edit', ['id' => $id])) ?>"><?= e(t('✎ Bearbeiten')) ?></a>
             <form method="post" action="<?= e(lurl('link_action')) ?>" class="inline"><?= csrf_field() ?>
                 <input type="hidden" name="action" value="link_delete"><input type="hidden" name="id" value="<?= $id ?>">
-                <button class="btn small danger" title="Löschen" data-confirm="Link „<?= e($l['title']) ?>“ löschen?">🗑</button></form>
+                <button class="btn small danger" title="<?= e(t('Löschen')) ?>" data-confirm="<?= e(t('Link „{x}“ löschen?', ['x' => $l['title']])) ?>">🗑</button></form>
         </div>
         <?php endif; ?>
     </div>
@@ -577,7 +576,7 @@ function page_link_edit(): void
     $sections = rows('SELECT s.id, s.name, s.tab_id, t.name AS tab_name FROM link_sections s JOIN link_tabs t ON t.id = s.tab_id
         WHERE s.company_id = ? ORDER BY t.sort, t.id, s.sort, s.id', [$cid]);
     if (!$sections) {
-        flash('info', 'Legen Sie zuerst eine Überschrift an.');
+        flash('info', t('Legen Sie zuerst eine Überschrift an.'));
         lredirect('links', ['edit' => 1]);
     }
 
@@ -588,7 +587,7 @@ function page_link_edit(): void
         if (post('action') === 'delete' && $link) {
             q('DELETE FROM links WHERE id = ?', [$link['id']]);
             audit('link_deleted', $link['title'], $cid);
-            flash('success', 'Der Link wurde gelöscht.');
+            flash('success', t('Der Link wurde gelöscht.'));
             lredirect('links', ['tab' => links_tab_of_section((int)$link['section_id'], $cid), 'edit' => 1]);
         }
         $form = array_merge($form, [
@@ -609,12 +608,12 @@ function page_link_edit(): void
             $img = links_read_image($f);
         } elseif (($pick = trim(post('image_pick'))) !== '') {
             $r = preg_match('#^https?://#i', $pick) ? links_fetch($pick, LINK_IMAGE_MAX_BYTES) : null;
-            $img = $r ? links_prepare_image($r['body']) : 'Das vorgeschlagene Bild konnte nicht geladen werden. Bitte ein anderes wählen oder selbst hochladen.';
+            $img = $r ? links_prepare_image($r['body']) : t('Das vorgeschlagene Bild konnte nicht geladen werden. Bitte ein anderes wählen oder selbst hochladen.');
         }
 
-        if ($form['title'] === '') $error = 'Bitte einen Titel angeben.';
+        if ($form['title'] === '') $error = t('Bitte einen Titel angeben.');
         elseif ($url === null) $error = 'Bitte eine gültige Adresse angeben, z. B. https://www.beispiel.de, eine E-Mail-Adresse oder tel:+49…';
-        elseif (!$validSection) $error = 'Bitte einen Bereich (Überschrift) wählen.';
+        elseif (!$validSection) $error = t('Bitte einen Bereich (Überschrift) wählen.');
         elseif (is_string($img)) $error = $img;
         else {
             $data = ['title' => $form['title'], 'url' => $url, 'description' => $form['description'], 'icon' => $form['icon'],
@@ -625,12 +624,12 @@ function page_link_edit(): void
                 if ((int)$link['section_id'] !== $form['section_id']) $data['sort'] = links_next_sort('links', 'section_id', $form['section_id'], $cid);
                 update('links', (int)$link['id'], $data);
                 audit('link_updated', $form['title'], $cid);
-                flash('success', 'Der Link wurde gespeichert.');
+                flash('success', t('Der Link wurde gespeichert.'));
             } else {
                 insert('links', $data + ['company_id' => $cid, 'sort' => links_next_sort('links', 'section_id', $form['section_id'], $cid),
                     'image_mime' => '', 'created_by' => $me['id'], 'created_at' => now()]);
                 audit('link_created', $form['title'], $cid);
-                flash('success', 'Der Link wurde angelegt.');
+                flash('success', t('Der Link wurde angelegt.'));
             }
             if (post('next') === 'another') lredirect('link_edit', ['section' => $form['section_id']]);
             lredirect('links', ['tab' => links_tab_of_section($form['section_id'], $cid), 'edit' => 1]);
@@ -638,20 +637,20 @@ function page_link_edit(): void
     }
 
     $backTab = $form['section_id'] ? links_tab_of_section((int)$form['section_id'], $cid) : 0;
-    render_page($link ? 'Link bearbeiten' : 'Link hinzufügen', function () use ($link, $form, $sections, $error, $backTab) { ?>
-        <p><a href="<?= e(lurl('links', ['tab' => $backTab, 'edit' => 1])) ?>">← zurück zur <?= e(links_app_name()) ?></a></p>
+    render_page($link ? t('Link bearbeiten') : t('Link hinzufügen'), function () use ($link, $form, $sections, $error, $backTab) { ?>
+        <p><a href="<?= e(lurl('links', ['tab' => $backTab, 'edit' => 1])) ?>"><?= e(t('← zurück zur')) ?> <?= e(links_app_name()) ?></a></p>
         <?php if ($error): ?><div class="alert error"><?= e($error) ?></div><?php endif; ?>
         <div class="grid2">
         <form method="post" enctype="multipart/form-data" class="card form">
             <?= csrf_field() ?>
             <?php if ($link): ?><input type="hidden" name="id" value="<?= (int)$link['id'] ?>"><?php endif; ?>
-            <label>Titel<input name="title" value="<?= e($form['title']) ?>" required maxlength="190" autofocus placeholder="z. B. DATEV Unternehmen online"></label>
-            <label>Adresse
+            <label><?= e(t('Titel')) ?><input name="title" value="<?= e($form['title']) ?>" required maxlength="190" autofocus placeholder="<?= e(t('z. B. DATEV Unternehmen online')) ?>"></label>
+            <label><?= e(t('Adresse')) ?>
                 <span class="url-row"><input name="url" id="link-url" value="<?= e($form['url']) ?>" required maxlength="1000" placeholder="https://… , E-Mail-Adresse oder tel:+49…"
                     data-suggest="<?= e(lurl('link_suggest')) ?>" autocomplete="off">
-                <button type="button" class="btn" id="link-suggest-btn" title="Bild, Titel und Beschreibung von der Webseite holen">Vorschläge holen</button></span></label>
-            <label>Beschreibung<textarea name="description" rows="3" maxlength="1000" placeholder="Wofür ist der Link? Kurz und knapp, z. B. „Belege hochladen und Auswertungen ansehen“"><?= e($form['description']) ?></textarea></label>
-            <label>Bereich (Überschrift)
+                <button type="button" class="btn" id="link-suggest-btn" title="<?= e(t('Bild, Titel und Beschreibung von der Webseite holen')) ?>"><?= e(t('Vorschläge holen')) ?></button></span></label>
+            <label><?= e(t('Beschreibung')) ?><textarea name="description" rows="3" maxlength="1000" placeholder="<?= e(t('Wofür ist der Link? Kurz und knapp, z. B. „Belege hochladen und Auswertungen ansehen“')) ?>"><?= e($form['description']) ?></textarea></label>
+            <label><?= e(t('Bereich (Überschrift)')) ?>
                 <select name="section_id" required>
                     <?php $lastTab = null; foreach ($sections as $s):
                         if ($s['tab_id'] !== $lastTab) { if ($lastTab !== null) echo '</optgroup>'; echo '<optgroup label="Reiter: ' . e($s['tab_name']) . '">'; $lastTab = $s['tab_id']; } ?>
@@ -660,48 +659,48 @@ function page_link_edit(): void
                 </select>
             </label>
             <fieldset>
-                <legend>Bild</legend>
+                <legend><?= e(t('Bild')) ?></legend>
                 <div id="link-suggest" class="img-suggest" hidden>
                     <p class="small muted" id="link-suggest-status"></p>
                     <div class="img-suggest-grid" id="link-suggest-grid"></div>
                 </div>
                 <input type="hidden" name="image_pick" id="image-pick" value="">
                 <?php if ($link && $link['image_mime'] !== ''): ?>
-                    <img class="link-preview" src="<?= e(lurl('link_image', ['id' => $link['id'], 'v' => substr(md5((string)$link['updated_at']), 0, 8)])) ?>" alt="Aktuelles Bild">
-                    <label class="check"><input type="checkbox" name="remove_image" value="1"> Bild entfernen</label>
+                    <img class="link-preview" src="<?= e(lurl('link_image', ['id' => $link['id'], 'v' => substr(md5((string)$link['updated_at']), 0, 8)])) ?>" alt="<?= e(t('Aktuelles Bild')) ?>">
+                    <label class="check"><input type="checkbox" name="remove_image" value="1"> <?= e(t('Bild entfernen')) ?></label>
                 <?php endif; ?>
-                <label><?= $link && $link['image_mime'] !== '' ? 'Neues Bild hochladen' : 'Bild hochladen' ?> (PNG, JPG, GIF oder WebP, max. 3 MB)
+                <label><?= $link && $link['image_mime'] !== '' ? t('Neues Bild hochladen') : t('Bild hochladen') ?> <?= e(t('(PNG, JPG, GIF oder WebP, max. 3 MB)')) ?>
                     <input type="file" name="image" accept="image/png,image/jpeg,image/gif,image/webp"></label>
-                <label>Bild im Rahmen
-                    <select name="image_fit"><?php foreach (LINK_FITS as $k => $v): ?><option value="<?= $k ?>" <?= ($form['image_fit'] ?? 'contain') === $k ? 'selected' : '' ?>><?= e($v) ?></option><?php endforeach; ?></select></label>
-                <p class="muted small">Alle Bilder erscheinen im gleichen Rahmen (16:9, weißer Hintergrund). „Einpassen“ eignet sich für Logos, „Ausfüllen“ für Fotos und Screenshots. Ohne Bild zeigt die Kachel Symbol und Farbe.</p>
+                <label><?= e(t('Bild im Rahmen')) ?>
+                    <select name="image_fit"><?php foreach (LINK_FITS as $k => $v): ?><option value="<?= $k ?>" <?= ($form['image_fit'] ?? 'contain') === $k ? 'selected' : '' ?>><?= e(t($v)) ?></option><?php endforeach; ?></select></label>
+                <p class="muted small"><?= e(t('Alle Bilder erscheinen im gleichen Rahmen (16:9, weißer Hintergrund). „Einpassen“ eignet sich für Logos, „Ausfüllen“ für Fotos und Screenshots. Ohne Bild zeigt die Kachel Symbol und Farbe.')) ?></p>
                 <div class="grid2">
-                    <label>Symbol ohne Bild<input name="icon" value="<?= e($form['icon']) ?>" maxlength="4" placeholder="z. B. 📊 oder DV"></label>
+                    <label><?= e(t('Symbol ohne Bild')) ?><input name="icon" value="<?= e($form['icon']) ?>" maxlength="4" placeholder="<?= e(t('z. B. 📊 oder DV')) ?>"></label>
                     <div>
-                        <span class="field-label">Farbe</span>
+                        <span class="field-label"><?= e(t('Farbe')) ?></span>
                         <div class="color-picks">
                             <?php foreach (LINK_COLORS as $n => $name): ?>
-                                <label class="color-pick lc-<?= $n ?>" title="<?= e($name) ?>"><input type="radio" name="color" value="<?= $n ?>" <?= (int)$form['color'] === $n ? 'checked' : '' ?> aria-label="<?= e($name) ?>"></label>
+                                <label class="color-pick lc-<?= $n ?>" title="<?= e(t($name)) ?>"><input type="radio" name="color" value="<?= $n ?>" <?= (int)$form['color'] === $n ? 'checked' : '' ?> aria-label="<?= e(t($name)) ?>"></label>
                             <?php endforeach; ?>
                         </div>
                     </div>
                 </div>
             </fieldset>
-            <label class="check"><input type="checkbox" name="new_window" value="1" <?= (int)$form['new_window'] ? 'checked' : '' ?>> In neuem Fenster öffnen</label>
+            <label class="check"><input type="checkbox" name="new_window" value="1" <?= (int)$form['new_window'] ? 'checked' : '' ?>> <?= e(t('In neuem Fenster öffnen')) ?></label>
             <div class="btn-row">
-                <button class="btn primary">Speichern</button>
-                <?php if (!$link): ?><button class="btn" name="next" value="another">Speichern und weiteren Link anlegen</button><?php endif; ?>
+                <button class="btn primary"><?= e(t('Speichern')) ?></button>
+                <?php if (!$link): ?><button class="btn" name="next" value="another"><?= e(t('Speichern und weiteren Link anlegen')) ?></button><?php endif; ?>
             </div>
         </form>
         <div class="card">
-            <h2>So sieht die Kachel aus</h2>
-            <p class="muted small">Vorschau nach dem Speichern. Das Bild wird oben angezeigt, darunter Titel, Beschreibung und die Adresse.</p>
+            <h2><?= e(t('So sieht die Kachel aus')) ?></h2>
+            <p class="muted small"><?= e(t('Vorschau nach dem Speichern. Das Bild wird oben angezeigt, darunter Titel, Beschreibung und die Adresse.')) ?></p>
             <?php if ($link): ?>
                 <div class="link-grid layout-tiles one">
                     <?php links_tile($link + ['has_image' => $link['image_mime'] !== '' ? 1 : 0], false); ?>
                 </div>
                 <form method="post" class="danger-inline"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$link['id'] ?>"><input type="hidden" name="action" value="delete">
-                    <button class="btn small danger" data-confirm="Link „<?= e($link['title']) ?>“ löschen?">Link löschen</button></form>
+                    <button class="btn small danger" data-confirm="<?= e(t('Link „{x}“ löschen?', ['x' => $link['title']])) ?>"><?= e(t('Link löschen')) ?></button></form>
             <?php endif; ?>
         </div>
         </div>
@@ -730,16 +729,16 @@ function page_link_action(): void
 
     if ($action === 'tab_add') {
         $name = mb_substr(trim(post('name')), 0, 120);
-        if ($name === '') { flash('error', 'Bitte einen Namen angeben.'); lredirect('links', ['edit' => 1]); }
+        if ($name === '') { flash('error', t('Bitte einen Namen angeben.')); lredirect('links', ['edit' => 1]); }
         $tabId = insert('link_tabs', ['company_id' => $cid, 'name' => $name, 'sort' => links_next_sort('link_tabs', '', 0, $cid), 'created_at' => now()]);
         audit('link_tab_created', $name, $cid);
-        flash('success', 'Der Reiter wurde angelegt. Fügen Sie jetzt Überschriften und Links hinzu.');
+        flash('success', t('Der Reiter wurde angelegt. Fügen Sie jetzt Überschriften und Links hinzu.'));
     } elseif (str_starts_with($action, 'tab_')) {
         $tab = row('SELECT * FROM link_tabs WHERE id = ? AND company_id = ?', [$id, $cid]) ?? abort(404);
         $tabId = (int)$tab['id'];
         if ($action === 'tab_save') {
             $name = mb_substr(trim(post('name')), 0, 120);
-            if ($name !== '') { update('link_tabs', $tabId, ['name' => $name]); audit('link_tab_updated', $name, $cid); flash('success', 'Der Reiter wurde umbenannt.'); }
+            if ($name !== '') { update('link_tabs', $tabId, ['name' => $name]); audit('link_tab_updated', $name, $cid); flash('success', t('Der Reiter wurde umbenannt.')); }
         } elseif ($action === 'tab_move') {
             links_reorder('link_tabs', '', 0, $cid, $tabId, $dir);
         } elseif ($action === 'tab_delete') {
@@ -748,18 +747,18 @@ function page_link_action(): void
             q('DELETE FROM link_sections WHERE tab_id = ? AND company_id = ?', [$tabId, $cid]);
             q('DELETE FROM link_tabs WHERE id = ?', [$tabId]);
             audit('link_tab_deleted', $tab['name'], $cid);
-            flash('success', 'Der Reiter „' . $tab['name'] . '“ wurde gelöscht.');
+            flash('success', t('Der Reiter „') . $tab['name'] . t('“ wurde gelöscht.'));
             $tabId = 0;
         } else abort(400);
     } elseif ($action === 'section_add') {
         $tabId = (int)post('tab_id', 0);
         if (!row('SELECT id FROM link_tabs WHERE id = ? AND company_id = ?', [$tabId, $cid])) abort(404);
         $name = mb_substr(trim(post('name')), 0, 190);
-        if ($name === '') { flash('error', 'Bitte eine Überschrift angeben.'); lredirect('links', ['tab' => $tabId, 'edit' => 1]); }
+        if ($name === '') { flash('error', t('Bitte eine Überschrift angeben.')); lredirect('links', ['tab' => $tabId, 'edit' => 1]); }
         insert('link_sections', ['company_id' => $cid, 'tab_id' => $tabId, 'name' => $name, 'description' => mb_substr(trim(post('description')), 0, 500),
             'layout' => isset(LINK_LAYOUTS[post('layout')]) ? post('layout') : 'tiles', 'sort' => links_next_sort('link_sections', 'tab_id', $tabId, $cid), 'created_at' => now()]);
         audit('link_section_created', $name, $cid);
-        flash('success', 'Die Überschrift wurde angelegt.');
+        flash('success', t('Die Überschrift wurde angelegt.'));
     } elseif (str_starts_with($action, 'section_')) {
         $s = row('SELECT * FROM link_sections WHERE id = ? AND company_id = ?', [$id, $cid]) ?? abort(404);
         $tabId = (int)$s['tab_id'];
@@ -772,7 +771,7 @@ function page_link_action(): void
             if ($newTab !== $tabId) $data['sort'] = links_next_sort('link_sections', 'tab_id', $newTab, $cid);
             update('link_sections', (int)$s['id'], $data);
             audit('link_section_updated', $data['name'] ?? $s['name'], $cid);
-            flash('success', $newTab !== $tabId ? 'Die Überschrift wurde mit ihren Links auf einen anderen Reiter verschoben.' : 'Die Überschrift wurde gespeichert.');
+            flash('success', $newTab !== $tabId ? t('Die Überschrift wurde mit ihren Links auf einen anderen Reiter verschoben.') : t('Die Überschrift wurde gespeichert.'));
             $tabId = $newTab;
         } elseif ($action === 'section_move') {
             links_reorder('link_sections', 'tab_id', $tabId, $cid, (int)$s['id'], $dir);
@@ -780,7 +779,7 @@ function page_link_action(): void
             q('DELETE FROM links WHERE section_id = ? AND company_id = ?', [$s['id'], $cid]);
             q('DELETE FROM link_sections WHERE id = ?', [$s['id']]);
             audit('link_section_deleted', $s['name'], $cid);
-            flash('success', 'Die Überschrift „' . $s['name'] . '“ wurde gelöscht.');
+            flash('success', t('Die Überschrift „') . $s['name'] . t('“ wurde gelöscht.'));
         } else abort(400);
     } elseif ($action === 'link_move' || $action === 'link_delete') {
         $l = row('SELECT id, title, section_id FROM links WHERE id = ? AND company_id = ?', [$id, $cid]) ?? abort(404);
@@ -790,7 +789,7 @@ function page_link_action(): void
         } else {
             q('DELETE FROM links WHERE id = ?', [$l['id']]);
             audit('link_deleted', $l['title'], $cid);
-            flash('success', 'Der Link wurde gelöscht.');
+            flash('success', t('Der Link wurde gelöscht.'));
         }
     } else {
         abort(400);

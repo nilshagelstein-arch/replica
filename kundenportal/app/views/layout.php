@@ -1,68 +1,68 @@
 <?php
 /** @var ?array $user  @var array $flashes  @var string $title  @var callable $content  @var string $route */
-$appName = cfg('app_name', 'Kundenportal');
+$appName = t(cfg('app_name', 'Kundenportal'));
 $nav = [];
 $subnav = [];
 $onboardingRoutes = ['employees', 'employee_edit', 'dashboard', 'request_new', 'change_new', 'request_edit', 'request', 'structure', 'catalog', 'templates'];
 if ($user && company_pending($user)) {
-    $nav[] = ['home', 'Start', $route === 'home'];
+    $nav[] = ['home', t('Start'), $route === 'home'];
 } elseif ($user) {
-    $nav[] = ['home', 'Start', $route === 'home'];
+    $nav[] = ['home', t('Start'), $route === 'home'];
     $myApps = array_column(apps_for_user(), null, 'slug');
     if (isset($myApps['onboarding'])) {
-        $nav[] = ['dashboard', $myApps['onboarding']['name'], in_array($route, $onboardingRoutes, true)];
+        $nav[] = ['dashboard', t($myApps['onboarding']['name']), in_array($route, $onboardingRoutes, true)];
         if (in_array($route, $onboardingRoutes, true)) {
             $curType = (string)($_GET['type'] ?? '');
-            $subnav[] = ['dashboard', 'Aufträge', [], $route === 'dashboard'];
-            $subnav[] = ['employees', 'Mitarbeiter', [], in_array($route, ['employees', 'employee_edit'], true)];
+            $subnav[] = ['dashboard', t('Aufträge'), [], $route === 'dashboard'];
+            $subnav[] = ['employees', t('Mitarbeiter'), [], in_array($route, ['employees', 'employee_edit'], true)];
             if (!is_staff_role($user['role']) || admin_can('onboarding', true)) {
-                $subnav[] = ['request_new', '+ Onboarding', [], $route === 'request_new'];
-                $subnav[] = ['change_new', '+ Offboarding', ['type' => 'offboarding'], $route === 'change_new' && $curType === 'offboarding'];
-                $subnav[] = ['change_new', '+ Stilllegung', ['type' => 'stilllegung'], $route === 'change_new' && $curType === 'stilllegung'];
-                $subnav[] = ['change_new', '+ Reaktivierung', ['type' => 'reaktivierung'], $route === 'change_new' && $curType === 'reaktivierung'];
+                $subnav[] = ['request_new', t('+ Onboarding'), [], $route === 'request_new'];
+                $subnav[] = ['change_new', t('+ Offboarding'), ['type' => 'offboarding'], $route === 'change_new' && $curType === 'offboarding'];
+                $subnav[] = ['change_new', t('+ Stilllegung'), ['type' => 'stilllegung'], $route === 'change_new' && $curType === 'stilllegung'];
+                $subnav[] = ['change_new', t('+ Reaktivierung'), ['type' => 'reaktivierung'], $route === 'change_new' && $curType === 'reaktivierung'];
             }
             if (in_array($user['role'], ['superadmin', 'admin', 'firma_admin'], true)) {
-                $subnav[] = ['structure', 'Abteilungen & Positionen', [], $route === 'structure'];
-                $subnav[] = ['catalog', 'Katalog', [], $route === 'catalog'];
-                $subnav[] = ['templates', 'Vorlagen', [], $route === 'templates'];
+                $subnav[] = ['structure', t('Abteilungen & Positionen'), [], $route === 'structure'];
+                $subnav[] = ['catalog', t('Katalog'), [], $route === 'catalog'];
+                $subnav[] = ['templates', t('Vorlagen'), [], $route === 'templates'];
             }
         }
     }
     $formsRoutes = ['forms', 'form_edit', 'form_layouts', 'form_settings', 'form_use', 'customers', 'customer_edit', 'customer_fields', 'customer_import'];
     if (isset($myApps['formulare'])) {
         $inForms = in_array($route, $formsRoutes, true);
-        $nav[] = ['forms', $myApps['formulare']['name'], $inForms];
+        $nav[] = ['forms', t($myApps['formulare']['name']), $inForms];
         if ($inForms) {
             $fp = is_staff_role($user['role']) && !empty($GLOBALS['forms_cid']) ? ['company' => (int)$GLOBALS['forms_cid']] : [];
-            $subnav[] = ['forms', 'Formulare', $fp, in_array($route, ['forms', 'form_edit', 'form_use'], true)];
-            $subnav[] = ['customers', 'Kundendatenbank', $fp, in_array($route, ['customers', 'customer_edit', 'customer_fields', 'customer_import'], true)];
+            $subnav[] = ['forms', t('Formulare'), $fp, in_array($route, ['forms', 'form_edit', 'form_use'], true)];
+            $subnav[] = ['customers', t('Kundendatenbank'), $fp, in_array($route, ['customers', 'customer_edit', 'customer_fields', 'customer_import'], true)];
             if (in_array($user['role'], ['superadmin', 'admin', 'firma_admin'], true)) {
-                $subnav[] = ['form_layouts', 'Briefkopf & Fußzeile', $fp, $route === 'form_layouts'];
-                $subnav[] = ['form_settings', 'Logo, Briefpapier & API', $fp, $route === 'form_settings'];
+                $subnav[] = ['form_layouts', t('Briefkopf & Fußzeile'), $fp, $route === 'form_layouts'];
+                $subnav[] = ['form_settings', t('Logo, Briefpapier & API'), $fp, $route === 'form_settings'];
             }
         }
     }
     if (isset($myApps['links'])) {
-        $nav[] = ['links', $myApps['links']['name'], in_array($route, ['links', 'link_edit'], true)];
+        $nav[] = ['links', t($myApps['links']['name']), in_array($route, ['links', 'link_edit'], true)];
     }
     if (isset($myApps['datensicherung']) && $user['role'] === 'firma_admin') {
-        $nav[] = ['company_backups', $myApps['datensicherung']['name'], $route === 'company_backups'];
+        $nav[] = ['company_backups', t($myApps['datensicherung']['name']), $route === 'company_backups'];
     }
     if (is_staff_role($user['role'])) {
         $adminNav = [
-            'companies' => ['companies', 'Firmen', in_array($route, ['companies', 'company_edit'], true)],
-            'users'     => ['users', 'Benutzer', in_array($route, ['users', 'user_edit'], true)],
-            'apps'      => ['apps', 'Apps & Freigaben', $route === 'apps'],
-            'mail'      => ['mail_settings', 'E-Mail-Versand', $route === 'mail_settings'],
-            'audit'     => ['audit', 'Protokoll', $route === 'audit'],
-            'backups'   => ['backups', 'Datensicherung', in_array($route, ['backups', 'company_backups'], true)],
-            'updates'   => ['updates', 'Updates', $route === 'updates'],
+            'companies' => ['companies', t('Firmen'), in_array($route, ['companies', 'company_edit'], true)],
+            'users'     => ['users', t('Benutzer'), in_array($route, ['users', 'user_edit'], true)],
+            'apps'      => ['apps', t('Apps & Freigaben'), $route === 'apps'],
+            'mail'      => ['mail_settings', t('E-Mail-Versand'), $route === 'mail_settings'],
+            'audit'     => ['audit', t('Protokoll'), $route === 'audit'],
+            'backups'   => ['backups', t('Datensicherung'), in_array($route, ['backups', 'company_backups'], true)],
+            'updates'   => ['updates', t('Updates'), $route === 'updates'],
         ];
         foreach ($adminNav as $area => $item) if (admin_can($area)) $nav[] = $item;
     } elseif ($user['role'] === 'firma_admin') {
-        $nav[] = ['company_edit', 'Firmenprofil', $route === 'company_edit'];
-        $nav[] = ['users', 'Benutzer', in_array($route, ['users', 'user_edit'], true)];
-        $nav[] = ['mail_settings', 'E-Mail-Versand', $route === 'mail_settings'];
+        $nav[] = ['company_edit', t('Firmenprofil'), $route === 'company_edit'];
+        $nav[] = ['users', t('Benutzer'), in_array($route, ['users', 'user_edit'], true)];
+        $nav[] = ['mail_settings', t('E-Mail-Versand'), $route === 'mail_settings'];
     }
 }
 // App, zu der die aktuelle Seite gehört (für das große Symbol links oben)
@@ -86,7 +86,7 @@ if ($user && $user['company_id']) {
     $companyName = (string)(row('SELECT name FROM companies WHERE id = ?', [$user['company_id']])['name'] ?? '');
 }
 ?><!DOCTYPE html>
-<html lang="de">
+<html lang="<?= e(current_lang()) ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -102,12 +102,13 @@ if ($user && $user['company_id']) {
 <body>
 <header class="topbar">
     <div class="brand"><a href="index.php"><img src="assets/logo.svg" width="30" height="30" alt=""><span><?= e($appName) ?></span></a></div>
+    <?php if (!$user): ?><?= lang_switcher() ?><?php endif; ?>
     <?php if ($user): ?>
     <div class="who">
         <span><?= e($user['name']) ?></span>
-        <span class="muted"><?= $companyName ? e($companyName) : 'Administration' ?></span>
-        <a href="<?= e(url('account')) ?>">Mein Konto</a>
-        <form method="post" action="<?= e(url('logout')) ?>" class="inline"><?= csrf_field() ?><button class="linklike">Abmelden</button></form>
+        <span class="muted"><?= $companyName ? e($companyName) : t('Administration') ?></span>
+        <a href="<?= e(url('account')) ?>"><?= e(t('Mein Konto')) ?></a>
+        <form method="post" action="<?= e(url('logout')) ?>" class="inline"><?= csrf_field() ?><button class="linklike"><?= e(t('Abmelden')) ?></button></form>
     </div>
     <?php endif; ?>
 </header>
@@ -128,9 +129,9 @@ if ($user && $user['company_id']) {
 <main>
     <?php if ($pageApp): ?>
     <div class="page-head app-<?= (int)$pageApp['id'] ?>">
-        <span class="app-icon app-icon-lg" title="<?= e($pageApp['name']) ?>" aria-hidden="true"><?= e($pageApp['icon'] ?: mb_substr($pageApp['name'], 0, 1)) ?></span>
+        <span class="app-icon app-icon-lg" title="<?= e(t($pageApp['name'])) ?>" aria-hidden="true"><?= e($pageApp['icon'] ?: mb_substr($pageApp['name'], 0, 1)) ?></span>
         <div>
-            <?php if ($pageApp['name'] !== $title): ?><div class="page-app"><?= e($pageApp['name']) ?></div><?php endif; ?>
+            <?php if (t($pageApp['name']) !== $title): ?><div class="page-app"><?= e(t($pageApp['name'])) ?></div><?php endif; ?>
             <h1><?= e($title) ?></h1>
         </div>
     </div>
@@ -142,6 +143,7 @@ if ($user && $user['company_id']) {
     <?php endforeach; ?>
     <?php $content(); ?>
 </main>
+<script src="index.php?r=i18n_js&amp;l=<?= e(current_lang()) ?>"></script>
 <script src="assets/app.js"></script>
 <?php if ($user && $route === 'link_edit'): ?><script src="assets/links.js"></script><?php endif; ?>
 <?php if ($user && $route === 'form_layouts'): ?><script src="assets/calc.js"></script><script src="assets/forms.js"></script><?php endif; ?>

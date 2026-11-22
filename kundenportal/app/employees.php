@@ -17,7 +17,7 @@ const EMPLOYEE_FIELDS = ['salutation', 'first_name', 'last_name', 'employee_no',
 function employee_status_badge(string $status): string
 {
     $cls = ['geplant' => 'st-eingereicht', 'aktiv' => 'st-freigegeben', 'stillgelegt' => 'st-rueckfrage', 'ausgeschieden' => 'st-storniert'][$status] ?? '';
-    return '<span class="badge ' . $cls . '">' . e(EMPLOYEE_STATUSES[$status] ?? $status) . '</span>';
+    return '<span class="badge ' . $cls . '">' . e(t(EMPLOYEE_STATUSES[$status] ?? $status)) . '</span>';
 }
 
 function employee_find(int $companyId, string $employeeNo): ?array

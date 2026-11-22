@@ -45,12 +45,12 @@ function api_values(array $in, int $cid): array
         if (!is_scalar($v) && $v !== null) api_error(422, "Feld „{$k}“ muss Text sein.");
         $vals[$k] = (string)($v ?? '');
     }
-    if ($unknown) api_error(422, 'Unbekannte Felder: ' . implode(', ', $unknown) . '. Verfügbare Felder liefert GET /felder.');
-    if (($vals['email'] ?? '') !== '' && !filter_var($vals['email'], FILTER_VALIDATE_EMAIL)) api_error(422, 'Die E-Mail-Adresse ist ungültig.');
+    if ($unknown) api_error(422, t('Unbekannte Felder: ') . implode(', ', $unknown) . t('. Verfügbare Felder liefert GET /felder.'));
+    if (($vals['email'] ?? '') !== '' && !filter_var($vals['email'], FILTER_VALIDATE_EMAIL)) api_error(422, t('Die E-Mail-Adresse ist ungültig.'));
     return $vals;
 }
 
-if (!is_file(APP_DIR . '/data/installed.lock')) api_error(503, 'Das Portal ist noch nicht installiert.');
+if (!is_file(APP_DIR . '/data/installed.lock')) api_error(503, t('Das Portal ist noch nicht installiert.'));
 ensure_schema();
 
 // --- Anmeldung -----------------------------------------------------------------
@@ -60,12 +60,12 @@ $token = $plain !== '' ? api_token_lookup($plain) : null;
 if (!$token) {
     usleep(300000);
     header('WWW-Authenticate: Bearer');
-    api_error(401, 'Kein gültiger API-Schlüssel.');
+    api_error(401, t('Kein gültiger API-Schlüssel.'));
 }
 $cid = (int)$token['company_id'];
 $company = row('SELECT active FROM companies WHERE id = ?', [$cid]);
-if (!$company || !(int)$company['active']) api_error(403, 'Die Firma ist deaktiviert.');
-if (!company_has_app($cid, FORMS_APP)) api_error(403, 'Die App „Formulare“ ist für diese Firma nicht freigeschaltet.');
+if (!$company || !(int)$company['active']) api_error(403, t('Die Firma ist deaktiviert.'));
+if (!company_has_app($cid, FORMS_APP)) api_error(403, t('Die App „Formulare“ ist für diese Firma nicht freigeschaltet.'));
 if (($token['last_used_at'] ?? '') < date('Y-m-d H:i:s', time() - 60)) q('UPDATE api_tokens SET last_used_at = ? WHERE id = ?', [now(), $token['id']]);
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -78,12 +78,12 @@ if ($parts[0] === 'fields') $parts[0] = 'felder';
 
 $body = null;
 if (in_array($method, ['POST', 'PUT', 'PATCH'], true)) {
-    if (!$canWrite) api_error(403, 'Dieser API-Schlüssel darf nur lesen.');
+    if (!$canWrite) api_error(403, t('Dieser API-Schlüssel darf nur lesen.'));
     $raw = (string)file_get_contents('php://input', false, null, 0, 5 * 1024 * 1024);
     $body = json_decode($raw, true);
-    if (!is_array($body)) api_error(400, 'Der Inhalt muss gültiges JSON sein.');
+    if (!is_array($body)) api_error(400, t('Der Inhalt muss gültiges JSON sein.'));
 }
-if ($method === 'DELETE' && !$canWrite) api_error(403, 'Dieser API-Schlüssel darf nur lesen.');
+if ($method === 'DELETE' && !$canWrite) api_error(403, t('Dieser API-Schlüssel darf nur lesen.'));
 $tokenLabel = 'API: ' . $token['name'];
 
 // --- Routen --------------------------------------------------------------------
@@ -97,7 +97,7 @@ if ($parts[0] === 'felder' && $method === 'GET') {
     api_out(200, $out);
 }
 
-if ($parts[0] !== 'kunden') api_error(404, 'Unbekannter Pfad.');
+if ($parts[0] !== 'kunden') api_error(404, t('Unbekannter Pfad.'));
 
 // GET /kunden
 if (count($parts) === 1 && $method === 'GET') {
@@ -123,17 +123,17 @@ if (count($parts) === 1 && $method === 'GET') {
 // POST /kunden  (ein Objekt oder eine Liste; mit vorhandener Nummer wird aktualisiert)
 if (count($parts) === 1 && $method === 'POST') {
     $list = array_is_list($body) ? $body : [$body];
-    if (count($list) > 1000) api_error(413, 'Höchstens 1000 Kunden pro Aufruf.');
+    if (count($list) > 1000) api_error(413, t('Höchstens 1000 Kunden pro Aufruf.'));
     $results = [];
     db()->beginTransaction();
     foreach ($list as $item) {
-        if (!is_array($item)) { db()->rollBack(); api_error(422, 'Jeder Eintrag muss ein Objekt sein.'); }
+        if (!is_array($item)) { db()->rollBack(); api_error(422, t('Jeder Eintrag muss ein Objekt sein.')); }
         $vals = api_values($item, $cid);
         $existing = ($vals['nummer'] ?? '') !== ''
             ? row('SELECT * FROM customers WHERE company_id = ? AND customer_no = ?', [$cid, trim($vals['nummer'])]) : null;
         if (!$existing && trim(($vals['firma'] ?? '') . ($vals['nachname'] ?? '') . ($vals['vorname'] ?? '')) === '') {
             db()->rollBack();
-            api_error(422, 'Für neue Kunden ist mindestens „firma“ oder „nachname“ nötig.');
+            api_error(422, t('Für neue Kunden ist mindestens „firma“ oder „nachname“ nötig.'));
         }
         $id = customer_save($cid, $vals, $existing);
         $results[] = ['id' => $id, 'aktion' => $existing ? 'aktualisiert' : 'angelegt'];
@@ -150,14 +150,14 @@ if (count($parts) === 1 && $method === 'POST') {
 function load_customer_api(int $cid, int $id): array
 {
     $c = row('SELECT * FROM customers WHERE id = ? AND company_id = ?', [$id, $cid]);
-    if (!$c) api_error(404, 'Kunde nicht gefunden.');
+    if (!$c) api_error(404, t('Kunde nicht gefunden.'));
     return $c;
 }
 
 // /kunden/nummer/{nr}
 if (count($parts) === 3 && $parts[1] === 'nummer') {
     $c = row('SELECT * FROM customers WHERE company_id = ? AND customer_no = ?', [$cid, rawurldecode($parts[2])]);
-    if (!$c) api_error(404, 'Kunde nicht gefunden.');
+    if (!$c) api_error(404, t('Kunde nicht gefunden.'));
     $parts = ['kunden', (string)$c['id']];
 }
 
@@ -168,7 +168,7 @@ if (count($parts) === 2 && ctype_digit($parts[1])) {
     if ($method === 'PUT' || $method === 'PATCH') {
         $vals = api_values($body, $cid);
         if (($vals['nummer'] ?? '') !== '' && row('SELECT id FROM customers WHERE company_id = ? AND customer_no = ? AND id <> ?', [$cid, $vals['nummer'], $c['id']])) {
-            api_error(409, 'Die Kundennummer ist bereits vergeben.');
+            api_error(409, t('Die Kundennummer ist bereits vergeben.'));
         }
         if ($method === 'PUT') $vals += array_fill_keys(array_keys(customer_all_fields($cid)), '');
         customer_save($cid, $vals, $c);
@@ -180,7 +180,7 @@ if (count($parts) === 2 && ctype_digit($parts[1])) {
         audit('api_customer_deleted', $tokenLabel . ' #' . $c['id'], $cid);
         api_out(200, ['geloescht' => (int)$c['id']]);
     }
-    api_error(405, 'Methode nicht erlaubt.');
+    api_error(405, t('Methode nicht erlaubt.'));
 }
 
-api_error(404, 'Unbekannter Pfad.');
+api_error(404, t('Unbekannter Pfad.'));

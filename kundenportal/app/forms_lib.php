@@ -50,7 +50,7 @@ function forms_company_id(): int
 {
     $u = require_app(FORMS_APP);
     $cid = context_company_id();
-    if (!$cid) abort(404, 'Es ist noch keine Firma angelegt.');
+    if (!$cid) abort(404, t('Es ist noch keine Firma angelegt.'));
     require_company_access($cid);
     if (!row('SELECT id FROM companies WHERE id = ?', [$cid])) abort(404);
     if (!is_staff_role($u['role']) && !company_has_app($cid, FORMS_APP)) abort(403);
@@ -69,7 +69,7 @@ function forms_can_manage(): bool
 
 function forms_require_manage(): void
 {
-    if (!forms_can_manage()) abort(403, 'Diese Einstellungen dürfen nur Firmen-Administratoren ändern.');
+    if (!forms_can_manage()) abort(403, t('Diese Einstellungen dürfen nur Firmen-Administratoren ändern.'));
 }
 
 /** URL innerhalb der App; Dienstleister behalten die gewählte Firma */
@@ -326,29 +326,30 @@ function uses_customer(string $html): bool
 function placeholder_catalog(int $companyId): array
 {
     $kunde = [];
-    foreach (CUSTOMER_STD_FIELDS as $k => [$label]) $kunde['kunde.' . $k] = $label;
-    $kunde['kunde.name'] = 'Name (Vorname Nachname)';
-    $kunde['kunde.anschrift'] = 'Anschrift (mehrzeilig)';
-    $kunde['kunde.briefanrede'] = 'Briefanrede („Sehr geehrte Frau …“)';
+    foreach (CUSTOMER_STD_FIELDS as $k => [$label]) $kunde['kunde.' . $k] = t($label);
+    $kunde['kunde.name'] = t('Name (Vorname Nachname)');
+    $kunde['kunde.anschrift'] = t('Anschrift (mehrzeilig)');
+    $kunde['kunde.briefanrede'] = t('Briefanrede („Sehr geehrte Frau …“)');
     foreach (customer_custom_fields($companyId) as $f) $kunde['kunde.' . $f['field_key']] = $f['label'];
 
-    $firma = ['firma.name' => 'Firmenname', 'firma.strasse' => 'Straße', 'firma.plz' => 'PLZ', 'firma.ort' => 'Ort',
-        'firma.telefon' => 'Telefon', 'firma.email' => 'E-Mail', 'firma.ansprechpartner' => 'Ansprechpartner/in',
-        'firma.absenderzeile' => 'Absenderzeile (eine Zeile)'];
-    foreach (BRANDING_FIELDS as [$label, $key]) $firma['firma.' . $key] = $label;
+    $firma = ['firma.name' => t('Firmenname'), 'firma.strasse' => t('Straße'), 'firma.plz' => t('PLZ'), 'firma.ort' => t('Ort'),
+        'firma.telefon' => t('Telefon'), 'firma.email' => t('E-Mail'), 'firma.ansprechpartner' => t('Ansprechpartner/in'),
+        'firma.absenderzeile' => t('Absenderzeile (eine Zeile)')];
+    foreach (BRANDING_FIELDS as [$label, $key]) $firma['firma.' . $key] = t($label);
 
     return [
         'Kunde' => $kunde,
         'Eigene Firma' => $firma,
-        'Allgemein' => ['logo' => 'Logo', 'datum' => 'Datum (20.11.2026)', 'datum.lang' => 'Datum ausgeschrieben',
-            'benutzer.name' => 'Name des Erstellers', 'benutzer.email' => 'E-Mail des Erstellers'],
+        'Allgemein' => ['logo' => t('Logo'), 'datum' => t('Datum (20.11.2026)'), 'datum.lang' => t('Datum ausgeschrieben'),
+            'benutzer.name' => t('Name des Erstellers'), 'benutzer.email' => t('E-Mail des Erstellers')],
     ];
 }
 
 function german_date_long(int $ts): string
 {
-    $months = [1 => 'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
-    return date('j', $ts) . '. ' . $months[(int)date('n', $ts)] . ' ' . date('Y', $ts);
+    // Monatsnamen in der aktuellen Sprache; Deutsch „22. November 2026“, sonst „22 November 2026“ bzw. „22 novembre 2026“
+    $months = [1 => t('Januar'), t('Februar'), t('März'), t('April'), t('Mai'), t('Juni'), t('Juli'), t('August'), t('September'), t('Oktober'), t('November'), t('Dezember')];
+    return date('j', $ts) . (current_lang() === 'de' ? '. ' : ' ') . $months[(int)date('n', $ts)] . ' ' . date('Y', $ts);
 }
 
 /** Werte eines Kunden als Platzhalter (kunde.*) */
@@ -367,10 +368,10 @@ function customer_values(?array $c, int $companyId): array
         in_array(mb_strtolower($v['kunde.land']), ['', 'deutschland', 'de', 'germany'], true) ? '' : mb_strtoupper($v['kunde.land'])]);
     $v['kunde.anschrift'] = implode("\n", $lines);
     $last = trim(implode(' ', array_filter([$v['kunde.titel'], $v['kunde.nachname']])));
-    if ($sal === 'Herr' && $last !== '') $v['kunde.briefanrede'] = 'Sehr geehrter Herr ' . $last . ',';
-    elseif ($sal === 'Frau' && $last !== '') $v['kunde.briefanrede'] = 'Sehr geehrte Frau ' . $last . ',';
-    elseif ($sal === 'Divers' && $v['kunde.name'] !== '') $v['kunde.briefanrede'] = 'Guten Tag ' . $person . ',';
-    else $v['kunde.briefanrede'] = 'Sehr geehrte Damen und Herren,';
+    if ($sal === 'Herr' && $last !== '') $v['kunde.briefanrede'] = t('Sehr geehrter Herr ') . $last . ',';
+    elseif ($sal === 'Frau' && $last !== '') $v['kunde.briefanrede'] = t('Sehr geehrte Frau ') . $last . ',';
+    elseif ($sal === 'Divers' && $v['kunde.name'] !== '') $v['kunde.briefanrede'] = t('Guten Tag ') . $person . ',';
+    else $v['kunde.briefanrede'] = t('Sehr geehrte Damen und Herren,');
     return $v;
 }
 
@@ -465,38 +466,38 @@ function layout_presets(): array
     $ph = fn(string $k) => '<span class="ph" contenteditable="false">{{' . $k . '}}</span>';
     return [
         'header' => [
-            'klassisch' => ['Klassisch – Logo rechts, Anschriftfeld nach DIN 5008',
+            'klassisch' => [t('Klassisch – Logo rechts, Anschriftfeld nach DIN 5008'),
                 '<p class="al-right">' . $ph('logo') . '</p>'
                 . '<table class="tbl-plain"><tbody><tr>'
                 . '<td class="w-50 v-top"><p class="fs-small c-muted"><u>' . $ph('firma.absenderzeile') . '</u></p><p>' . $ph('kunde.anschrift') . '</p></td>'
                 . '<td class="v-top"><p class="al-right fs-small">' . $ph('firma.name') . '<br>' . $ph('firma.strasse') . '<br>' . $ph('firma.plz') . ' ' . $ph('firma.ort')
-                . '<br><br>Telefon ' . $ph('firma.telefon') . '<br>' . $ph('firma.email') . '<br>' . $ph('firma.website') . '</p></td>'
+                . ('<br><br>' . e(t('Telefon')) . ' ') . $ph('firma.telefon') . '<br>' . $ph('firma.email') . '<br>' . $ph('firma.website') . '</p></td>'
                 . '</tr></tbody></table>'
                 . '<p class="al-right">' . $ph('firma.ort') . ', ' . $ph('datum') . '</p>'],
-            'modern' => ['Modern – Logo links, Kontaktdaten rechts, Linie',
+            'modern' => [t('Modern – Logo links, Kontaktdaten rechts, Linie'),
                 '<table class="tbl-plain"><tbody><tr><td class="v-top">' . $ph('logo') . '</td>'
                 . '<td class="v-top"><p class="al-right fs-small c-muted">' . $ph('firma.name') . ' · ' . $ph('firma.strasse') . ' · ' . $ph('firma.plz') . ' ' . $ph('firma.ort')
                 . '<br>' . $ph('firma.telefon') . ' · ' . $ph('firma.email') . '</p></td></tr></tbody></table><hr>'
                 . '<p class="fs-small c-muted"><u>' . $ph('firma.absenderzeile') . '</u></p><p>' . $ph('kunde.anschrift') . '</p>'
                 . '<p class="al-right">' . $ph('datum.lang') . '</p>'],
-            'zentriert' => ['Zentriert – Logo und Firmenname mittig',
+            'zentriert' => [t('Zentriert – Logo und Firmenname mittig'),
                 '<p class="al-center">' . $ph('logo') . '</p><p class="al-center fs-small c-muted">' . $ph('firma.absenderzeile')
                 . ' · ' . $ph('firma.telefon') . ' · ' . $ph('firma.email') . '</p><hr><p>' . $ph('kunde.anschrift') . '</p><p class="al-right">' . $ph('datum') . '</p>'],
-            'schlicht' => ['Schlicht – nur Logo',
+            'schlicht' => [t('Schlicht – nur Logo'),
                 '<p class="al-right">' . $ph('logo') . '</p>'],
         ],
         'footer' => [
-            'spalten' => ['Drei Spalten – Anschrift, Kontakt, Bank',
+            'spalten' => [t('Drei Spalten – Anschrift, Kontakt, Bank'),
                 '<hr><table class="tbl-plain fs-small c-muted"><tbody><tr>'
                 . '<td class="v-top">' . $ph('firma.name') . '<br>' . $ph('firma.strasse') . '<br>' . $ph('firma.plz') . ' ' . $ph('firma.ort') . '<br>' . $ph('firma.geschaeftsfuehrung') . '</td>'
-                . '<td class="v-top">Telefon ' . $ph('firma.telefon') . '<br>' . $ph('firma.email') . '<br>' . $ph('firma.website') . '<br>USt-IdNr. ' . $ph('firma.ustid') . '</td>'
-                . '<td class="v-top">' . $ph('firma.bank') . '<br>IBAN ' . $ph('firma.iban') . '<br>BIC ' . $ph('firma.bic') . '<br>' . $ph('firma.register') . '</td>'
+                . ('<td class="v-top">' . e(t('Telefon')) . ' ') . $ph('firma.telefon') . '<br>' . $ph('firma.email') . '<br>' . $ph('firma.website') . ('<br>' . e(t('USt-IdNr.')) . ' ') . $ph('firma.ustid') . '</td>'
+                . '<td class="v-top">' . $ph('firma.bank') . ('<br>' . e(t('IBAN')) . ' ') . $ph('firma.iban') . ('<br>' . e(t('BIC')) . ' ') . $ph('firma.bic') . '<br>' . $ph('firma.register') . '</td>'
                 . '</tr></tbody></table>'],
-            'einzeilig' => ['Einzeilig – zentriert',
+            'einzeilig' => [t('Einzeilig – zentriert'),
                 '<hr><p class="al-center fs-small c-muted">' . $ph('firma.absenderzeile') . ' · ' . $ph('firma.telefon') . ' · ' . $ph('firma.email') . ' · ' . $ph('firma.website') . '</p>'],
-            'rechtlich' => ['Mit Pflichtangaben – zweizeilig',
+            'rechtlich' => [t('Mit Pflichtangaben – zweizeilig'),
                 '<hr><p class="al-center fs-small c-muted">' . $ph('firma.absenderzeile') . ' · ' . $ph('firma.telefon') . ' · ' . $ph('firma.email')
-                . '<br>Geschäftsführung: ' . $ph('firma.geschaeftsfuehrung') . ' · ' . $ph('firma.register') . ' · USt-IdNr. ' . $ph('firma.ustid') . ' · IBAN ' . $ph('firma.iban') . '</p>'],
+                . ('<br>' . e(t('Geschäftsführung:')) . ' ') . $ph('firma.geschaeftsfuehrung') . ' · ' . $ph('firma.register') . t(' · USt-IdNr. ') . $ph('firma.ustid') . t(' · IBAN ') . $ph('firma.iban') . '</p>'],
         ],
     ];
 }
@@ -555,7 +556,7 @@ function customer_custom_fields(int $companyId, bool $refresh = false): array
 function customer_all_fields(int $companyId): array
 {
     $f = [];
-    foreach (CUSTOMER_STD_FIELDS as $k => [$label]) $f[$k] = $label;
+    foreach (CUSTOMER_STD_FIELDS as $k => [$label]) $f[$k] = t($label);
     foreach (customer_custom_fields($companyId) as $c) $f[$c['field_key']] = $c['label'];
     return $f;
 }
@@ -620,7 +621,7 @@ function customer_label(array $c): string
 {
     $name = trim($c['first_name'] . ' ' . $c['last_name']);
     $parts = array_filter([$c['company_name'], $name]);
-    $label = implode(' – ', $parts) ?: '(ohne Namen)';
+    $label = implode(' – ', $parts) ?: t('(ohne Namen)');
     return ($c['customer_no'] !== '' ? $c['customer_no'] . ' · ' : '') . $label;
 }
 
@@ -688,6 +689,10 @@ function csv_map_headers(array $headers, int $companyId): array
     ];
     $lookup = [];
     foreach ($aliases as $k => $list) foreach ($list as $a) $lookup[$a] ??= $k;
+    // Spaltenköpfe auf Deutsch und in der eingestellten Sprache erkennen (Export und Import passen so in jeder Sprache zusammen)
+    foreach (CUSTOMER_STD_FIELDS as $k => [$label]) {
+        foreach (LANGS as $code => $_) $lookup[csv_norm(with_lang($code, fn() => t($label)))] ??= $k;
+    }
     foreach (customer_all_fields($companyId) as $k => $label) {
         $lookup[csv_norm($label)] = $k;
         $lookup[csv_norm($k)] = $k;

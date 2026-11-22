@@ -31,7 +31,7 @@ function masterdata_company(): int
     require_app('onboarding');
     $cid = context_company_id();
     if (!$cid) {
-        flash('info', 'Bitte legen Sie zuerst eine Firma an.');
+        flash('info', t('Bitte legen Sie zuerst eine Firma an.'));
         redirect('companies');
     }
     require_company_access($cid);
@@ -74,20 +74,20 @@ function page_structure(): void
                 update('positions', $id, ['name' => $name, 'department_id' => $depId ?: null, 'active' => post('active') === '1' ? 1 : 0]);
             }
         }
-        flash('success', 'Gespeichert.');
+        flash('success', t('Gespeichert.'));
         redirect('structure', $back);
     }
     $deps = departments_of($cid, false);
     $poss = positions_of($cid, false);
-    render_page('Abteilungen & Positionen: ' . company_name($cid), function () use ($cid, $deps, $poss) {
+    render_page(t('Abteilungen & Positionen: ') . company_name($cid), function () use ($cid, $deps, $poss) {
         echo '<div class="toolbar">' . company_switcher($cid, 'structure') . '</div>'; ?>
-        <p class="muted">Abteilungen und Positionen erscheinen im Auftragsformular. In den <a href="<?= e(url('templates', is_admin() ? ['company' => $cid] : [])) ?>">Vorlagen</a>
-            legen Sie fest, welche Geräte, Programme, Laufwerke und Freigaben jeweils vorausgewählt werden.</p>
+        <p class="muted"><?= e(t('Abteilungen und Positionen erscheinen im Auftragsformular. In den')) ?> <a href="<?= e(url('templates', is_admin() ? ['company' => $cid] : [])) ?>"><?= e(t('Vorlagen')) ?></a>
+            <?= e(t('legen Sie fest, welche Geräte, Programme, Laufwerke und Freigaben jeweils vorausgewählt werden.')) ?></p>
         <div class="grid2">
             <div class="card">
-                <h2>Abteilungen</h2>
+                <h2><?= e(t('Abteilungen')) ?></h2>
                 <table class="table compact">
-                    <thead><tr><th>Name</th><th>Aktiv</th><th></th></tr></thead>
+                    <thead><tr><th><?= e(t('Name')) ?></th><th><?= e(t('Aktiv')) ?></th><th></th></tr></thead>
                     <tbody>
                     <?php foreach ($deps as $d): $f = 'dep' . $d['id']; ?>
                         <tr class="<?= (int)$d['active'] ? '' : 'inactive' ?>">
@@ -95,45 +95,45 @@ function page_structure(): void
                             <td><input form="<?= $f ?>" type="checkbox" name="active" value="1" <?= (int)$d['active'] ? 'checked' : '' ?>></td>
                             <td><form id="<?= $f ?>" method="post"><?= csrf_field() ?><input type="hidden" name="action" value="save_dep">
                                 <input type="hidden" name="id" value="<?= (int)$d['id'] ?>"><input type="hidden" name="company_id" value="<?= $cid ?>">
-                                <button class="btn small">Speichern</button></form></td>
+                                <button class="btn small"><?= e(t('Speichern')) ?></button></form></td>
                         </tr>
                     <?php endforeach; ?>
-                    <?php if (!$deps): ?><tr><td colspan="3" class="muted">Noch keine Abteilungen.</td></tr><?php endif; ?>
+                    <?php if (!$deps): ?><tr><td colspan="3" class="muted"><?= e(t('Noch keine Abteilungen.')) ?></td></tr><?php endif; ?>
                     </tbody>
                 </table>
                 <form method="post" class="form inline-form">
                     <?= csrf_field() ?><input type="hidden" name="action" value="add_dep"><input type="hidden" name="company_id" value="<?= $cid ?>">
-                    <input name="name" placeholder="Neue Abteilung, z. B. Buchhaltung" required maxlength="190">
-                    <button class="btn primary">Hinzufügen</button>
+                    <input name="name" placeholder="<?= e(t('Neue Abteilung, z. B. Buchhaltung')) ?>" required maxlength="190">
+                    <button class="btn primary"><?= e(t('Hinzufügen')) ?></button>
                 </form>
             </div>
             <div class="card">
-                <h2>Positionen</h2>
+                <h2><?= e(t('Positionen')) ?></h2>
                 <table class="table compact">
-                    <thead><tr><th>Name</th><th>Abteilung</th><th>Aktiv</th><th></th></tr></thead>
+                    <thead><tr><th><?= e(t('Name')) ?></th><th><?= e(t('Abteilung')) ?></th><th><?= e(t('Aktiv')) ?></th><th></th></tr></thead>
                     <tbody>
                     <?php foreach ($poss as $p): $f = 'pos' . $p['id']; ?>
                         <tr class="<?= (int)$p['active'] ? '' : 'inactive' ?>">
                             <td><input form="<?= $f ?>" name="name" value="<?= e($p['name']) ?>" required maxlength="190"></td>
-                            <td><select form="<?= $f ?>" name="department_id"><option value="0">– alle –</option>
+                            <td><select form="<?= $f ?>" name="department_id"><option value="0"><?= e(t('– alle –')) ?></option>
                                 <?php foreach ($deps as $d): ?><option value="<?= (int)$d['id'] ?>" <?= (int)$p['department_id'] === (int)$d['id'] ? 'selected' : '' ?>><?= e($d['name']) ?></option><?php endforeach; ?>
                             </select></td>
                             <td><input form="<?= $f ?>" type="checkbox" name="active" value="1" <?= (int)$p['active'] ? 'checked' : '' ?>></td>
                             <td><form id="<?= $f ?>" method="post"><?= csrf_field() ?><input type="hidden" name="action" value="save_pos">
                                 <input type="hidden" name="id" value="<?= (int)$p['id'] ?>"><input type="hidden" name="company_id" value="<?= $cid ?>">
-                                <button class="btn small">Speichern</button></form></td>
+                                <button class="btn small"><?= e(t('Speichern')) ?></button></form></td>
                         </tr>
                     <?php endforeach; ?>
-                    <?php if (!$poss): ?><tr><td colspan="4" class="muted">Noch keine Positionen.</td></tr><?php endif; ?>
+                    <?php if (!$poss): ?><tr><td colspan="4" class="muted"><?= e(t('Noch keine Positionen.')) ?></td></tr><?php endif; ?>
                     </tbody>
                 </table>
                 <form method="post" class="form inline-form">
                     <?= csrf_field() ?><input type="hidden" name="action" value="add_pos"><input type="hidden" name="company_id" value="<?= $cid ?>">
-                    <input name="name" placeholder="Neue Position, z. B. Sachbearbeiter/in" required maxlength="190">
-                    <select name="department_id"><option value="0">– alle Abteilungen –</option>
+                    <input name="name" placeholder="<?= e(t('Neue Position, z. B. Sachbearbeiter/in')) ?>" required maxlength="190">
+                    <select name="department_id"><option value="0"><?= e(t('– alle Abteilungen –')) ?></option>
                         <?php foreach ($deps as $d): if ((int)$d['active']): ?><option value="<?= (int)$d['id'] ?>"><?= e($d['name']) ?></option><?php endif; endforeach; ?>
                     </select>
-                    <button class="btn primary">Hinzufügen</button>
+                    <button class="btn primary"><?= e(t('Hinzufügen')) ?></button>
                 </form>
             </div>
         </div>
@@ -164,8 +164,8 @@ function page_catalog(): void
             if (isset(ITEM_TYPES[$type]) && $name !== '') {
                 insert('catalog_items', ['company_id' => $global ? null : $cid, 'type' => $type, 'name' => $name,
                     'description' => $desc, 'active' => 1, 'sort' => (int)post('sort', 0)]);
-                audit('catalog_created', ITEM_TYPES[$type] . ': ' . $name . ($global ? ' (global)' : ''), $cid);
-                flash('success', 'Eintrag hinzugefügt.');
+                audit('catalog_created', ITEM_TYPES[$type] . ': ' . $name . ($global ? t(' (global)') : ''), $cid);
+                flash('success', t('Eintrag hinzugefügt.'));
             }
         } elseif ($a === 'save') {
             $item = row('SELECT * FROM catalog_items WHERE id = ?', [(int)post('id', 0)]);
@@ -173,35 +173,34 @@ function page_catalog(): void
             if ($name !== '') {
                 update('catalog_items', (int)$item['id'], ['name' => $name, 'description' => $desc,
                     'active' => post('active') === '1' ? 1 : 0, 'sort' => (int)post('sort', 0)]);
-                flash('success', 'Gespeichert.');
+                flash('success', t('Gespeichert.'));
             }
         }
         redirect('catalog', $back);
     }
     $items = catalog_for_company($cid, false);
-    render_page('Katalog: ' . company_name($cid), function () use ($cid, $items) {
+    render_page(t('Katalog: ') . company_name($cid), function () use ($cid, $items) {
         echo '<div class="toolbar">' . company_switcher($cid, 'catalog') . '</div>'; ?>
-        <p class="muted">Einträge mit dem Kennzeichen <span class="tag">alle Firmen</span> pflegen die Administratoren zentral.
-            Firmeneigene Einträge – vor allem Netzlaufwerke und Freigaben – pflegt jede Firma selbst.</p>
+        <p class="muted"><?= e(t('Einträge mit dem Kennzeichen')) ?> <span class="tag"><?= e(t('alle Firmen')) ?></span> <?= e(t('pflegen die Administratoren zentral. Firmeneigene Einträge – vor allem Netzlaufwerke und Freigaben – pflegt jede Firma selbst.')) ?></p>
         <?php foreach (ITEM_TYPES as $type => $label): ?>
         <div class="card">
-            <h2><?= e($label) ?></h2>
+            <h2><?= e(t($label)) ?></h2>
             <table class="table compact">
-                <thead><tr><th>Bezeichnung</th><th>Beschreibung / Pfad</th><th class="num">Sortierung</th><th>Aktiv</th><th></th></tr></thead>
+                <thead><tr><th><?= e(t('Bezeichnung')) ?></th><th><?= e(t('Beschreibung / Pfad')) ?></th><th class="num"><?= e(t('Sortierung')) ?></th><th><?= e(t('Aktiv')) ?></th><th></th></tr></thead>
                 <tbody>
                 <?php foreach ($items[$type] as $it): $f = 'cat' . $it['id']; $editable = can_edit_catalog_item($it); ?>
                     <tr class="<?= (int)$it['active'] ? '' : 'inactive' ?>">
                         <?php if ($editable): ?>
                             <td><input form="<?= $f ?>" name="name" value="<?= e($it['name']) ?>" required maxlength="190">
-                                <?= $it['company_id'] === null ? '<span class="tag">alle Firmen</span>' : '' ?></td>
+                                <?= $it['company_id'] === null ? ('<span class="tag">' . e(t('alle Firmen')) . '</span>') : '' ?></td>
                             <td><input form="<?= $f ?>" name="description" value="<?= e($it['description']) ?>" maxlength="500"></td>
                             <td class="num"><input form="<?= $f ?>" type="number" name="sort" value="<?= (int)$it['sort'] ?>" class="tiny"></td>
                             <td><input form="<?= $f ?>" type="checkbox" name="active" value="1" <?= (int)$it['active'] ? 'checked' : '' ?>></td>
                             <td><form id="<?= $f ?>" method="post"><?= csrf_field() ?><input type="hidden" name="action" value="save">
                                 <input type="hidden" name="id" value="<?= (int)$it['id'] ?>"><input type="hidden" name="company_id" value="<?= $cid ?>">
-                                <button class="btn small">Speichern</button></form></td>
+                                <button class="btn small"><?= e(t('Speichern')) ?></button></form></td>
                         <?php else: ?>
-                            <td><?= e($it['name']) ?> <span class="tag">alle Firmen</span></td>
+                            <td><?= e(t_parts($it['name'])) ?> <span class="tag"><?= e(t('alle Firmen')) ?></span></td>
                             <td><?= e($it['description']) ?></td>
                             <td class="num"><?= (int)$it['sort'] ?></td>
                             <td><?= (int)$it['active'] ? '✓' : '–' ?></td>
@@ -209,18 +208,18 @@ function page_catalog(): void
                         <?php endif; ?>
                     </tr>
                 <?php endforeach; ?>
-                <?php if (!$items[$type]): ?><tr><td colspan="5" class="muted">Keine Einträge.</td></tr><?php endif; ?>
+                <?php if (!$items[$type]): ?><tr><td colspan="5" class="muted"><?= e(t('Keine Einträge.')) ?></td></tr><?php endif; ?>
                 </tbody>
             </table>
             <form method="post" class="form inline-form">
                 <?= csrf_field() ?><input type="hidden" name="action" value="add"><input type="hidden" name="type" value="<?= e($type) ?>">
                 <input type="hidden" name="company_id" value="<?= $cid ?>">
-                <input name="name" placeholder="<?= $type === 'drive' ? 'z. B. S: Gemeinsam' : 'Bezeichnung' ?>" required maxlength="190">
-                <input name="description" placeholder="<?= $type === 'drive' ? '\\\\server\\freigabe' : 'Beschreibung (optional)' ?>" maxlength="500">
+                <input name="name" placeholder="<?= $type === 'drive' ? t('z. B. S: Gemeinsam') : t('Bezeichnung') ?>" required maxlength="190">
+                <input name="description" placeholder="<?= $type === 'drive' ? t('\\\\server\\freigabe') : t('Beschreibung (optional)') ?>" maxlength="500">
                 <?php if (admin_all_companies()): ?>
-                    <select name="scope"><option value="company">nur diese Firma</option><option value="global">alle Firmen</option></select>
+                    <select name="scope"><option value="company"><?= e(t('nur diese Firma')) ?></option><option value="global"><?= e(t('alle Firmen')) ?></option></select>
                 <?php endif; ?>
-                <button class="btn primary">Hinzufügen</button>
+                <button class="btn primary"><?= e(t('Hinzufügen')) ?></button>
             </form>
         </div>
         <?php endforeach; ?>
@@ -268,30 +267,29 @@ function page_templates(): void
             }
         }
         audit('template_saved', $target, $cid);
-        flash('success', 'Die Vorlage wurde gespeichert.');
+        flash('success', t('Die Vorlage wurde gespeichert.'));
         redirect('templates', $params + ['t' => $target]);
     }
 
     $map = template_map($cid);
     $selected = $valid ? ($map[$kind][$tid] ?? []) : [];
     $catalog = catalog_for_company($cid);
-    render_page('Vorlagen: ' . company_name($cid), function () use ($cid, $deps, $poss, $target, $valid, $selected, $catalog, $map) {
+    render_page(t('Vorlagen: ') . company_name($cid), function () use ($cid, $deps, $poss, $target, $valid, $selected, $catalog, $map) {
         echo '<div class="toolbar">' . company_switcher($cid, 'templates') . '</div>'; ?>
-        <p class="muted">Wählen Sie eine Abteilung oder Position und markieren Sie, was neue Mitarbeitende dort standardmäßig erhalten.
-            Im Auftragsformular werden die Einträge von Abteilung <em>und</em> Position zusammen vorausgewählt und können angepasst werden.</p>
+        <p class="muted"><?= e(t('Wählen Sie eine Abteilung oder Position und markieren Sie, was neue Mitarbeitende dort standardmäßig erhalten. Im Auftragsformular werden die Einträge von Abteilung')) ?> <em><?= e(t('und')) ?></em> <?= e(t('Position zusammen vorausgewählt und können angepasst werden.')) ?></p>
         <?php if (!$deps && !$poss): ?>
-            <div class="card"><p>Bitte legen Sie zuerst <a href="<?= e(url('structure', is_admin() ? ['company' => $cid] : [])) ?>">Abteilungen und Positionen</a> an.</p></div>
+            <div class="card"><p><?= e(t('Bitte legen Sie zuerst Abteilungen und Positionen an:')) ?> <a href="<?= e(url('structure', is_admin() ? ['company' => $cid] : [])) ?>"><?= e(t('Abteilungen und Positionen')) ?></a></p></div>
         <?php return; endif; ?>
         <div class="template-layout">
             <div class="card">
-                <h2>Abteilungen</h2>
+                <h2><?= e(t('Abteilungen')) ?></h2>
                 <ul class="pick">
                 <?php foreach ($deps as $d): $k = 'dep:' . $d['id']; ?>
                     <li class="<?= $k === $target ? 'active' : '' ?>"><a href="<?= e(url('templates', (is_admin() ? ['company' => $cid] : []) + ['t' => $k])) ?>"><?= e($d['name']) ?></a>
                         <span class="muted">(<?= count($map['dep'][(int)$d['id']] ?? []) ?>)</span></li>
                 <?php endforeach; ?>
                 </ul>
-                <h2>Positionen</h2>
+                <h2><?= e(t('Positionen')) ?></h2>
                 <ul class="pick">
                 <?php foreach ($poss as $p): $k = 'pos:' . $p['id']; ?>
                     <li class="<?= $k === $target ? 'active' : '' ?>"><a href="<?= e(url('templates', (is_admin() ? ['company' => $cid] : []) + ['t' => $k])) ?>"><?= e($p['name']) ?></a>
@@ -303,15 +301,15 @@ function page_templates(): void
             <form method="post" class="card form">
                 <?= csrf_field() ?><input type="hidden" name="t" value="<?= e($target) ?>"><input type="hidden" name="company_id" value="<?= $cid ?>">
                 <?php foreach (ITEM_TYPES as $type => $label): if (!$catalog[$type]) continue; ?>
-                    <fieldset><legend><?= e($label) ?></legend>
+                    <fieldset><legend><?= e(t($label)) ?></legend>
                     <div class="checks">
                     <?php foreach ($catalog[$type] as $it): ?>
                         <label class="check"><input type="checkbox" name="items[]" value="<?= (int)$it['id'] ?>" <?= in_array((int)$it['id'], $selected, true) ? 'checked' : '' ?>>
-                            <?= e($it['name']) ?><?= $it['description'] ? ' <span class="muted small">' . e($it['description']) . '</span>' : '' ?></label>
+                            <?= e(t_parts($it['name'])) ?><?= $it['description'] ? ' <span class="muted small">' . e($it['description']) . '</span>' : '' ?></label>
                     <?php endforeach; ?>
                     </div></fieldset>
                 <?php endforeach; ?>
-                <button class="btn primary">Vorlage speichern</button>
+                <button class="btn primary"><?= e(t('Vorlage speichern')) ?></button>
             </form>
             <?php endif; ?>
         </div>
@@ -328,11 +326,11 @@ function page_audit(): void
         FROM audit_log a LEFT JOIN users u ON u.id = a.user_id LEFT JOIN companies c ON c.id = a.company_id
         WHERE 1 = 1' . company_scope_sql('a.company_id') . '
         ORDER BY a.id DESC LIMIT 500');
-    render_page('Protokoll', function () use ($list) { ?>
+    render_page(t('Protokoll'), function () use ($list) { ?>
         <div class="card">
-            <p class="muted">Die letzten 500 sicherheitsrelevanten Ereignisse (Anmeldungen, Änderungen an Benutzern und Stammdaten).</p>
+            <p class="muted"><?= e(t('Die letzten 500 sicherheitsrelevanten Ereignisse (Anmeldungen, Änderungen an Benutzern und Stammdaten).')) ?></p>
             <table class="table compact">
-                <thead><tr><th>Zeit</th><th>Benutzer</th><th>Firma</th><th>Aktion</th><th>Details</th><th>IP</th></tr></thead>
+                <thead><tr><th><?= e(t('Zeit')) ?></th><th><?= e(t('Benutzer')) ?></th><th><?= e(t('Firma')) ?></th><th><?= e(t('Aktion')) ?></th><th><?= e(t('Details')) ?></th><th>IP</th></tr></thead>
                 <tbody>
                 <?php foreach ($list as $a): ?>
                     <tr><td><?= fmt_dt($a['created_at']) ?></td><td><?= e($a['user_name'] ?? '–') ?></td><td><?= e($a['company_name'] ?? '–') ?></td>

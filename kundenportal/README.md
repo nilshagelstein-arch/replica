@@ -81,6 +81,15 @@ Schlüssel werden in der App unter **Logo, Briefpapier & API** erzeugt (nur einm
 
 Feldnamen: `nummer, firma, anrede, titel, vorname, nachname, strasse, plz, ort, land, email, telefon, notiz` und die Namen der eigenen Felder. Erlaubt der Server keine Pfade hinter `api.php`, funktioniert auch `api.php?pfad=kunden/12`.
 
+## Sprachen
+
+Das Portal gibt es auf Deutsch, Englisch und Französisch – Oberfläche und E-Mails.
+
+- **Firma:** im Firmenprofil unter „Sprache“ (gilt für alle Benutzer der Firma und ihre E-Mails).
+- **Benutzer:** unter „Benutzer bearbeiten“ eine eigene Sprache wählen oder die der Firma übernehmen.
+- **Ohne Anmeldung** (Anmeldung, Registrierung, Passwort vergessen): Umschalter oben rechts; ohne Auswahl gilt die Browser-Sprache. Bei der Selbstregistrierung wird die gewählte Sprache zur Sprache der neuen Firma.
+- **Übersetzungen** liegen in `app/lang/en.php` und `app/lang/fr.php` (deutscher Text → Übersetzung). Neue Texte im Code mit `t('…')` schreiben und dort ergänzen; fehlt ein Eintrag, erscheint der deutsche Text.
+
 ## Voraussetzungen
 
 - Webhosting mit **PHP 8.1 oder neuer** (PDO/pdo_mysql, mbstring, openssl, dom, zip für die update.php), wie bei IONOS, Strato, All-Inkl. und ähnlichen Hostern üblich

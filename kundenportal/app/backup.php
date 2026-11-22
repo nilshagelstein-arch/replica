@@ -14,7 +14,14 @@ function backup_dir(): string
     if (!is_dir($dir)) mkdir($dir, 0770, true);
     // zusätzlicher Schutz, falls app/.htaccess einmal fehlt
     if (!is_file($dir . '/.htaccess')) {
-        file_put_contents($dir . '/.htaccess', "<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n    Order deny,allow\n    Deny from all\n</IfModule>\n");
+        file_put_contents($dir . '/.htaccess', '<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order deny,allow
+    Deny from all
+</IfModule>
+');
     }
     if (!is_file($dir . '/index.html')) file_put_contents($dir . '/index.html', '');
     return $dir;
@@ -59,11 +66,11 @@ function backup_dump_sql(string $file): array
     $pdo = db();
     $mysql = (cfg('db.driver', 'mysql') !== 'sqlite');
     $fh = fopen($file, 'wb');
-    if (!$fh) throw new RuntimeException('Sicherungsdatei konnte nicht angelegt werden.');
-    $w = function (string $s) use ($fh) { if (fwrite($fh, $s) === false) throw new RuntimeException('Schreiben der Sicherung fehlgeschlagen (Speicherplatz?).'); };
+    if (!$fh) throw new RuntimeException(t('Sicherungsdatei konnte nicht angelegt werden.'));
+    $w = function (string $s) use ($fh) { if (fwrite($fh, $s) === false) throw new RuntimeException(t('Schreiben der Sicherung fehlgeschlagen (Speicherplatz?).')); };
 
-    $w("-- Kundenportal – Datensicherung vom " . date('d.m.Y H:i:s') . "\n");
-    $w("-- Datenbank: " . ($mysql ? 'MySQL/MariaDB' : 'SQLite') . ", Schema-Version " . (defined('SCHEMA_VERSION') ? SCHEMA_VERSION : '?') . "\n\n");
+    $w(t('-- Kundenportal – Datensicherung vom ') . date('d.m.Y H:i:s') . "\n");
+    $w(t('-- Datenbank: ') . ($mysql ? t('MySQL/MariaDB') : 'SQLite') . t(', Schema-Version ') . (defined('SCHEMA_VERSION') ? SCHEMA_VERSION : '?') . "\n\n");
     if ($mysql) {
         $w("SET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS = 0;\nSET SQL_MODE = 'NO_AUTO_VALUE_ON_ZERO';\n\n");
         $tables = $pdo->query('SHOW FULL TABLES')->fetchAll(PDO::FETCH_NUM);
@@ -113,19 +120,19 @@ function backup_dump_sql(string $file): array
 
 function backup_readme(): string
 {
-    return "Kundenportal – Datensicherung vom " . date('d.m.Y H:i') . "\r\n\r\n"
-        . "Inhalt\r\n"
-        . "  database.sql  komplette Datenbank (alle Firmen, Benutzer, Aufträge, Formulare, Kunden, Einstellungen)\r\n"
-        . "  secret.key    Schlüssel für die verschlüsselt gespeicherten Postfach-Zugangsdaten (gehört nach app/data/)\r\n"
-        . "  config.php    Konfiguration des Portals inkl. Datenbank-Zugangsdaten\r\n\r\n"
-        . "Wiederherstellen\r\n"
-        . "  1. Programmdateien des Portals hochladen (oder vorhandene Installation verwenden).\r\n"
-        . "  2. config.php und app/data/secret.key aus dieser Sicherung zurückspielen\r\n"
-        . "     (bei neuer Datenbank die Zugangsdaten in config.php anpassen).\r\n"
-        . "  3. database.sql in die leere oder vorhandene Datenbank importieren, z. B. mit phpMyAdmin\r\n"
-        . "     (IONOS: Hosting > Datenbanken > phpMyAdmin > Importieren). Vorhandene Tabellen werden dabei ersetzt.\r\n"
-        . "  4. Sicherstellen, dass app/data/installed.lock existiert, dann das Portal aufrufen.\r\n\r\n"
-        . "Diese Datei enthält vertrauliche Daten. Bitte sicher aufbewahren.\r\n";
+    return t('Kundenportal – Datensicherung vom ') . date('d.m.Y H:i') . "\r\n\r\n"
+        . t("Inhalt\n")
+        . t("  database.sql  komplette Datenbank (alle Firmen, Benutzer, Aufträge, Formulare, Kunden, Einstellungen)\n")
+        . t("  secret.key    Schlüssel für die verschlüsselt gespeicherten Postfach-Zugangsdaten (gehört nach app/data/)\n")
+        . t("  config.php    Konfiguration des Portals inkl. Datenbank-Zugangsdaten\n\n")
+        . t("Wiederherstellen\n")
+        . t("  1. Programmdateien des Portals hochladen (oder vorhandene Installation verwenden).\n")
+        . t("  2. config.php und app/data/secret.key aus dieser Sicherung zurückspielen\n")
+        . t("     (bei neuer Datenbank die Zugangsdaten in config.php anpassen).\n")
+        . t("  3. database.sql in die leere oder vorhandene Datenbank importieren, z. B. mit phpMyAdmin\n")
+        . ('     (IONOS: Hosting > ' . e(t('Datenbanken > phpMyAdmin > Importieren). Vorhandene Tabellen werden dabei ersetzt.')) . "\n")
+        . t("  4. Sicherstellen, dass app/data/installed.lock existiert, dann das Portal aufrufen.\n\n")
+        . t("Diese Datei enthält vertrauliche Daten. Bitte sicher aufbewahren.\n");
 }
 
 /**
@@ -137,7 +144,7 @@ function backup_create(string $kind): string
     @ini_set('memory_limit', '512M');
     $dir = backup_dir();
     $lock = fopen($dir . '/.lock', 'c');
-    if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) throw new RuntimeException('Es läuft bereits eine Sicherung. Bitte kurz warten.');
+    if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) throw new RuntimeException(t('Es läuft bereits eine Sicherung. Bitte kurz warten.'));
 
     $base = 'backup-' . date('Y-m-d_His') . '-' . ($kind === 'auto' ? 'auto' : 'manuell') . '-' . bin2hex(random_bytes(4));
     $sql = $dir . '/' . $base . '.sql.tmp';
@@ -146,20 +153,20 @@ function backup_create(string $kind): string
         if (class_exists('ZipArchive')) {
             $target = $dir . '/' . $base . '.zip';
             $zip = new ZipArchive();
-            if ($zip->open($target . '.tmp', ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('ZIP-Archiv konnte nicht angelegt werden.');
+            if ($zip->open($target . '.tmp', ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException(t('ZIP-Archiv konnte nicht angelegt werden.'));
             $zip->addFile($sql, 'database.sql');
             if (is_file(APP_DIR . '/data/secret.key')) $zip->addFile(APP_DIR . '/data/secret.key', 'secret.key');
             if (is_file(ROOT_DIR . '/config.php')) $zip->addFile(ROOT_DIR . '/config.php', 'config.php');
             $zip->addFromString('LIESMICH.txt', backup_readme());
             $pw = backup_password();
             if ($pw !== '') {
-                if (!backup_can_encrypt()) throw new RuntimeException('Der Server unterstützt keine verschlüsselten ZIP-Archive (AES). Bitte das Sicherungspasswort entfernen.');
+                if (!backup_can_encrypt()) throw new RuntimeException(t('Der Server unterstützt keine verschlüsselten ZIP-Archive (AES). Bitte das Sicherungspasswort entfernen.'));
                 $zip->setPassword($pw);
                 foreach (['database.sql', 'secret.key', 'config.php'] as $n) {
                     if ($zip->locateName($n) !== false) $zip->setEncryptionName($n, ZipArchive::EM_AES_256, $pw);
                 }
             }
-            if (!$zip->close()) throw new RuntimeException('ZIP-Archiv konnte nicht geschrieben werden (Speicherplatz?).');
+            if (!$zip->close()) throw new RuntimeException(t('ZIP-Archiv konnte nicht geschrieben werden (Speicherplatz?).'));
             rename($target . '.tmp', $target);
         } else {
             // Fallback ohne ZIP-Erweiterung: nur die Datenbank, gzip-komprimiert
@@ -228,24 +235,23 @@ function backup_daily(bool $force = false): string
     // zuerst die Sicherungen der Firmen (App „Datensicherung“), jede für sich
     $firms = cbackup_daily($force);
     $suffix = $firms ? "\n" . implode("\n", $firms) : '';
-    if (!$force && setting_get('backup_auto', '1') !== '1') return 'Automatische Sicherung des Portals ist ausgeschaltet.' . $suffix;
+    if (!$force && setting_get('backup_auto', '1') !== '1') return t('Automatische Sicherung des Portals ist ausgeschaltet.') . $suffix;
     $last = setting_get('backup_last_auto');
-    if (!$force && $last !== '' && substr($last, 0, 10) === date('Y-m-d')) return 'Portal: heute bereits gesichert (' . fmt_dt($last) . ').' . $suffix;
+    if (!$force && $last !== '' && substr($last, 0, 10) === date('Y-m-d')) return t('Portal: heute bereits gesichert (') . fmt_dt($last) . ').' . $suffix;
     setting_set('backup_last_cron', now());
     try {
         $name = backup_create('auto');
         $pruned = backup_prune();
         $drive = gdrive_after_backup(backup_dir() . '/' . $name, true);
-        return 'Sicherung erstellt: ' . $name . ($pruned ? " ($pruned ältere entfernt)" : '') . ($drive !== '' ? ' – ' . $drive : '') . $suffix;
+        return t('Sicherung erstellt: ') . $name . ($pruned ? t(' ({n} ältere entfernt)', ['n' => $pruned]) : '') . ($drive !== '' ? ' – ' . $drive : '') . $suffix;
     } catch (Throwable $ex) {
         $msg = $ex->getMessage();
         setting_set('backup_last_error', now() . ' – ' . $msg);
         error_log('[kundenportal] Datensicherung fehlgeschlagen: ' . $msg);
         audit('backup.error', mb_substr($msg, 0, 400));
         if (setting_get('backup_notify', '1') === '1') {
-            send_mail((array)cfg('mail.admin_recipients', []), 'Datensicherung fehlgeschlagen',
-                "Die automatische Datensicherung des Kundenportals ist fehlgeschlagen.\n\nFehler: $msg\n\n"
-                . 'Bitte im Portal unter „Datensicherung“ prüfen: ' . rtrim((string)cfg('base_url', ''), '/') . '/index.php?r=backups');
+            send_mail_t((array)cfg('mail.admin_recipients', []), fn() => [t('Datensicherung fehlgeschlagen'), t("Die automatische Datensicherung des Kundenportals ist fehlgeschlagen.\n\nFehler: {msg}\n\n", ['msg' => $msg])
+                . t('Bitte im Portal unter „Datensicherung“ prüfen: ') . rtrim((string)cfg('base_url', ''), '/') . '/index.php?r=backups']);
         }
         return 'FEHLER: ' . $msg . $suffix;
     }
@@ -293,8 +299,8 @@ function gdrive_secret(?int $cid = null): string
 
 function gdrive_folder_name(?int $cid = null): string
 {
-    return gdrive_get('gdrive_folder_name', $cid, $cid ? 'Datensicherung Kundenportal' : 'Kundenportal-Backups')
-        ?: ($cid ? 'Datensicherung Kundenportal' : 'Kundenportal-Backups');
+    return gdrive_get('gdrive_folder_name', $cid, $cid ? t('Datensicherung Kundenportal') : t('Kundenportal-Backups'))
+        ?: ($cid ? t('Datensicherung Kundenportal') : t('Kundenportal-Backups'));
 }
 
 /** Quelltext des Apps Scripts (mit dem Schlüssel des Portals bzw. der Firma) */
@@ -359,7 +365,7 @@ JS;
 function gdrive_call(array $payload, ?int $cid = null, string $url = ''): array
 {
     $url = $url !== '' ? $url : gdrive_get('gdrive_url', $cid);
-    if ($url === '') throw new RuntimeException('Google Drive ist nicht verbunden.');
+    if ($url === '') throw new RuntimeException(t('Google Drive ist nicht verbunden.'));
     $payload += ['secret' => gdrive_secret($cid), 'folder' => gdrive_folder_name($cid)];
     $ch = curl_init($url);
     curl_setopt_array($ch, [
@@ -376,19 +382,19 @@ function gdrive_call(array $payload, ?int $cid = null, string $url = ''): array
     $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     $err = curl_error($ch);
     curl_close($ch);
-    if ($resp === false) throw new RuntimeException('Google Drive nicht erreichbar: ' . $err);
+    if ($resp === false) throw new RuntimeException(t('Google Drive nicht erreichbar: ') . $err);
     $d = json_decode((string)$resp, true);
     if (!is_array($d)) {
         throw new RuntimeException($status === 200
-            ? 'Google Drive: unerwartete Antwort. Ist das Skript als Web-App mit Zugriff „Jeder“ bereitgestellt?'
-            : "Google Drive: HTTP $status. Stimmt die Web-App-URL?");
+            ? t('Google Drive: unerwartete Antwort. Ist das Skript als Web-App mit Zugriff „Jeder“ bereitgestellt?')
+            : t('Google Drive: HTTP {n}. Stimmt die Web-App-URL?', ['n' => $status]));
     }
     if (empty($d['ok'])) {
-        $msg = (string)($d['error'] ?? 'Fehler');
+        $msg = (string)($d['error'] ?? t('Fehler'));
         if (str_contains($msg, 'Berechtigung') || stripos($msg, 'permission') !== false) {
-            $msg .= ' – Bitte im Skript einmal die Funktion „autorisieren“ ausführen und den Zugriff auf Google Drive erlauben.';
+            $msg .= t(' – Bitte im Skript einmal die Funktion „autorisieren“ ausführen und den Zugriff auf Google Drive erlauben.');
         }
-        throw new RuntimeException('Google Drive: ' . $msg);
+        throw new RuntimeException(t('Google Drive: ') . $msg);
     }
     return $d;
 }
@@ -400,7 +406,7 @@ function gdrive_connect(string $url, string $secret = '', ?int $cid = null): arr
         throw new RuntimeException('Bitte die Web-App-URL aus Apps Script einfügen (https://script.google.com/macros/s/…/exec).');
     }
     if ($secret !== '') {
-        if (!preg_match('/^[a-f0-9]{32,64}$/', $secret)) throw new RuntimeException('Der Schlüssel muss aus 32–64 Zeichen 0–9/a–f bestehen.');
+        if (!preg_match('/^[a-f0-9]{32,64}$/', $secret)) throw new RuntimeException(t('Der Schlüssel muss aus 32–64 Zeichen 0–9/a–f bestehen.'));
         gdrive_set('gdrive_secret', $cid, $secret);
     }
     $d = gdrive_call(['action' => 'ping'], $cid, $url);
@@ -424,7 +430,7 @@ function gdrive_upload(string $file, ?int $cid = null): void
     @set_time_limit(1800);
     $size = (int)filesize($file);
     if ($size > GDRIVE_MAX_BYTES) {
-        throw new RuntimeException('Google Drive: Die Sicherung ist mit ' . backup_fmt_size($size) . ' zu groß für die Skript-Brücke (max. ' . backup_fmt_size(GDRIVE_MAX_BYTES) . ').');
+        throw new RuntimeException(t('Google Drive: Die Sicherung ist mit ') . backup_fmt_size($size) . t(' zu groß für die Skript-Brücke (max. ') . backup_fmt_size(GDRIVE_MAX_BYTES) . ').');
     }
     $d = gdrive_call(['action' => 'upload', 'name' => basename($file),
         'mime' => str_ends_with($file, '.zip') ? 'application/zip' : 'application/gzip',
@@ -452,7 +458,7 @@ function gdrive_after_backup(string $file, bool $notify, ?int $cid = null): stri
     try {
         gdrive_upload($file, $cid);
         $pruned = gdrive_prune($cid);
-        return 'In Google Drive gespeichert' . ($pruned ? " ($pruned ältere entfernt)" : '') . '.';
+        return t('In Google Drive gespeichert') . ($pruned ? t(' ({n} ältere entfernt)', ['n' => $pruned]) : '') . '.';
     } catch (Throwable $ex) {
         $msg = $ex->getMessage();
         gdrive_set('gdrive_last_error', $cid, now() . ' – ' . $msg);
@@ -460,11 +466,10 @@ function gdrive_after_backup(string $file, bool $notify, ?int $cid = null): stri
         audit('backup.gdrive_error', mb_substr($msg, 0, 400), $cid);
         if ($notify && ($cid ? setting_get(gk('cbackup_notify', $cid), '1') : setting_get('backup_notify', '1')) === '1') {
             $to = $cid ? company_recipients($cid) : (array)cfg('mail.admin_recipients', []);
-            send_mail($to, 'Datensicherung: Upload nach Google Drive fehlgeschlagen',
-                "Die Sicherung $name wurde erstellt, konnte aber nicht nach Google Drive hochgeladen werden.\n\nFehler: $msg\n\n"
-                . 'Bitte im Portal unter „Datensicherung“ prüfen: ' . rtrim((string)cfg('base_url', ''), '/') . '/index.php?r=' . ($cid ? 'company_backups' : 'backups'), $cid);
+            send_mail_t($to, fn() => [t('Datensicherung: Upload nach Google Drive fehlgeschlagen'), t("Die Sicherung {name} wurde erstellt, konnte aber nicht nach Google Drive hochgeladen werden.\n\nFehler: {msg}\n\n", ['name' => $name, 'msg' => $msg])
+                . t('Bitte im Portal unter „Datensicherung“ prüfen: ') . rtrim((string)cfg('base_url', ''), '/') . '/index.php?r=' . ($cid ? 'company_backups' : 'backups')], $cid);
         }
-        return 'Upload nach Google Drive fehlgeschlagen: ' . $msg;
+        return t('Upload nach Google Drive fehlgeschlagen: ') . $msg;
     }
 }
 
@@ -482,35 +487,35 @@ function gdrive_card(?int $cid, string $actionUrl): void
     };
     ?>
     <div class="card">
-        <h2>Google Drive</h2>
+        <h2><?= e(t('Google Drive')) ?></h2>
         <?php if (!$drive): ?>
-            <p>Sicherungen zusätzlich automatisch in <?= $cid ? 'Ihr eigenes' : 'Ihr' ?> Google Drive hochladen – damit liegen sie auch außerhalb des Webspace. Ohne Google Cloud Console und ohne API-Schlüssel: Ein kleines Skript im Google-Konto nimmt die Sicherungen an.</p>
+            <p><?= e(t('Sicherungen zusätzlich automatisch in')) ?> <?= $cid ? t('Ihr eigenes') : t('Ihr') ?> <?= e(t('Google Drive hochladen – damit liegen sie auch außerhalb des Webspace. Ohne Google Cloud Console und ohne API-Schlüssel: Ein kleines Skript im Google-Konto nimmt die Sicherungen an.')) ?></p>
             <ol>
-                <li>Mit dem gewünschten Google-Konto auf <a href="https://script.google.com/create" target="_blank" rel="noopener noreferrer">script.google.com ↗</a> ein neues Projekt anlegen, den vorhandenen Code löschen und diesen Code einfügen:
-                    <textarea readonly rows="8" class="code" aria-label="Skript-Code"><?= e(gdrive_script_code($cid)) ?></textarea></li>
-                <li>Speichern. Oben die Funktion <em>autorisieren</em> auswählen, <em>Ausführen</em> klicken und den Zugriff erlauben (bei „Google hat diese App nicht überprüft“: <em>Erweitert › Zu … wechseln</em>, dann alle Häkchen setzen).</li>
-                <li><em>Bereitstellen › Neue Bereitstellung › Typ: Web-App</em>, „Ausführen als: Ich“, „Zugriff: Jeder“, <em>Bereitstellen</em>.</li>
-                <li>Die angezeigte Web-App-URL hier einfügen. Der Schlüssel daneben muss mit <code>SECRET</code> im Skript übereinstimmen (beim Code oben ist er bereits richtig):</li>
+                <li><?= e(t('Mit dem gewünschten Google-Konto auf')) ?> <a href="https://script.google.com/create" target="_blank" rel="noopener noreferrer"><?= e(t('script.google.com ↗')) ?></a> <?= e(t('ein neues Projekt anlegen, den vorhandenen Code löschen und diesen Code einfügen:')) ?>
+                    <textarea readonly rows="8" class="code" aria-label="<?= e(t('Skript-Code')) ?>"><?= e(gdrive_script_code($cid)) ?></textarea></li>
+                <li><?= e(t('Speichern. Oben die Funktion')) ?> <em>autorisieren</em> <?= e(t('auswählen,')) ?> <em><?= e(t('Ausführen')) ?></em> <?= e(t('klicken und den Zugriff erlauben (bei „Google hat diese App nicht überprüft“:')) ?> <em><?= e(t('Erweitert › Zu … wechseln')) ?></em><?= e(t(', dann alle Häkchen setzen).')) ?></li>
+                <li><em><?= e(t('Bereitstellen › Neue Bereitstellung › Typ: Web-App')) ?></em><?= e(t(', „Ausführen als: Ich“, „Zugriff: Jeder“,')) ?> <em><?= e(t('Bereitstellen')) ?></em>.</li>
+                <li><?= e(t('Die angezeigte Web-App-URL hier einfügen. Der Schlüssel daneben muss mit')) ?> <code>SECRET</code> <?= e(t('im Skript übereinstimmen (beim Code oben ist er bereits richtig):')) ?></li>
             </ol>
             <?= $form('gdrive_connect', '', 'inline-form') ?>
-                <input name="url" placeholder="https://script.google.com/macros/s/…/exec" aria-label="Web-App-URL" required>
-                <input name="secret" value="<?= e(gdrive_secret($cid)) ?>" pattern="[a-fA-F0-9]{32,64}" aria-label="Schlüssel (SECRET im Skript)" title="Schlüssel – muss mit SECRET im Skript übereinstimmen">
-                <button class="btn primary">Verbinden &amp; testen</button></form>
-            <p class="muted small">Das Skript läuft im Google-Konto und nimmt nur Anfragen mit diesem Schlüssel an. Größe je Sicherung bis <?= e(backup_fmt_size(GDRIVE_MAX_BYTES)) ?>.</p>
+                <input name="url" placeholder="https://script.google.com/macros/s/…/exec" aria-label="<?= e(t('Web-App-URL')) ?>" required>
+                <input name="secret" value="<?= e(gdrive_secret($cid)) ?>" pattern="[a-fA-F0-9]{32,64}" aria-label="<?= e(t('Schlüssel (SECRET im Skript)')) ?>" title="<?= e(t('Schlüssel – muss mit SECRET im Skript übereinstimmen')) ?>">
+                <button class="btn primary"><?= e(t('Verbinden & testen')) ?></button></form>
+            <p class="muted small"><?= e(t('Das Skript läuft im Google-Konto und nimmt nur Anfragen mit diesem Schlüssel an. Größe je Sicherung bis')) ?> <?= e(backup_fmt_size(GDRIVE_MAX_BYTES)) ?>.</p>
         <?php else: ?>
-            <p>Verbunden<?= gdrive_get('gdrive_email', $cid) !== '' ? ' mit <strong>' . e(gdrive_get('gdrive_email', $cid)) . '</strong>' : '' ?> · Ordner „<?= e(gdrive_folder_name($cid)) ?>“
-                <?php if (gdrive_get('gdrive_folder_url', $cid) !== ''): ?>(<a href="<?= e(gdrive_get('gdrive_folder_url', $cid)) ?>" target="_blank" rel="noopener noreferrer">in Drive öffnen ↗</a>)<?php endif; ?>
-                · letzter Upload: <?= gdrive_get('gdrive_last_upload', $cid) !== '' ? fmt_dt(gdrive_get('gdrive_last_upload', $cid)) : '–' ?></p>
+            <p><?= e(t('Verbunden')) ?><?= gdrive_get('gdrive_email', $cid) !== '' ? (' ' . e(t('mit')) . ' <strong>') . e(gdrive_get('gdrive_email', $cid)) . '</strong>' : '' ?> <?= e(t('· Ordner „')) ?><?= e(gdrive_folder_name($cid)) ?>“
+                <?php if (gdrive_get('gdrive_folder_url', $cid) !== ''): ?>(<a href="<?= e(gdrive_get('gdrive_folder_url', $cid)) ?>" target="_blank" rel="noopener noreferrer"><?= e(t('in Drive öffnen ↗')) ?></a>)<?php endif; ?>
+                <?= e(t('· letzter Upload:')) ?> <?= gdrive_get('gdrive_last_upload', $cid) !== '' ? fmt_dt(gdrive_get('gdrive_last_upload', $cid)) : '–' ?></p>
             <?= $form('gdrive_settings', '', 'form') ?>
-                <label class="check"><input type="checkbox" name="enabled" value="1" <?= gdrive_get('gdrive_enabled', $cid, '1') === '1' ? 'checked' : '' ?>> Jede neue Sicherung (automatisch und manuell) nach Google Drive hochladen</label>
+                <label class="check"><input type="checkbox" name="enabled" value="1" <?= gdrive_get('gdrive_enabled', $cid, '1') === '1' ? 'checked' : '' ?>> <?= e(t('Jede neue Sicherung (automatisch und manuell) nach Google Drive hochladen')) ?></label>
                 <div class="grid2">
-                    <label>Ordner in Google Drive<input name="folder" maxlength="100" value="<?= e(gdrive_folder_name($cid)) ?>"></label>
-                    <label>Automatische Sicherungen in Drive behalten<input type="number" name="keep" min="1" max="365" value="<?= (int)gdrive_get('gdrive_keep', $cid, (string)GDRIVE_KEEP_DEFAULT) ?>"></label>
+                    <label><?= e(t('Ordner in Google Drive')) ?><input name="folder" maxlength="100" value="<?= e(gdrive_folder_name($cid)) ?>"></label>
+                    <label><?= e(t('Automatische Sicherungen in Drive behalten')) ?><input type="number" name="keep" min="1" max="365" value="<?= (int)gdrive_get('gdrive_keep', $cid, (string)GDRIVE_KEEP_DEFAULT) ?>"></label>
                 </div>
-                <button class="btn primary">Speichern</button>
+                <button class="btn primary"><?= e(t('Speichern')) ?></button>
             </form>
             <?= $form('gdrive_disconnect') ?>
-                <button class="btn small danger" data-confirm="Verbindung zu Google Drive trennen? Die Sicherungen in Drive bleiben erhalten.">Verbindung trennen</button></form>
+                <button class="btn small danger" data-confirm="<?= e(t('Verbindung zu Google Drive trennen? Die Sicherungen in Drive bleiben erhalten.')) ?>"><?= e(t('Verbindung trennen')) ?></button></form>
         <?php endif; ?>
     </div>
     <?php
@@ -522,13 +527,13 @@ function gdrive_handle_post(string $action, ?int $cid, string $dir): bool
     if ($action === 'gdrive_connect') {
         try {
             $d = gdrive_connect(trim((string)post('url')), strtolower(trim((string)post('secret'))), $cid);
-            flash('success', 'Google Drive' . (!empty($d['email']) ? ' (' . $d['email'] . ')' : '') . ' ist verbunden. Neue Sicherungen werden in den Ordner „' . gdrive_folder_name($cid) . '“ hochgeladen.');
+            flash('success', t('Google Drive') . (!empty($d['email']) ? ' (' . $d['email'] . ')' : '') . t(' ist verbunden. Neue Sicherungen werden in den Ordner „') . gdrive_folder_name($cid) . t('“ hochgeladen.'));
         } catch (Throwable $ex) {
             flash('error', $ex->getMessage());
         }
     } elseif ($action === 'gdrive_disconnect') {
         gdrive_disconnect($cid);
-        flash('success', 'Google Drive wurde getrennt. Die Sicherungen in Drive bleiben erhalten. Das bisherige Skript ist ungültig; zum erneuten Verbinden den neuen Skript-Code verwenden.');
+        flash('success', t('Google Drive wurde getrennt. Die Sicherungen in Drive bleiben erhalten. Das bisherige Skript ist ungültig; zum erneuten Verbinden den neuen Skript-Code verwenden.'));
     } elseif ($action === 'gdrive_settings') {
         gdrive_set('gdrive_enabled', $cid, post('enabled') === '1' ? '1' : '0');
         gdrive_set('gdrive_keep', $cid, (string)min(365, max(1, (int)post('keep', GDRIVE_KEEP_DEFAULT))));
@@ -537,17 +542,17 @@ function gdrive_handle_post(string $action, ?int $cid, string $dir): bool
             gdrive_set('gdrive_folder_name', $cid, mb_substr($folder, 0, 100)); // das Skript legt den Ordner beim nächsten Upload an
             gdrive_set('gdrive_folder_url', $cid, '');
         }
-        flash('success', 'Einstellungen für Google Drive gespeichert.');
+        flash('success', t('Einstellungen für Google Drive gespeichert.'));
     } elseif ($action === 'gdrive_upload') {
         $name = basename((string)post('name'));
         $f = $dir . '/' . $name;
         if (!preg_match('/^[A-Za-z0-9_.-]+\.(zip|sql\.gz)$/', $name) || !is_file($f)) {
-            flash('error', 'Sicherung nicht gefunden.');
+            flash('error', t('Sicherung nicht gefunden.'));
             return true;
         }
         try {
             gdrive_upload($f, $cid);
-            flash('success', $name . ' wurde nach Google Drive hochgeladen.');
+            flash('success', $name . t(' wurde nach Google Drive hochgeladen.'));
         } catch (Throwable $ex) {
             gdrive_set('gdrive_last_error', $cid, now() . ' – ' . $ex->getMessage());
             flash('error', $ex->getMessage());
@@ -637,22 +642,22 @@ function cbackup_create(int $cid, string $kind): string
 {
     @set_time_limit(600);
     $co = row('SELECT id, name FROM companies WHERE id = ?', [$cid]);
-    if (!$co) throw new RuntimeException('Firma nicht gefunden.');
-    if (!class_exists('ZipArchive')) throw new RuntimeException('Der Server unterstützt keine ZIP-Archive.');
+    if (!$co) throw new RuntimeException(t('Firma nicht gefunden.'));
+    if (!class_exists('ZipArchive')) throw new RuntimeException(t('Der Server unterstützt keine ZIP-Archive.'));
     $data = cbackup_data($cid);
     $dir = cbackup_dir($cid);
     $file = $dir . '/firma-' . $cid . '-' . date('Y-m-d_His') . '-' . ($kind === 'auto' ? 'auto' : 'manuell') . '-' . bin2hex(random_bytes(4)) . '.zip';
     $zip = new ZipArchive();
-    if ($zip->open($file . '.tmp', ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('ZIP-Archiv konnte nicht angelegt werden.');
+    if ($zip->open($file . '.tmp', ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException(t('ZIP-Archiv konnte nicht angelegt werden.'));
     $zip->addFromString('daten.json', json_encode(['format' => 'kundenportal-firma', 'version' => 1, 'schema' => defined('SCHEMA_VERSION') ? SCHEMA_VERSION : null,
         'exported_at' => date('c'), 'company' => $co['name'], 'tables' => $data], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
     $zip->addFromString('kunden.csv', cbackup_csv(array_map(function ($r) { unset($r['company_id']); return $r; }, $data['customers'])));
     $zip->addFromString('LIESMICH.txt', "Datensicherung „{$co['name']}“ vom " . date('d.m.Y H:i') . "\r\n\r\n"
-        . "daten.json   alle Daten der Firma im Kundenportal: Firmenprofil, Benutzer (ohne Passwörter), Abteilungen,\r\n"
-        . "             Positionen, Aufträge, Formulare mit Ordnern, Briefköpfe/Fußzeilen, Logo, Kundenfelder und Kunden\r\n"
-        . "kunden.csv   Kundendatenbank zum Öffnen in Excel (Trennzeichen Semikolon)\r\n\r\n"
-        . "Zur Wiederherstellung wenden Sie sich bitte an Ihren IT-Dienstleister.\r\n");
-    if (!$zip->close()) throw new RuntimeException('ZIP-Archiv konnte nicht geschrieben werden (Speicherplatz?).');
+        . t("daten.json   alle Daten der Firma im Kundenportal: Firmenprofil, Benutzer (ohne Passwörter), Abteilungen,\n")
+        . t("             Positionen, Aufträge, Formulare mit Ordnern, Briefköpfe/Fußzeilen, Logo, Kundenfelder und Kunden\n")
+        . t("kunden.csv   Kundendatenbank zum Öffnen in Excel (Trennzeichen Semikolon)\n\n")
+        . t("Zur Wiederherstellung wenden Sie sich bitte an Ihren IT-Dienstleister.\n"));
+    if (!$zip->close()) throw new RuntimeException(t('ZIP-Archiv konnte nicht geschrieben werden (Speicherplatz?).'));
     rename($file . '.tmp', $file);
     @chmod($file, 0640);
     setting_set(gk('cbackup_last_' . ($kind === 'auto' ? 'auto' : 'manual'), $cid), now());

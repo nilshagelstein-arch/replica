@@ -14,7 +14,7 @@ require __DIR__ . '/app/bootstrap.php';
 $cli = PHP_SAPI === 'cli';
 if (!is_file(APP_DIR . '/data/installed.lock')) {
     if (!$cli) http_response_code(503);
-    exit("Portal ist noch nicht installiert.\n");
+    exit(t("Portal ist noch nicht installiert.\n"));
 }
 require APP_DIR . '/schema.php';
 require APP_DIR . '/backup.php';
@@ -27,7 +27,7 @@ if (!$cli) {
     $expected = setting_get('backup_cron_token');
     if ($expected === '' || !hash_equals($expected, $token)) {
         http_response_code(403);
-        exit("Zugriff verweigert.\n");
+        exit(t("Zugriff verweigert.\n"));
     }
 }
 
@@ -39,7 +39,7 @@ if (!$cli) {
     ignore_user_abort(true);
     @set_time_limit(900);
     if (function_exists('fastcgi_finish_request')) {
-        echo "OK – Sicherung wird ausgeführt.\n";
+        echo t("OK – Sicherung wird ausgeführt.\n");
         fastcgi_finish_request();
         backup_daily($force);
         exit;

@@ -78,12 +78,12 @@ function render_app_shell(string $title, callable $content, string $bodyClass, a
 {
     $flashes = take_flashes();
     ?><!DOCTYPE html>
-<html lang="de">
+<html lang="<?= e(current_lang()) ?>">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title><?= e($title) ?> · <?= e(cfg('app_name', 'Kundenportal')) ?></title>
+<title><?= e($title) ?> · <?= e(t(cfg('app_name', 'Kundenportal'))) ?></title>
 <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/style.css">
 </head>
@@ -92,6 +92,7 @@ function render_app_shell(string $title, callable $content, string $bodyClass, a
     <div class="toast <?= e($type) ?>" role="status"><?= e($msg) ?></div>
 <?php endforeach; ?>
 <?php $content(); ?>
+<script src="index.php?r=i18n_js&amp;l=<?= e(current_lang()) ?>"></script>
 <script src="assets/app.js"></script>
 <?php foreach ($scripts as $s): ?><script src="assets/<?= e($s) ?>"></script><?php endforeach; ?>
 </body>
@@ -128,187 +129,187 @@ function render_word_editor(int $cid, array $regions, array $page, string $mode,
     ?>
     <div class="word" data-word data-mode="<?= e($mode) ?>">
         <div class="rb-tabs" role="tablist">
-            <button type="button" class="rb-tab active" data-tab="start" role="tab">Start</button>
-            <button type="button" class="rb-tab" data-tab="insert" role="tab">Einfügen</button>
-            <button type="button" class="rb-tab" data-tab="fields" role="tab">Felder</button>
-            <?php if ($isForm): ?><button type="button" class="rb-tab" data-tab="layout" role="tab">Layout</button><?php endif; ?>
-            <button type="button" class="rb-tab rb-tab-ctx" data-tab="table" role="tab" hidden>Tabelle</button>
+            <button type="button" class="rb-tab active" data-tab="start" role="tab"><?= e(t('Start')) ?></button>
+            <button type="button" class="rb-tab" data-tab="insert" role="tab"><?= e(t('Einfügen')) ?></button>
+            <button type="button" class="rb-tab" data-tab="fields" role="tab"><?= e(t('Felder')) ?></button>
+            <?php if ($isForm): ?><button type="button" class="rb-tab" data-tab="layout" role="tab"><?= e(t('Layout')) ?></button><?php endif; ?>
+            <button type="button" class="rb-tab rb-tab-ctx" data-tab="table" role="tab" hidden><?= e(t('Tabelle')) ?></button>
         </div>
         <div class="ribbon">
             <!-- Start -->
             <div class="rb-panel active" data-panel="start">
-                <?= rb_group('Bearbeiten', rb_btn('undo', 'Rückgängig', ['cmd' => 'undo']) . rb_btn('redo', 'Wiederholen', ['cmd' => 'redo']) . rb_btn('clear', 'Format löschen', ['cmd' => 'removeFormat'])) ?>
+                <?= rb_group(t('Bearbeiten'), rb_btn('undo', t('Rückgängig'), ['cmd' => 'undo']) . rb_btn('redo', t('Wiederholen'), ['cmd' => 'redo']) . rb_btn('clear', t('Format löschen'), ['cmd' => 'removeFormat'])) ?>
                 <div class="rb-group"><div class="rb-items rb-font">
                     <div class="rb-row">
-                        <select data-font aria-label="Schriftart"><?= $fontOpts ?></select>
-                        <input data-size list="kp-sizes" aria-label="Schriftgröße in Punkt" value="11" inputmode="decimal">
+                        <select data-font aria-label="<?= e(t('Schriftart')) ?>"><?= $fontOpts ?></select>
+                        <input data-size list="kp-sizes" aria-label="<?= e(t('Schriftgröße in Punkt')) ?>" value="11" inputmode="decimal">
                         <datalist id="kp-sizes"><?= $sizeOpts ?></datalist>
-                        <button type="button" class="rb rb-sm" data-size-step="1" title="Schrift vergrößern"><b>A</b><sup>+</sup></button>
-                        <button type="button" class="rb rb-sm" data-size-step="-1" title="Schrift verkleinern"><b>A</b><sup>−</sup></button>
+                        <button type="button" class="rb rb-sm" data-size-step="1" title="<?= e(t('Schrift vergrößern')) ?>"><b>A</b><sup>+</sup></button>
+                        <button type="button" class="rb rb-sm" data-size-step="-1" title="<?= e(t('Schrift verkleinern')) ?>"><b>A</b><sup>−</sup></button>
                     </div>
                     <div class="rb-row">
-                        <button type="button" class="rb rb-sm" data-cmd="bold" title="Fett (Strg+B)"><b>F</b></button>
-                        <button type="button" class="rb rb-sm" data-cmd="italic" title="Kursiv (Strg+I)"><i>K</i></button>
-                        <button type="button" class="rb rb-sm" data-cmd="underline" title="Unterstrichen (Strg+U)"><u>U</u></button>
-                        <button type="button" class="rb rb-sm" data-cmd="strikeThrough" title="Durchgestrichen"><s>ab</s></button>
-                        <button type="button" class="rb rb-sm" data-cmd="superscript" title="Hochgestellt">x<sup>2</sup></button>
-                        <button type="button" class="rb rb-sm" data-cmd="subscript" title="Tiefgestellt">x<sub>2</sub></button>
-                        <span class="rb-split"><button type="button" class="rb rb-sm" data-color-apply="fore" title="Schriftfarbe"><span class="glyph-a">A</span><span class="color-bar" data-bar="fore"></span></button><button type="button" class="rb rb-drop" data-pop="pop-fore" title="Schriftfarbe wählen"><?= ic('chevron') ?></button>
+                        <button type="button" class="rb rb-sm" data-cmd="bold" title="<?= e(t('Fett (Strg+B)')) ?>"><b>F</b></button>
+                        <button type="button" class="rb rb-sm" data-cmd="italic" title="<?= e(t('Kursiv (Strg+I)')) ?>"><i>K</i></button>
+                        <button type="button" class="rb rb-sm" data-cmd="underline" title="<?= e(t('Unterstrichen (Strg+U)')) ?>"><u>U</u></button>
+                        <button type="button" class="rb rb-sm" data-cmd="strikeThrough" title="<?= e(t('Durchgestrichen')) ?>"><s><?= e(t('ab')) ?></s></button>
+                        <button type="button" class="rb rb-sm" data-cmd="superscript" title="<?= e(t('Hochgestellt')) ?>"><?= e(t('x')) ?><sup>2</sup></button>
+                        <button type="button" class="rb rb-sm" data-cmd="subscript" title="<?= e(t('Tiefgestellt')) ?>"><?= e(t('x')) ?><sub>2</sub></button>
+                        <span class="rb-split"><button type="button" class="rb rb-sm" data-color-apply="fore" title="<?= e(t('Schriftfarbe')) ?>"><span class="glyph-a">A</span><span class="color-bar" data-bar="fore"></span></button><button type="button" class="rb rb-drop" data-pop="pop-fore" title="<?= e(t('Schriftfarbe wählen')) ?>"><?= ic('chevron') ?></button>
                             <div class="pop palette" id="pop-fore" data-palette="fore"></div></span>
-                        <span class="rb-split"><button type="button" class="rb rb-sm" data-color-apply="back" title="Texthervorhebung"><span class="glyph-hl">ab</span><span class="color-bar" data-bar="back"></span></button><button type="button" class="rb rb-drop" data-pop="pop-back" title="Hervorhebungsfarbe wählen"><?= ic('chevron') ?></button>
+                        <span class="rb-split"><button type="button" class="rb rb-sm" data-color-apply="back" title="<?= e(t('Texthervorhebung')) ?>"><span class="glyph-hl"><?= e(t('ab')) ?></span><span class="color-bar" data-bar="back"></span></button><button type="button" class="rb rb-drop" data-pop="pop-back" title="<?= e(t('Hervorhebungsfarbe wählen')) ?>"><?= ic('chevron') ?></button>
                             <div class="pop palette" id="pop-back" data-palette="back"></div></span>
                     </div>
-                </div><div class="rb-label">Schriftart</div></div>
+                </div><div class="rb-label"><?= e(t('Schriftart')) ?></div></div>
                 <div class="rb-group"><div class="rb-items rb-font">
                     <div class="rb-row">
-                        <button type="button" class="rb rb-sm" data-cmd="insertUnorderedList" title="Aufzählung"><?= ic('list-ul') ?></button>
-                        <button type="button" class="rb rb-sm" data-cmd="insertOrderedList" title="Nummerierung"><?= ic('list-ol') ?></button>
-                        <button type="button" class="rb rb-sm" data-indent="-1" title="Einzug verkleinern"><?= ic('outdent') ?></button>
-                        <button type="button" class="rb rb-sm" data-indent="1" title="Einzug vergrößern"><?= ic('indent') ?></button>
+                        <button type="button" class="rb rb-sm" data-cmd="insertUnorderedList" title="<?= e(t('Aufzählung')) ?>"><?= ic('list-ul') ?></button>
+                        <button type="button" class="rb rb-sm" data-cmd="insertOrderedList" title="<?= e(t('Nummerierung')) ?>"><?= ic('list-ol') ?></button>
+                        <button type="button" class="rb rb-sm" data-indent="-1" title="<?= e(t('Einzug verkleinern')) ?>"><?= ic('outdent') ?></button>
+                        <button type="button" class="rb rb-sm" data-indent="1" title="<?= e(t('Einzug vergrößern')) ?>"><?= ic('indent') ?></button>
                     </div>
                     <div class="rb-row">
-                        <button type="button" class="rb rb-sm" data-align="left" title="Linksbündig (Strg+L)"><?= ic('al-left') ?></button>
-                        <button type="button" class="rb rb-sm" data-align="center" title="Zentriert (Strg+E)"><?= ic('al-center') ?></button>
-                        <button type="button" class="rb rb-sm" data-align="right" title="Rechtsbündig (Strg+R)"><?= ic('al-right') ?></button>
-                        <button type="button" class="rb rb-sm" data-align="justify" title="Blocksatz (Strg+J)"><?= ic('al-justify') ?></button>
-                        <span class="rb-split"><button type="button" class="rb rb-sm" data-pop="pop-spacing" title="Zeilen- und Absatzabstand"><?= ic('spacing') ?><?= ic('chevron') ?></button>
+                        <button type="button" class="rb rb-sm" data-align="left" title="<?= e(t('Linksbündig (Strg+L)')) ?>"><?= ic('al-left') ?></button>
+                        <button type="button" class="rb rb-sm" data-align="center" title="<?= e(t('Zentriert (Strg+E)')) ?>"><?= ic('al-center') ?></button>
+                        <button type="button" class="rb rb-sm" data-align="right" title="<?= e(t('Rechtsbündig (Strg+R)')) ?>"><?= ic('al-right') ?></button>
+                        <button type="button" class="rb rb-sm" data-align="justify" title="<?= e(t('Blocksatz (Strg+J)')) ?>"><?= ic('al-justify') ?></button>
+                        <span class="rb-split"><button type="button" class="rb rb-sm" data-pop="pop-spacing" title="<?= e(t('Zeilen- und Absatzabstand')) ?>"><?= ic('spacing') ?><?= ic('chevron') ?></button>
                             <div class="pop menu" id="pop-spacing">
                                 <?php foreach (['1' => '1,0', '1.15' => '1,15', '1.4' => '1,4', '1.5' => '1,5', '2' => '2,0', '2.5' => '2,5'] as $v => $l): ?>
-                                    <button type="button" data-line-height="<?= $v ?>">Zeilenabstand <?= $l ?></button>
+                                    <button type="button" data-line-height="<?= $v ?>"><?= e(t('Zeilenabstand')) ?> <?= $l ?></button>
                                 <?php endforeach; ?>
-                                <hr><button type="button" data-para-space="6pt">Abstand nach Absatz: 6 pt</button>
-                                <button type="button" data-para-space="12pt">Abstand nach Absatz: 12 pt</button>
-                                <button type="button" data-para-space="0">Kein Abstand nach Absatz</button>
+                                <hr><button type="button" data-para-space="6pt"><?= e(t('Abstand nach Absatz: 6 pt')) ?></button>
+                                <button type="button" data-para-space="12pt"><?= e(t('Abstand nach Absatz: 12 pt')) ?></button>
+                                <button type="button" data-para-space="0"><?= e(t('Kein Abstand nach Absatz')) ?></button>
                             </div></span>
                     </div>
-                </div><div class="rb-label">Absatz</div></div>
+                </div><div class="rb-label"><?= e(t('Absatz')) ?></div></div>
                 <div class="rb-group"><div class="rb-items rb-styles">
-                    <button type="button" class="st-card" data-pstyle="p"><span class="st-normal">AaBbCc</span><small>Standard</small></button>
-                    <button type="button" class="st-card" data-pstyle="title"><span class="st-title">AaBb</span><small>Titel</small></button>
-                    <button type="button" class="st-card" data-pstyle="h1"><span class="st-h1">AaBbC</span><small>Überschrift 1</small></button>
-                    <button type="button" class="st-card" data-pstyle="h2"><span class="st-h2">AaBbCc</span><small>Überschrift 2</small></button>
-                    <button type="button" class="st-card" data-pstyle="h3"><span class="st-h3">AaBbCc</span><small>Überschrift 3</small></button>
-                    <button type="button" class="st-card" data-pstyle="quote"><span class="st-quote">AaBbCc</span><small>Zitat</small></button>
-                    <button type="button" class="st-card" data-pstyle="small"><span class="st-small">AaBbCcDd</span><small>Klein</small></button>
-                </div><div class="rb-label">Formatvorlagen</div></div>
+                    <button type="button" class="st-card" data-pstyle="p"><span class="st-normal"><?= e(t('AaBbCc')) ?></span><small><?= e(t('Standard')) ?></small></button>
+                    <button type="button" class="st-card" data-pstyle="title"><span class="st-title"><?= e(t('AaBb')) ?></span><small><?= e(t('Titel')) ?></small></button>
+                    <button type="button" class="st-card" data-pstyle="h1"><span class="st-h1"><?= e(t('AaBbC')) ?></span><small><?= e(t('Überschrift 1')) ?></small></button>
+                    <button type="button" class="st-card" data-pstyle="h2"><span class="st-h2"><?= e(t('AaBbCc')) ?></span><small><?= e(t('Überschrift 2')) ?></small></button>
+                    <button type="button" class="st-card" data-pstyle="h3"><span class="st-h3"><?= e(t('AaBbCc')) ?></span><small><?= e(t('Überschrift 3')) ?></small></button>
+                    <button type="button" class="st-card" data-pstyle="quote"><span class="st-quote"><?= e(t('AaBbCc')) ?></span><small><?= e(t('Zitat')) ?></small></button>
+                    <button type="button" class="st-card" data-pstyle="small"><span class="st-small"><?= e(t('AaBbCcDd')) ?></span><small><?= e(t('Klein')) ?></small></button>
+                </div><div class="rb-label"><?= e(t('Formatvorlagen')) ?></div></div>
             </div>
 
             <!-- Einfügen -->
             <div class="rb-panel" data-panel="insert">
                 <div class="rb-group"><div class="rb-items">
-                    <span class="rb-split"><button type="button" class="rb rb-big" data-pop="pop-table" title="Tabelle einfügen"><?= ic('table') ?><span>Tabelle</span></button>
-                        <div class="pop table-picker" id="pop-table"><div class="tp-grid" data-table-grid></div><div class="tp-label" data-table-label>Tabelle einfügen</div></div></span>
-                    <span class="rb-split"><button type="button" class="rb rb-big" data-pop="pop-calc" title="Tabelle mit Formeln wie in Excel"><?= ic('calc') ?><span>Rechentabelle</span></button>
+                    <span class="rb-split"><button type="button" class="rb rb-big" data-pop="pop-table" title="<?= e(t('Tabelle einfügen')) ?>"><?= ic('table') ?><span><?= e(t('Tabelle')) ?></span></button>
+                        <div class="pop table-picker" id="pop-table"><div class="tp-grid" data-table-grid></div><div class="tp-label" data-table-label><?= e(t('Tabelle einfügen')) ?></div></div></span>
+                    <span class="rb-split"><button type="button" class="rb rb-big" data-pop="pop-calc" title="<?= e(t('Tabelle mit Formeln wie in Excel')) ?>"><?= ic('calc') ?><span><?= e(t('Rechentabelle')) ?></span></button>
                         <div class="pop menu" id="pop-calc">
-                            <button type="button" data-calc-preset="positions"><strong>Positionen mit MwSt.</strong><br><small>Pos., Leistung, Menge, Einzelpreis, Gesamt, Netto, MwSt. 19 %, Brutto</small></button>
-                            <button type="button" data-calc-preset="hours"><strong>Stundenzettel</strong><br><small>Datum, Tätigkeit, Stunden, Summe</small></button>
-                            <button type="button" data-calc-preset="empty"><strong>Leeres Rechenblatt 5 × 4</strong><br><small>mit Spalten A–E wie in Excel</small></button>
+                            <button type="button" data-calc-preset="positions"><strong><?= e(t('Positionen mit MwSt.')) ?></strong><br><small><?= e(t('Pos., Leistung, Menge, Einzelpreis, Gesamt, Netto, MwSt. 19 %, Brutto')) ?></small></button>
+                            <button type="button" data-calc-preset="hours"><strong><?= e(t('Stundenzettel')) ?></strong><br><small><?= e(t('Datum, Tätigkeit, Stunden, Summe')) ?></small></button>
+                            <button type="button" data-calc-preset="empty"><strong><?= e(t('Leeres Rechenblatt 5 × 4')) ?></strong><br><small><?= e(t('mit Spalten A–E wie in Excel')) ?></small></button>
                         </div></span>
-                </div><div class="rb-label">Tabellen</div></div>
-                <?= rb_group('Bilder', rb_btn('image', 'Bild', ['insert' => 'image'], true) . rb_btn('logo', 'Logo', ['ph' => 'logo'], true, 'Logo der Firma (unter Einstellungen hinterlegt)')) ?>
-                <?= rb_group('Seiten', rb_btn('pagebreak', 'Seitenumbruch', ['insert' => 'pagebreak'], true) . rb_btn('hr', 'Linie', ['insert' => 'hr'], true)) ?>
+                </div><div class="rb-label"><?= e(t('Tabellen')) ?></div></div>
+                <?= rb_group(t('Bilder'), rb_btn('image', t('Bild'), ['insert' => 'image'], true) . rb_btn('logo', t('Logo'), ['ph' => 'logo'], true, t('Logo der Firma (unter Einstellungen hinterlegt)'))) ?>
+                <?= rb_group(t('Seiten'), rb_btn('pagebreak', t('Seitenumbruch'), ['insert' => 'pagebreak'], true) . rb_btn('hr', t('Linie'), ['insert' => 'hr'], true)) ?>
                 <div class="rb-group"><div class="rb-items">
-                    <?= rb_btn('link', 'Link', ['insert' => 'link'], true) ?>
-                    <?= rb_btn('sign', 'Unterschrift', ['insert' => 'signature'], true, 'Ort, Datum und Unterschriftslinie') ?>
-                    <?= rb_btn('calendar', 'Datum', ['ph' => 'datum'], true, 'Aktuelles Datum') ?>
-                    <span class="rb-split"><button type="button" class="rb rb-big" data-pop="pop-sym" title="Symbol einfügen"><?= ic('symbol') ?><span>Symbol</span></button>
+                    <?= rb_btn('link', t('Link'), ['insert' => 'link'], true) ?>
+                    <?= rb_btn('sign', t('Unterschrift'), ['insert' => 'signature'], true, t('Ort, Datum und Unterschriftslinie')) ?>
+                    <?= rb_btn('calendar', t('Datum'), ['ph' => 'datum'], true, t('Aktuelles Datum')) ?>
+                    <span class="rb-split"><button type="button" class="rb rb-big" data-pop="pop-sym" title="<?= e(t('Symbol einfügen')) ?>"><?= ic('symbol') ?><span><?= e(t('Symbol')) ?></span></button>
                         <div class="pop symbols" id="pop-sym"><?php foreach (['☐', '☒', '✓', '✗', '€', '§', '•', '–', '—', '→', '©', '®', '™', '°', '±', '×', '÷', '½', '¼', '²', '³', '„', '“', '‚', '‘', '»', '«', '…', '☎', '✉'] as $sym): ?><button type="button" data-symbol="<?= e($sym) ?>"><?= e($sym) ?></button><?php endforeach; ?></div></span>
-                </div><div class="rb-label">Text</div></div>
+                </div><div class="rb-label"><?= e(t('Text')) ?></div></div>
             </div>
 
             <!-- Felder -->
             <div class="rb-panel" data-panel="fields">
                 <div class="rb-group"><div class="rb-items">
-                    <?php foreach (['Kunde' => ['person', 'Kunde'], 'Eigene Firma' => ['building', 'Eigene Firma'], 'Allgemein' => ['ph', 'Allgemein']] as $group => [$icon, $label]): $pid = 'pop-ph-' . md5($group); ?>
+                    <?php foreach (['Kunde' => ['person', t('Kunde')], 'Eigene Firma' => ['building', t('Eigene Firma')], 'Allgemein' => ['ph', t('Allgemein')]] as $group => [$icon, $label]): $pid = 'pop-ph-' . md5($group); ?>
                         <span class="rb-split"><button type="button" class="rb rb-big" data-pop="<?= $pid ?>"><?= ic($icon) ?><span><?= e($label) ?> ▾</span></button>
                             <div class="pop menu ph-menu" id="<?= $pid ?>">
                                 <?php foreach ($catalog[$group] as $k => $l): ?><button type="button" data-ph="<?= e($k) ?>"><?= e($l) ?> <code>{{<?= e($k) ?>}}</code></button><?php endforeach; ?>
                             </div></span>
                     <?php endforeach; ?>
-                </div><div class="rb-label">Daten einsetzen</div></div>
+                </div><div class="rb-label"><?= e(t('Daten einsetzen')) ?></div></div>
                 <?php if ($isForm): ?>
-                <?= rb_group('Ausfüllfelder',
-                    rb_btn('f-text', 'Eingabefeld', ['field' => 'eingabe'], true, 'Einzeiliges Feld zum Ausfüllen')
-                    . rb_btn('f-multi', 'Textfeld', ['field' => 'text'], true, 'Mehrzeiliges Feld zum Ausfüllen')
-                    . rb_btn('f-num', 'Zahl', ['field' => 'zahl'], true, 'Zahlenfeld')
-                    . rb_btn('f-date', 'Datum', ['field' => 'datum'], true, 'Datumsfeld mit Kalender')
-                    . rb_btn('f-check', 'Ankreuzfeld', ['field' => 'ankreuzen'], true, 'Kästchen zum Ankreuzen')
-                    . rb_btn('f-select', 'Auswahlliste', ['field' => 'auswahl'], true, 'Liste mit festen Antworten')) ?>
+                <?= rb_group(t('Ausfüllfelder'),
+                    rb_btn('f-text', t('Eingabefeld'), ['field' => 'eingabe'], true, t('Einzeiliges Feld zum Ausfüllen'))
+                    . rb_btn('f-multi', t('Textfeld'), ['field' => 'text'], true, t('Mehrzeiliges Feld zum Ausfüllen'))
+                    . rb_btn('f-num', t('Zahl'), ['field' => 'zahl'], true, t('Zahlenfeld'))
+                    . rb_btn('f-date', t('Datum'), ['field' => 'datum'], true, t('Datumsfeld mit Kalender'))
+                    . rb_btn('f-check', t('Ankreuzfeld'), ['field' => 'ankreuzen'], true, t('Kästchen zum Ankreuzen'))
+                    . rb_btn('f-select', t('Auswahlliste'), ['field' => 'auswahl'], true, t('Liste mit festen Antworten'))) ?>
                 <?php endif; ?>
-                <div class="rb-group rb-hint"><div class="rb-items"><p>Grüne Felder werden beim Ausfüllen mit Daten aus der Kundendatenbank ersetzt.<?= $isForm ? '<br>Gelbe Felder füllt man direkt im Dokument aus.' : '' ?></p></div><div class="rb-label">Hinweis</div></div>
+                <div class="rb-group rb-hint"><div class="rb-items"><p><?= e(t('Grüne Felder werden beim Ausfüllen mit Daten aus der Kundendatenbank ersetzt.')) ?><?= $isForm ? ('<br>' . e(t('Gelbe Felder füllt man direkt im Dokument aus.'))) : '' ?></p></div><div class="rb-label"><?= e(t('Hinweis')) ?></div></div>
             </div>
 
             <!-- Layout -->
             <div class="rb-panel" data-panel="layout">
                 <div class="rb-group"><div class="rb-items">
-                    <span class="rb-split"><button type="button" class="rb rb-big" data-pop="pop-margins"><?= ic('margins') ?><span>Seitenränder ▾</span></button>
+                    <span class="rb-split"><button type="button" class="rb rb-big" data-pop="pop-margins"><?= ic('margins') ?><span><?= e(t('Seitenränder ▾')) ?></span></button>
                         <div class="pop menu" id="pop-margins">
-                            <button type="button" data-margins="20,20,15,25"><strong>Normal (DIN 5008)</strong><br><small>oben 20 · rechts 20 · unten 15 · links 25 mm</small></button>
-                            <button type="button" data-margins="12.7,12.7,12.7,12.7"><strong>Schmal</strong><br><small>alle Seiten 12,7 mm</small></button>
-                            <button type="button" data-margins="25,25,20,25"><strong>Mittel</strong><br><small>oben 25 · rechts 25 · unten 20 · links 25 mm</small></button>
-                            <button type="button" data-margins="25,30,25,30"><strong>Breit</strong><br><small>oben 25 · rechts 30 · unten 25 · links 30 mm</small></button>
-                            <hr><div class="margin-inputs"><label>oben <input type="number" step="0.5" min="0" max="60" data-margin="0"></label><label>rechts <input type="number" step="0.5" min="0" max="60" data-margin="1"></label>
-                                <label>unten <input type="number" step="0.5" min="0" max="60" data-margin="2"></label><label>links <input type="number" step="0.5" min="0" max="60" data-margin="3"></label></div>
+                            <button type="button" data-margins="20,20,15,25"><strong><?= e(t('Normal (DIN 5008)')) ?></strong><br><small><?= e(t('oben 20 · rechts 20 · unten 15 · links 25 mm')) ?></small></button>
+                            <button type="button" data-margins="12.7,12.7,12.7,12.7"><strong><?= e(t('Schmal')) ?></strong><br><small><?= e(t('alle Seiten 12,7 mm')) ?></small></button>
+                            <button type="button" data-margins="25,25,20,25"><strong><?= e(t('Mittel')) ?></strong><br><small><?= e(t('oben 25 · rechts 25 · unten 20 · links 25 mm')) ?></small></button>
+                            <button type="button" data-margins="25,30,25,30"><strong><?= e(t('Breit')) ?></strong><br><small><?= e(t('oben 25 · rechts 30 · unten 25 · links 30 mm')) ?></small></button>
+                            <hr><div class="margin-inputs"><label><?= e(t('oben')) ?> <input type="number" step="0.5" min="0" max="60" data-margin="0"></label><label><?= e(t('rechts')) ?> <input type="number" step="0.5" min="0" max="60" data-margin="1"></label>
+                                <label><?= e(t('unten')) ?> <input type="number" step="0.5" min="0" max="60" data-margin="2"></label><label><?= e(t('links')) ?> <input type="number" step="0.5" min="0" max="60" data-margin="3"></label></div>
                         </div></span>
-                </div><div class="rb-label">Seite einrichten</div></div>
+                </div><div class="rb-label"><?= e(t('Seite einrichten')) ?></div></div>
                 <div class="rb-group"><div class="rb-items rb-font">
-                    <div class="rb-row"><label class="rb-lbl">Schrift</label><select data-page-font aria-label="Grundschrift"><?= $fontOpts ?></select></div>
-                    <div class="rb-row"><label class="rb-lbl">Größe</label><input data-page-size list="kp-sizes" aria-label="Grundschriftgröße" inputmode="decimal" class="rb-num">
-                        <label class="rb-lbl">Zeilen</label><select data-page-ls aria-label="Zeilenabstand"><?php foreach (['1' => '1,0', '1.15' => '1,15', '1.4' => '1,4', '1.5' => '1,5', '2' => '2,0'] as $v => $l): ?><option value="<?= $v ?>"><?= $l ?></option><?php endforeach; ?></select></div>
-                </div><div class="rb-label">Grundschrift des Dokuments</div></div>
+                    <div class="rb-row"><label class="rb-lbl"><?= e(t('Schrift')) ?></label><select data-page-font aria-label="<?= e(t('Grundschrift')) ?>"><?= $fontOpts ?></select></div>
+                    <div class="rb-row"><label class="rb-lbl"><?= e(t('Größe')) ?></label><input data-page-size list="kp-sizes" aria-label="<?= e(t('Grundschriftgröße')) ?>" inputmode="decimal" class="rb-num">
+                        <label class="rb-lbl"><?= e(t('Zeilen')) ?></label><select data-page-ls aria-label="<?= e(t('Zeilenabstand')) ?>"><?php foreach (['1' => '1,0', '1.15' => '1,15', '1.4' => '1,4', '1.5' => '1,5', '2' => '2,0'] as $v => $l): ?><option value="<?= $v ?>"><?= $l ?></option><?php endforeach; ?></select></div>
+                </div><div class="rb-label"><?= e(t('Grundschrift des Dokuments')) ?></div></div>
                 <?php if ($isForm): ?>
                 <div class="rb-group"><div class="rb-items rb-font">
-                    <div class="rb-row"><?= ic('header') ?><select data-layout-select="header" aria-label="Briefkopf"><?php foreach ($extra['header_options'] as $id => $l): ?><option value="<?= (int)$id ?>"><?= e($l) ?></option><?php endforeach; ?></select>
-                        <?php if (!empty($extra['can_manage'])): ?><button type="button" class="rb rb-sm" data-hf-edit="header" title="Briefkopf direkt auf der Seite bearbeiten"><?= ic('edit') ?></button><?php endif; ?></div>
-                    <div class="rb-row"><?= ic('footer') ?><select data-layout-select="footer" aria-label="Fußzeile"><?php foreach ($extra['footer_options'] as $id => $l): ?><option value="<?= (int)$id ?>"><?= e($l) ?></option><?php endforeach; ?></select>
-                        <?php if (!empty($extra['can_manage'])): ?><button type="button" class="rb rb-sm" data-hf-edit="footer" title="Fußzeile direkt auf der Seite bearbeiten"><?= ic('edit') ?></button><?php endif; ?></div>
-                </div><div class="rb-label">Briefkopf &amp; Fußzeile</div></div>
+                    <div class="rb-row"><?= ic('header') ?><select data-layout-select="header" aria-label="<?= e(t('Briefkopf')) ?>"><?php foreach ($extra['header_options'] as $id => $l): ?><option value="<?= (int)$id ?>"><?= e($l) ?></option><?php endforeach; ?></select>
+                        <?php if (!empty($extra['can_manage'])): ?><button type="button" class="rb rb-sm" data-hf-edit="header" title="<?= e(t('Briefkopf direkt auf der Seite bearbeiten')) ?>"><?= ic('edit') ?></button><?php endif; ?></div>
+                    <div class="rb-row"><?= ic('footer') ?><select data-layout-select="footer" aria-label="<?= e(t('Fußzeile')) ?>"><?php foreach ($extra['footer_options'] as $id => $l): ?><option value="<?= (int)$id ?>"><?= e($l) ?></option><?php endforeach; ?></select>
+                        <?php if (!empty($extra['can_manage'])): ?><button type="button" class="rb rb-sm" data-hf-edit="footer" title="<?= e(t('Fußzeile direkt auf der Seite bearbeiten')) ?>"><?= ic('edit') ?></button><?php endif; ?></div>
+                </div><div class="rb-label"><?= e(t('Briefkopf & Fußzeile')) ?></div></div>
                 <div class="rb-group"><div class="rb-items rb-font">
-                    <div class="rb-row"><label class="rb-lbl">Ordner</label><select form="word-form" name="folder_id" aria-label="Ordner"><option value="0">(ohne Ordner)</option>
+                    <div class="rb-row"><label class="rb-lbl"><?= e(t('Ordner')) ?></label><select form="word-form" name="folder_id" aria-label="<?= e(t('Ordner')) ?>"><option value="0"><?= e(t('(ohne Ordner)')) ?></option>
                         <?php foreach (folder_options($cid) as $fid => $label): ?><option value="<?= $fid ?>" <?= (int)$extra['folder_id'] === $fid ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></div>
-                    <div class="rb-row"><label class="rb-lbl">Info</label><input form="word-form" name="description" value="<?= e($extra['description']) ?>" maxlength="500" placeholder="Kurzbeschreibung" class="rb-wide"></div>
-                </div><div class="rb-label">Eigenschaften</div></div>
+                    <div class="rb-row"><label class="rb-lbl"><?= e(t('Info')) ?></label><input form="word-form" name="description" value="<?= e($extra['description']) ?>" maxlength="500" placeholder="<?= e(t('Kurzbeschreibung')) ?>" class="rb-wide"></div>
+                </div><div class="rb-label"><?= e(t('Eigenschaften')) ?></div></div>
                 <?php endif; ?>
             </div>
 
             <!-- Tabellentools (kontextabhängig) -->
             <div class="rb-panel" data-panel="table">
-                <?= rb_group('Zeilen & Spalten',
-                    rb_btn('row-above', 'Oberhalb', ['tbl' => 'row-above'], true, 'Zeile oberhalb einfügen')
-                    . rb_btn('row-below', 'Unterhalb', ['tbl' => 'row-below'], true, 'Zeile unterhalb einfügen')
-                    . rb_btn('col-left', 'Links', ['tbl' => 'col-left'], true, 'Spalte links einfügen')
-                    . rb_btn('col-right', 'Rechts', ['tbl' => 'col-right'], true, 'Spalte rechts einfügen')
-                    . '<span class="rb-split"><button type="button" class="rb rb-big" data-pop="pop-tdel">' . ic('delete') . '<span>Löschen ▾</span></button><div class="pop menu" id="pop-tdel">'
-                    . '<button type="button" data-tbl="del-row">Zeilen löschen</button><button type="button" data-tbl="del-col">Spalten löschen</button><button type="button" data-tbl="del-table">Tabelle löschen</button></div></span>') ?>
-                <?= rb_group('Zusammenführen', rb_btn('merge', 'Verbinden', ['tbl' => 'merge'], true, 'Markierte Zellen verbinden') . rb_btn('split', 'Teilen', ['tbl' => 'split'], true, 'Verbundene Zelle wieder teilen')) ?>
+                <?= rb_group(t('Zeilen & Spalten'),
+                    rb_btn('row-above', t('Oberhalb'), ['tbl' => 'row-above'], true, t('Zeile oberhalb einfügen'))
+                    . rb_btn('row-below', t('Unterhalb'), ['tbl' => 'row-below'], true, t('Zeile unterhalb einfügen'))
+                    . rb_btn('col-left', t('Links'), ['tbl' => 'col-left'], true, t('Spalte links einfügen'))
+                    . rb_btn('col-right', t('Rechts'), ['tbl' => 'col-right'], true, t('Spalte rechts einfügen'))
+                    . '<span class="rb-split"><button type="button" class="rb rb-big" data-pop="pop-tdel">' . ic('delete') . ('<span>' . e(t('Löschen ▾')) . '</span></button><div class="pop menu" id="pop-tdel">')
+                    . ('<button type="button" data-tbl="del-row">' . e(t('Zeilen löschen')) . '</button><button type="button" data-tbl="del-col">' . e(t('Spalten löschen')) . '</button><button type="button" data-tbl="del-table">' . e(t('Tabelle löschen')) . '</button></div></span>')) ?>
+                <?= rb_group(t('Zusammenführen'), rb_btn('merge', t('Verbinden'), ['tbl' => 'merge'], true, t('Markierte Zellen verbinden')) . rb_btn('split', t('Teilen'), ['tbl' => 'split'], true, t('Verbundene Zelle wieder teilen'))) ?>
                 <div class="rb-group"><div class="rb-items">
-                    <span class="rb-split"><button type="button" class="rb rb-big" data-pop="pop-borders"><?= ic('border') ?><span>Rahmen ▾</span></button>
-                        <div class="pop menu" id="pop-borders"><button type="button" data-tbl="b-all">Alle Rahmenlinien</button><button type="button" data-tbl="b-outer">Rahmenlinien außen</button>
-                            <button type="button" data-tbl="b-bottom">Rahmenlinie unten</button><button type="button" data-tbl="b-top">Rahmenlinie oben</button><button type="button" data-tbl="b-none">Kein Rahmen</button></div></span>
-                    <span class="rb-split"><button type="button" class="rb rb-big" data-pop="pop-shade"><?= ic('fill') ?><span>Schattierung ▾</span></button>
+                    <span class="rb-split"><button type="button" class="rb rb-big" data-pop="pop-borders"><?= ic('border') ?><span><?= e(t('Rahmen ▾')) ?></span></button>
+                        <div class="pop menu" id="pop-borders"><button type="button" data-tbl="b-all"><?= e(t('Alle Rahmenlinien')) ?></button><button type="button" data-tbl="b-outer"><?= e(t('Rahmenlinien außen')) ?></button>
+                            <button type="button" data-tbl="b-bottom"><?= e(t('Rahmenlinie unten')) ?></button><button type="button" data-tbl="b-top"><?= e(t('Rahmenlinie oben')) ?></button><button type="button" data-tbl="b-none"><?= e(t('Kein Rahmen')) ?></button></div></span>
+                    <span class="rb-split"><button type="button" class="rb rb-big" data-pop="pop-shade"><?= ic('fill') ?><span><?= e(t('Schattierung ▾')) ?></span></button>
                         <div class="pop palette" id="pop-shade" data-palette="cell"></div></span>
-                </div><div class="rb-label">Rahmen</div></div>
+                </div><div class="rb-label"><?= e(t('Rahmen')) ?></div></div>
                 <div class="rb-group"><div class="rb-items rb-font">
-                    <div class="rb-row"><button type="button" class="rb rb-sm" data-tbl="v-top" title="Oben ausrichten"><?= ic('v-top') ?></button><button type="button" class="rb rb-sm" data-tbl="v-middle" title="Vertikal zentrieren"><?= ic('v-middle') ?></button><button type="button" class="rb rb-sm" data-tbl="v-bottom" title="Unten ausrichten"><?= ic('v-bottom') ?></button></div>
-                    <div class="rb-row"><button type="button" class="rb rb-sm" data-tbl="h-left" title="Links"><?= ic('al-left') ?></button><button type="button" class="rb rb-sm" data-tbl="h-center" title="Zentriert"><?= ic('al-center') ?></button><button type="button" class="rb rb-sm" data-tbl="h-right" title="Rechts"><?= ic('al-right') ?></button></div>
-                </div><div class="rb-label">Ausrichtung</div></div>
+                    <div class="rb-row"><button type="button" class="rb rb-sm" data-tbl="v-top" title="<?= e(t('Oben ausrichten')) ?>"><?= ic('v-top') ?></button><button type="button" class="rb rb-sm" data-tbl="v-middle" title="<?= e(t('Vertikal zentrieren')) ?>"><?= ic('v-middle') ?></button><button type="button" class="rb rb-sm" data-tbl="v-bottom" title="<?= e(t('Unten ausrichten')) ?>"><?= ic('v-bottom') ?></button></div>
+                    <div class="rb-row"><button type="button" class="rb rb-sm" data-tbl="h-left" title="<?= e(t('Links')) ?>"><?= ic('al-left') ?></button><button type="button" class="rb rb-sm" data-tbl="h-center" title="<?= e(t('Zentriert')) ?>"><?= ic('al-center') ?></button><button type="button" class="rb rb-sm" data-tbl="h-right" title="<?= e(t('Rechts')) ?>"><?= ic('al-right') ?></button></div>
+                </div><div class="rb-label"><?= e(t('Ausrichtung')) ?></div></div>
                 <div class="rb-group"><div class="rb-items">
-                    <?= rb_btn('sum', 'AutoSumme', ['tbl' => 'autosum'], true, 'Summe der Zahlen darüber (=SUMME)') ?>
-                    <?= rb_btn('fx', 'Formel', ['tbl' => 'formula'], true, 'Formel in der Formelleiste eingeben') ?>
+                    <?= rb_btn('sum', t('AutoSumme'), ['tbl' => 'autosum'], true, t('Summe der Zahlen darüber (=SUMME)')) ?>
+                    <?= rb_btn('fx', t('Formel'), ['tbl' => 'formula'], true, t('Formel in der Formelleiste eingeben')) ?>
                     <div class="rb-stack">
-                        <select data-number-format aria-label="Zahlenformat"><option value="">Standard</option><option value="zahl">Zahl (1.234,50)</option><option value="ganz">Ganzzahl</option><option value="euro">Währung (€)</option><option value="prozent">Prozent</option></select>
-                        <?php if ($isForm): ?><button type="button" class="rb rb-line" data-tbl="input" title="Zelle beim Ausfüllen beschreibbar machen"><?= ic('input-cell') ?><span>Eingabezelle</span></button>
-                        <button type="button" class="rb rb-line" data-tbl="grow" title="Beim Ausfüllen dürfen Zeilen ergänzt werden"><?= ic('grow') ?><span>Zeilen ergänzbar</span></button><?php endif; ?>
+                        <select data-number-format aria-label="<?= e(t('Zahlenformat')) ?>"><option value=""><?= e(t('Standard')) ?></option><option value="zahl"><?= e(t('Zahl (1.234,50)')) ?></option><option value="ganz"><?= e(t('Ganzzahl')) ?></option><option value="euro"><?= e(t('Währung (€)')) ?></option><option value="prozent"><?= e(t('Prozent')) ?></option></select>
+                        <?php if ($isForm): ?><button type="button" class="rb rb-line" data-tbl="input" title="<?= e(t('Zelle beim Ausfüllen beschreibbar machen')) ?>"><?= ic('input-cell') ?><span><?= e(t('Eingabezelle')) ?></span></button>
+                        <button type="button" class="rb rb-line" data-tbl="grow" title="<?= e(t('Beim Ausfüllen dürfen Zeilen ergänzt werden')) ?>"><?= ic('grow') ?><span><?= e(t('Zeilen ergänzbar')) ?></span></button><?php endif; ?>
                     </div>
-                </div><div class="rb-label">Rechnen</div></div>
-                <?= rb_group('Größe', rb_btn('widths', 'Gleich breit', ['tbl' => 'equal'], true, 'Spalten gleich breit machen')) ?>
+                </div><div class="rb-label"><?= e(t('Rechnen')) ?></div></div>
+                <?= rb_group(t('Größe'), rb_btn('widths', t('Gleich breit'), ['tbl' => 'equal'], true, t('Spalten gleich breit machen'))) ?>
             </div>
         </div>
 
         <div class="formula-bar">
             <span class="fb-name" data-fb-name>–</span>
             <span class="fb-fx"><?= ic('fx') ?></span>
-            <input data-fb-input placeholder="Zelle in einer Tabelle wählen, dann Wert oder Formel eingeben, z. B. =SUMME(E2:E4)" disabled aria-label="Formelleiste">
+            <input data-fb-input placeholder="<?= e(t('Zelle in einer Tabelle wählen, dann Wert oder Formel eingeben, z. B. =SUMME(E2:E4)')) ?>" disabled aria-label="<?= e(t('Formelleiste')) ?>">
         </div>
 
         <div class="canvas" data-canvas>
@@ -316,23 +317,23 @@ function render_word_editor(int $cid, array $regions, array $page, string $mode,
             <div class="page" data-page>
                 <?php foreach ($regions as $r): ?>
                     <?php if ($r['region'] !== 'body'): ?>
-                        <div class="hf-tag hf-tag-<?= e($r['region']) ?>"><?= $r['region'] === 'header' ? 'Briefkopf' : 'Fußzeile' ?><span data-hf-name="<?= e($r['region']) ?>"></span> · Doppelklick zum Bearbeiten</div>
+                        <div class="hf-tag hf-tag-<?= e($r['region']) ?>"><?= $r['region'] === 'header' ? t('Briefkopf') : t('Fußzeile') ?><span data-hf-name="<?= e($r['region']) ?>"></span> <?= e(t('· Doppelklick zum Bearbeiten')) ?></div>
                     <?php endif; ?>
                     <div class="region region-<?= e($r['region']) ?> doc-content<?= !empty($r['locked']) ? ' locked' : '' ?>" data-region="<?= e($r['region']) ?>"
-                         contenteditable="<?= empty($r['locked']) ? 'true' : 'false' ?>" spellcheck="true" lang="de"><?= $r['html'] ?: '<p><br></p>' ?></div>
+                         contenteditable="<?= empty($r['locked']) ? 'true' : 'false' ?>" spellcheck="true" lang="<?= e(current_lang()) ?>"><?= $r['html'] ?: '<p><br></p>' ?></div>
                 <?php endforeach; ?>
                 <div class="cell-heads" data-cell-heads hidden></div>
             </div>
         </div>
 
         <div class="statusbar">
-            <span data-st-pages>Seite 1 von 1</span>
-            <span data-st-words>0 Wörter</span>
+            <span data-st-pages><?= e(t('Seite 1 von 1')) ?></span>
+            <span data-st-words><?= e(t('0 Wörter')) ?></span>
             <span class="st-hint" data-st-hint></span>
             <span class="st-zoom">
-                <button type="button" class="rb rb-sm" data-zoom="-10" title="Verkleinern"><?= ic('zoom-out') ?></button>
-                <input type="range" min="50" max="200" step="10" value="100" data-zoom-range aria-label="Zoom">
-                <button type="button" class="rb rb-sm" data-zoom="10" title="Vergrößern"><?= ic('zoom-in') ?></button>
+                <button type="button" class="rb rb-sm" data-zoom="-10" title="<?= e(t('Verkleinern')) ?>"><?= ic('zoom-out') ?></button>
+                <input type="range" min="50" max="200" step="10" value="100" data-zoom-range aria-label="<?= e(t('Zoom')) ?>">
+                <button type="button" class="rb rb-sm" data-zoom="10" title="<?= e(t('Vergrößern')) ?>"><?= ic('zoom-in') ?></button>
                 <span data-zoom-label>100 %</span>
             </span>
         </div>
@@ -365,7 +366,7 @@ function page_form_edit(): void
 
     if (is_post()) {
         require_post_csrf();
-        $data['name'] = mb_substr(post('name'), 0, 190) ?: 'Neues Formular';
+        $data['name'] = mb_substr(post('name'), 0, 190) ?: t('Neues Formular');
         $data['description'] = mb_substr(post('description'), 0, 500);
         $data['body'] = sanitize_html((string)($_POST['body'] ?? ''));
         $folder = (int)post('folder_id', 0);
@@ -383,13 +384,13 @@ function page_form_edit(): void
                 if ($newName !== '') {
                     $v = insert('form_layouts', ['company_id' => $cid, 'kind' => $kind, 'name' => $newName, 'body' => $html, 'is_default' => 0,
                         'created_at' => now(), 'updated_at' => now()]);
-                    $notes[] = ($kind === 'header' ? 'Neuer Briefkopf' : 'Neue Fußzeile') . " „{$newName}“ wurde angelegt.";
+                    $notes[] = ($kind === 'header' ? t('Neuer Briefkopf') : t('Neue Fußzeile')) . t(' „{x}“ wurde angelegt.', ['x' => $newName]);
                 } else {
                     $target = $v > 0 ? row('SELECT * FROM form_layouts WHERE id = ?', [$v])
                         : row('SELECT * FROM form_layouts WHERE company_id = ? AND kind = ? ORDER BY is_default DESC, id LIMIT 1', [$cid, $kind]);
                     if ($target && $target['body'] !== $html) {
                         update('form_layouts', (int)$target['id'], ['body' => $html, 'updated_at' => now()]);
-                        $notes[] = ($kind === 'header' ? 'Briefkopf' : 'Fußzeile') . " „{$target['name']}“ wurde aktualisiert (gilt für alle Formulare, die ihn verwenden).";
+                        $notes[] = ($kind === 'header' ? t('Briefkopf') : t('Fußzeile')) . t(' „{x}“ wurde aktualisiert (gilt für alle Formulare, die ihn verwenden).', ['x' => $target['name']]);
                     }
                 }
             }
@@ -423,7 +424,7 @@ function page_form_edit(): void
         return $layouts[$kind][$lid]['body'] ?? '';
     };
     $page = page_settings($data['page_settings'] ?? null);
-    $title = $form ? $data['name'] : 'Neues Formular';
+    $title = $form ? $data['name'] : t('Neues Formular');
 
     render_app_shell($title, function () use ($cid, $form, $data, $layouts, $defaults, $resolve, $page, $canManage) {
         $back = furl('forms', $data['folder_id'] ? ['folder' => (int)$data['folder_id']] : []); ?>
@@ -436,21 +437,21 @@ function page_form_edit(): void
             <input type="hidden" name="page" value="">
         </form>
         <header class="word-title">
-            <a class="wt-back" href="<?= e($back) ?>" title="Zurück zu den Formularen"><?= ic('back') ?></a>
+            <a class="wt-back" href="<?= e($back) ?>" title="<?= e(t('Zurück zu den Formularen')) ?>"><?= ic('back') ?></a>
             <span class="wt-app">📝</span>
-            <input class="wt-name" form="word-form" name="name" value="<?= e($data['name']) ?>" placeholder="Name des Formulars" maxlength="190" required aria-label="Name des Formulars">
+            <input class="wt-name" form="word-form" name="name" value="<?= e($data['name']) ?>" placeholder="<?= e(t('Name des Formulars')) ?>" maxlength="190" required aria-label="<?= e(t('Name des Formulars')) ?>">
             <span class="wt-state" data-save-state></span>
             <span class="wt-actions">
-                <?php if ($form): ?><a class="wt-btn" href="<?= e(furl('form_use', ['id' => $form['id'], 'preview' => 1])) ?>" target="_blank" rel="noopener"><?= ic('print') ?> Vorschau</a><?php endif; ?>
-                <button class="wt-btn" form="word-form" name="next" value="use"><?= ic('edit') ?> Speichern &amp; ausfüllen</button>
-                <button class="wt-btn primary" form="word-form" title="Speichern (Strg+S)"><?= ic('save') ?> Speichern</button>
+                <?php if ($form): ?><a class="wt-btn" href="<?= e(furl('form_use', ['id' => $form['id'], 'preview' => 1])) ?>" target="_blank" rel="noopener"><?= ic('print') ?> <?= e(t('Vorschau')) ?></a><?php endif; ?>
+                <button class="wt-btn" form="word-form" name="next" value="use"><?= ic('edit') ?> <?= e(t('Speichern & ausfüllen')) ?></button>
+                <button class="wt-btn primary" form="word-form" title="<?= e(t('Speichern (Strg+S)')) ?>"><?= ic('save') ?> <?= e(t('Speichern')) ?></button>
             </span>
         </header>
         <?php
-        $hOpts = [0 => 'Standard der Firma', -1 => 'Ohne Briefkopf'];
-        foreach ($layouts['header'] as $lid => $l) $hOpts[$lid] = $l['name'];
-        $fOpts = [0 => 'Standard der Firma', -1 => 'Ohne Fußzeile'];
-        foreach ($layouts['footer'] as $lid => $l) $fOpts[$lid] = $l['name'];
+        $hOpts = [0 => t('Standard der Firma'), -1 => t('Ohne Briefkopf')];
+        foreach ($layouts['header'] as $lid => $l) $hOpts[$lid] = t($l['name']);
+        $fOpts = [0 => t('Standard der Firma'), -1 => t('Ohne Fußzeile')];
+        foreach ($layouts['footer'] as $lid => $l) $fOpts[$lid] = t($l['name']);
         render_word_editor($cid, [
             ['region' => 'header', 'html' => $resolve('header', (int)$data['header_id']), 'locked' => true],
             ['region' => 'body', 'html' => (string)$data['body']],
@@ -472,9 +473,9 @@ function page_form_edit(): void
 function sample_customer(int $cid): array
 {
     return row('SELECT * FROM customers WHERE company_id = ? ORDER BY id LIMIT 1', [$cid])
-        ?? ['customer_no' => '10001', 'company_name' => 'Musterfirma GmbH', 'salutation' => 'Frau', 'title' => '',
-            'first_name' => 'Erika', 'last_name' => 'Mustermann', 'street' => 'Musterstraße 1', 'zip' => '26122',
-            'city' => 'Oldenburg', 'country' => 'Deutschland', 'email' => 'erika@example.de', 'phone' => '0441 123456',
+        ?? ['customer_no' => '10001', 'company_name' => t('Musterfirma GmbH'), 'salutation' => 'Frau', 'title' => '',
+            'first_name' => t('Erika'), 'last_name' => t('Mustermann'), 'street' => t('Musterstraße 1'), 'zip' => '26122',
+            'city' => t('Oldenburg'), 'country' => t('Deutschland'), 'email' => 'erika@example.de', 'phone' => '0441 123456',
             'notes' => '', 'extra' => '{}'];
 }
 
@@ -487,7 +488,7 @@ function render_sheets(int $cid, array $form, array $customers, bool $interactiv
     $logo = logo_tag($cid);
     $page = page_settings($form['page_settings'] ?? null);
     $base = company_values($cid) + [
-        'datum' => date('d.m.Y'), 'datum.lang' => german_date_long(time()),
+        'datum' => date(lang_date_format()), 'datum.lang' => german_date_long(time()),
         'benutzer.name' => (string)$u['name'], 'benutzer.email' => (string)$u['email'],
     ];
     foreach ($customers as $i => $c) {
@@ -528,18 +529,18 @@ function page_form_use(): void
 
     render_app_shell($form['name'], function () use ($cid, $form, $preview, $needsCustomer, $selected, $sheets, $search, $total, $list, $ids) { ?>
         <header class="word-title fill-title">
-            <a class="wt-back" href="<?= e(furl('forms', $form['folder_id'] ? ['folder' => (int)$form['folder_id']] : [])) ?>" title="Zurück zu den Formularen"><?= ic('back') ?></a>
+            <a class="wt-back" href="<?= e(furl('forms', $form['folder_id'] ? ['folder' => (int)$form['folder_id']] : [])) ?>" title="<?= e(t('Zurück zu den Formularen')) ?>"><?= ic('back') ?></a>
             <span class="wt-app">📝</span>
-            <span class="wt-doc"><?= e($form['name']) ?><?= $preview ? ' <span class="tag warn">Vorschau mit Beispieldaten</span>' : '' ?></span>
+            <span class="wt-doc"><?= e($form['name']) ?><?= $preview ? (' <span class="tag warn">' . e(t('Vorschau mit Beispieldaten')) . '</span>') : '' ?></span>
             <span class="wt-actions">
                 <?php if ($needsCustomer && !$preview): ?>
                     <button type="button" class="wt-btn" data-pop="pop-customers"><?= ic('users') ?>
-                        <?= $selected ? (count($selected) === 1 ? e(customer_label($selected[0])) : count($selected) . ' Kunden (Serienbrief)') : 'Kunden wählen' ?></button>
+                        <?= $selected ? (count($selected) === 1 ? e(customer_label($selected[0])) : count($selected) . t(' Kunden (Serienbrief)')) : t('Kunden wählen') ?></button>
                 <?php endif; ?>
-                <label class="wt-date"><?= ic('calendar') ?><input type="date" value="<?= date('Y-m-d') ?>" data-doc-date aria-label="Datum des Dokuments"></label>
-                <button type="button" class="wt-btn" data-fill-reset title="Alle Eingaben leeren">Leeren</button>
-                <a class="wt-btn" href="<?= e(furl('form_edit', ['id' => $form['id']])) ?>"><?= ic('edit') ?> Bearbeiten</a>
-                <button type="button" class="wt-btn primary" data-print><?= ic('print') ?> Drucken / PDF</button>
+                <label class="wt-date"><?= ic('calendar') ?><input type="date" value="<?= date('Y-m-d') ?>" data-doc-date aria-label="<?= e(t('Datum des Dokuments')) ?>"></label>
+                <button type="button" class="wt-btn" data-fill-reset title="<?= e(t('Alle Eingaben leeren')) ?>"><?= e(t('Leeren')) ?></button>
+                <a class="wt-btn" href="<?= e(furl('form_edit', ['id' => $form['id']])) ?>"><?= ic('edit') ?> <?= e(t('Bearbeiten')) ?></a>
+                <button type="button" class="wt-btn primary" data-print><?= ic('print') ?> <?= e(t('Drucken / PDF')) ?></button>
             </span>
         </header>
         <?php if ($needsCustomer && !$preview): ?>
@@ -548,29 +549,29 @@ function page_form_use(): void
                 <input type="hidden" name="r" value="form_use"><input type="hidden" name="id" value="<?= (int)$form['id'] ?>">
                 <?php if (is_admin()): ?><input type="hidden" name="company" value="<?= (int)$cid ?>"><?php endif; ?>
                 <?php if ($ids): ?><input type="hidden" name="kunden" value="<?= e(implode(',', $ids)) ?>"><?php endif; ?>
-                <input type="search" name="q" value="<?= e($search) ?>" placeholder="Kunden suchen (Name, Nummer, Ort …)" autofocus>
-                <button class="btn small">Suchen</button>
+                <input type="search" name="q" value="<?= e($search) ?>" placeholder="<?= e(t('Kunden suchen (Name, Nummer, Ort …)')) ?>" autofocus>
+                <button class="btn small"><?= e(t('Suchen')) ?></button>
             </form>
             <?php if (!$list): ?>
-                <p class="muted"><?= $search !== '' ? 'Keine Kunden gefunden.' : 'Die Kundendatenbank ist noch leer.' ?>
-                    <a href="<?= e(furl('customer_edit')) ?>">Kunden anlegen</a></p>
+                <p class="muted"><?= $search !== '' ? t('Keine Kunden gefunden.') : t('Die Kundendatenbank ist noch leer.') ?>
+                    <a href="<?= e(furl('customer_edit')) ?>"><?= e(t('Kunden anlegen')) ?></a></p>
             <?php else: ?>
-                <p class="muted small">Ein Kunde = ein Dokument. Mehrere Kunden = Serienbrief, je Kunde eine Seite.
-                    <?= $total > count($list) ? 'Erste ' . count($list) . ' von ' . $total . ' Treffern.' : '' ?></p>
+                <p class="muted small"><?= e(t('Ein Kunde = ein Dokument. Mehrere Kunden = Serienbrief, je Kunde eine Seite.')) ?>
+                    <?= $total > count($list) ? t('Erste {n} von {m} Treffern.', ['n' => count($list), 'm' => $total]) : '' ?></p>
                 <div class="pick-list" id="customer-pick">
                     <?php foreach ($list as $c): ?>
                         <label class="check"><input type="checkbox" value="<?= (int)$c['id'] ?>" data-customer <?= in_array((int)$c['id'], $ids, true) ? 'checked' : '' ?>> <?= e(customer_label($c)) ?>
                             <?php if ($c['city'] !== ''): ?><span class="muted small"><?= e($c['city']) ?></span><?php endif; ?></label>
                     <?php endforeach; ?>
                 </div>
-                <div class="buttons"><button type="button" class="linkbtn small" data-check-all="#customer-pick">alle / keine</button>
-                    <button type="button" class="btn primary" data-apply-customers data-base="<?= e(furl('form_use', ['id' => $form['id']])) ?>">Übernehmen</button></div>
+                <div class="buttons"><button type="button" class="linkbtn small" data-check-all="#customer-pick"><?= e(t('alle / keine')) ?></button>
+                    <button type="button" class="btn primary" data-apply-customers data-base="<?= e(furl('form_use', ['id' => $form['id']])) ?>"><?= e(t('Übernehmen')) ?></button></div>
             <?php endif; ?>
         </div>
         <?php endif; ?>
         <div class="fill-canvas" data-fill data-form-id="<?= (int)$form['id'] ?>">
             <?php if ($needsCustomer && !$selected && !$preview): ?>
-                <div class="fill-note">Wählen Sie oben rechts unter <strong>Kunden wählen</strong> den Empfänger. Bis dahin bleiben die Kundendaten leer.</div>
+                <div class="fill-note"><?= e(t('Wählen Sie oben rechts unter')) ?> <strong><?= e(t('Kunden wählen')) ?></strong> <?= e(t('den Empfänger. Bis dahin bleiben die Kundendaten leer.')) ?></div>
             <?php endif; ?>
             <?php render_sheets($cid, $form, $sheets, true); ?>
         </div>
@@ -586,11 +587,11 @@ function page_form_print(): void
         if (query_int('id')) fredirect('form_use', ['id' => query_int('id'), 'preview' => 1]);
         abort(404);
     }
-    $form = ['name' => 'Vorschau: ' . $l['name'], 'body' => '<p>Hier steht der Inhalt des Formulars.</p>', 'folder_id' => null,
+    $form = ['name' => t('Vorschau: ') . $l['name'], 'body' => ('<p>' . e(t('Hier steht der Inhalt des Formulars.')) . '</p>'), 'folder_id' => null,
         'header_id' => $l['kind'] === 'header' ? (int)$l['id'] : 0, 'footer_id' => $l['kind'] === 'footer' ? (int)$l['id'] : 0, 'page_settings' => null];
     render_app_shell($form['name'], function () use ($cid, $form) { ?>
-        <header class="word-title fill-title"><span class="wt-app">📝</span><span class="wt-doc"><?= e($form['name']) ?> <span class="tag warn">Vorschau mit Beispieldaten</span></span>
-            <span class="wt-actions"><button type="button" class="wt-btn" data-close>Schließen</button><button type="button" class="wt-btn primary" data-print><?= ic('print') ?> Drucken / PDF</button></span></header>
+        <header class="word-title fill-title"><span class="wt-app">📝</span><span class="wt-doc"><?= e($form['name']) ?> <span class="tag warn"><?= e(t('Vorschau mit Beispieldaten')) ?></span></span>
+            <span class="wt-actions"><button type="button" class="wt-btn" data-close><?= e(t('Schließen')) ?></button><button type="button" class="wt-btn primary" data-print><?= ic('print') ?> <?= e(t('Drucken / PDF')) ?></button></span></header>
         <div class="fill-canvas"><?php render_sheets($cid, $form, [sample_customer($cid)], false); ?></div>
     <?php }, 'fill-app', ['calc.js']);
 }

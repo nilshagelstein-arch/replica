@@ -123,7 +123,7 @@ function http_call(string $method, string $url, array $headers = [], ?string $bo
     $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     $err = curl_error($ch);
     curl_close($ch);
-    if ($resp === false) throw new RuntimeException('Verbindung fehlgeschlagen: ' . $err);
+    if ($resp === false) throw new RuntimeException(t('Verbindung fehlgeschlagen: ') . $err);
     return [$status, (string)$resp];
 }
 
@@ -135,7 +135,7 @@ function oauth_token_request(string $provider, array $params): array
         ['Content-Type: application/x-www-form-urlencoded', 'Accept: application/json'], http_build_query($params));
     $data = json_decode($body, true) ?: [];
     if ($status !== 200 || empty($data['access_token'])) {
-        throw new RuntimeException('Anmeldung beim Anbieter fehlgeschlagen: ' . ($data['error_description'] ?? $data['error'] ?? "HTTP $status"));
+        throw new RuntimeException(t('Anmeldung beim Anbieter fehlgeschlagen: ') . ($data['error_description'] ?? $data['error'] ?? "HTTP $status"));
     }
     return $data;
 }
@@ -148,7 +148,7 @@ function oauth_access_token(array $acc): string
         if ($t !== '') return $t;
     }
     $refresh = decrypt_secret($acc['oauth_refresh_enc']);
-    if ($refresh === '') throw new RuntimeException('Das Postfach ist nicht (mehr) verbunden. Bitte erneut anmelden.');
+    if ($refresh === '') throw new RuntimeException(t('Das Postfach ist nicht (mehr) verbunden. Bitte erneut anmelden.'));
     $params = ['grant_type' => 'refresh_token', 'refresh_token' => $refresh];
     if ($acc['provider'] === 'microsoft') $params['scope'] = oauth_endpoints('microsoft')['scope'];
     $data = oauth_token_request($acc['provider'], $params);
@@ -210,19 +210,19 @@ final class SmtpClient
         // Nur öffentliche Server (Schutz vor SSRF ins interne Netz); verbunden wird mit der geprüften IP,
         // das Zertifikat wird weiter gegen den Hostnamen geprüft (peer_name/SNI)
         $ip = public_ip($host, (bool)cfg('mail.smtp_allow_private', false));
-        if ($ip === null) throw new RuntimeException("Der SMTP-Server $host wurde nicht gefunden oder liegt in einem internen Netz.");
+        if ($ip === null) throw new RuntimeException(t('Der SMTP-Server {x} wurde nicht gefunden oder liegt in einem internen Netz.', ['x' => $host]));
         $remote = ($security === 'ssl' ? 'ssl://' : 'tcp://') . $ip . ':' . $port;
         $s = @stream_socket_client($remote, $errno, $errstr, 15, STREAM_CLIENT_CONNECT, $ctx);
-        if (!$s) throw new RuntimeException("Keine Verbindung zu $host:$port ($errstr)");
+        if (!$s) throw new RuntimeException(t('Keine Verbindung zu {x}', ['x' => "$host:$port ($errstr)"]));
         stream_set_timeout($s, 20);
         $this->s = $s;
         $this->expect([220]);
         $this->ehlo();
         if ($security === 'tls') {
-            if (!isset($this->caps['STARTTLS'])) throw new RuntimeException('Der Server unterstützt kein STARTTLS.');
+            if (!isset($this->caps['STARTTLS'])) throw new RuntimeException(t('Der Server unterstützt kein STARTTLS.'));
             $this->cmd('STARTTLS', [220]);
             if (!stream_socket_enable_crypto($this->s, true, STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT)) {
-                throw new RuntimeException('TLS-Verschlüsselung konnte nicht aufgebaut werden.');
+                throw new RuntimeException(t('TLS-Verschlüsselung konnte nicht aufgebaut werden.'));
             }
             $this->ehlo();
         }
@@ -246,7 +246,7 @@ final class SmtpClient
             $lines[] = rtrim($line, "\r\n");
             if (strlen($line) < 4 || $line[3] === ' ') break;
         }
-        if (!$lines) throw new RuntimeException('Der Mailserver antwortet nicht.');
+        if (!$lines) throw new RuntimeException(t('Der Mailserver antwortet nicht.'));
         return $lines;
     }
 
@@ -254,7 +254,7 @@ final class SmtpClient
     {
         $lines = $this->read();
         $code = (int)substr(end($lines), 0, 3);
-        if (!in_array($code, $codes, true)) throw new RuntimeException('Mailserver: ' . mb_substr(implode(' ', $lines), 0, 300));
+        if (!in_array($code, $codes, true)) throw new RuntimeException(t('Mailserver: ') . mb_substr(implode(' ', $lines), 0, 300));
         return $lines;
     }
 
@@ -328,14 +328,14 @@ function send_via_account(array $acc, string $to, string $subject, string $body)
             [$status, $resp] = http_call('POST', oauth_endpoints('microsoft')['send'],
                 ['Authorization: Bearer ' . oauth_access_token($acc), 'Content-Type: application/json'],
                 json_encode(['message' => $msg, 'saveToSentItems' => true]));
-            if ($status !== 202) throw new RuntimeException('Microsoft 365: ' . mb_substr($resp, 0, 300));
+            if ($status !== 202) throw new RuntimeException(t('Microsoft 365: ') . mb_substr($resp, 0, 300));
         } elseif ($acc['provider'] === 'google') {
             $raw = rtrim(strtr(base64_encode(build_mime($acc['from_email'], $acc['from_name'], $to, $subject, $body, $replyTo)), '+/', '-_'), '=');
             [$status, $resp] = http_call('POST', oauth_endpoints('google')['send'],
                 ['Authorization: Bearer ' . oauth_access_token($acc), 'Content-Type: application/json'], json_encode(['raw' => $raw]));
             if ($status !== 200) throw new RuntimeException('Gmail: ' . mb_substr($resp, 0, 300));
         } else {
-            throw new RuntimeException('Unbekannter Anbieter');
+            throw new RuntimeException(t('Unbekannter Anbieter'));
         }
         update('mail_accounts', (int)$acc['id'], ['last_ok_at' => now()]);
     } catch (Throwable $ex) {
@@ -357,7 +357,7 @@ function send_via_php_mail(string $to, string $subject, string $body): void
     $headers = ['From: ' . mime_encode_header($fromName) . ' <' . $from . '>', 'MIME-Version: 1.0',
         'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: 8bit', 'X-Mailer: Kundenportal'];
     if (!@mail($to, mime_encode_header($subject), $body, implode("\r\n", $headers), '-f' . $from)) {
-        throw new RuntimeException('PHP mail() fehlgeschlagen');
+        throw new RuntimeException(t('PHP mail() fehlgeschlagen'));
     }
 }
 
@@ -369,8 +369,8 @@ function send_mail(array $to, string $subject, string $body, ?int $companyId = n
 {
     $to = array_values(array_unique(array_filter(array_map('strtolower', $to), fn($a) => filter_var($a, FILTER_VALIDATE_EMAIL))));
     if (!$to) return;
-    $appName = cfg('app_name', 'Kundenportal');
-    $body .= "\n\n--\n" . $appName . "\nDiese Nachricht wurde automatisch erzeugt.";
+    $appName = t(cfg('app_name', 'Kundenportal'));
+    $body .= "\n\n--\n" . $appName . t("\nDiese Nachricht wurde automatisch erzeugt.");
 
     $chain = [];
     if ($companyId) {

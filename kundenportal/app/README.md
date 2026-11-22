@@ -13,6 +13,7 @@ Fachlogik und Infrastruktur, die alle Einstiegspunkte (`../index.php`, `../api.p
 - Mitarbeiterliste
 - Formular- und Kundendatenbank-Bibliothek
 - Update-Pakete
+- Mehrsprachigkeit (Deutsch, Englisch, Französisch)
 
 Der ganze Ordner ist per `.htaccess` (`Require all denied`) vor direktem Zugriff geschützt.
 
@@ -68,6 +69,13 @@ Der ganze Ordner ist per `.htaccess` (`Require all denied`) vor direktem Zugriff
   - CSV: `csv_read`, `csv_map_headers` und `csv_cell_safe`/`csv_cell_unescape` (Schutz gegen Formel-Injection beim Export, wird beim Import wieder entfernt)
   - API-Schlüssel: `api_token_generate`, `api_token_lookup`
 - **`updates.php`**: `updates_dir`, `update_embedded_info`, `update_check_package`, `update_extract_zip`, `update_valid_id`, `update_meta_path`, `update_store`, `updates_list`, `update_get`, `update_save_meta`, `update_apply`. Das Paket erzeugt `../../tools/build-update.php` (siehe [../../tools/README.md](../../tools/README.md)).
+
+- **`i18n.php`**: Mehrsprachigkeit.
+  - `t('Deutscher Text', ['x' => …])` übersetzt; der deutsche Quelltext ist zugleich der Schlüssel in `lang/en.php` und `lang/fr.php`. Fehlt ein Eintrag, erscheint Deutsch. Platzhalter stehen in `{…}`.
+  - Sprache je Anfrage `[i18n.php:current_lang]`: `with_lang()` (z. B. Mailversand) → Benutzer (`users.lang`, leer = Firma) → Firma (`companies.lang`) → ohne Anmeldung `?lang=` (Session/Cookie `kp_lang`) bzw. Browser-Sprache → Deutsch.
+  - `send_mail_t($to, fn() => [$betreff, $text], $firmaId)` baut die Mail je Empfängersprache neu (`lang_for_email()`: Benutzer mit dieser Adresse, sonst Firma).
+  - Browser-Skripte holen ihr Wörterbuch über `index.php?r=i18n_js` (`window.KP_T`); welche Texte das sind, steht in `lang/js_keys.php`.
+  - Gespeicherte Werte (Status, Gründe, Anrede, Platzhalter `{{kunde.…}}`, API-Feldnamen) bleiben deutsch; übersetzt wird nur die Anzeige.
 
 ## Invariants
 

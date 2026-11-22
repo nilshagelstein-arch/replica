@@ -634,3 +634,9 @@ fieldset.rights { margin-top: 1rem; }
 .rights-presets { margin: .3rem 0 .5rem; }
 .rights-table td.center, .rights-table th.center { text-align: center; width: 7.5rem; }
 .rights-table td { vertical-align: middle; }
+
+/* Sprachumschalter (Seiten ohne Anmeldung) */
+.lang-switch { display: flex; gap: .75rem; font-size: .9rem; }
+.lang-switch a { color: #b8c4d2; }
+.lang-switch a:hover { color: #fff; text-decoration: underline; }
+.lang-switch strong { color: #fff; font-weight: 600; }
