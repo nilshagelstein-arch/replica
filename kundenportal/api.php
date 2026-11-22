@@ -14,6 +14,9 @@ require APP_DIR . '/forms_lib.php';
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store');
+if ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')) {
+    header('Strict-Transport-Security: max-age=31536000');
+}
 
 function api_out(int $code, $data): never
 {
