@@ -42,6 +42,10 @@ if ($user && company_pending($user)) {
             }
         }
     }
+    if (isset($myApps['tickets'])) {
+        $inTickets = in_array($route, ['tickets', 'ticket', 'ticket_new', 'ticket_settings'], true);
+        $nav[] = ['tickets', t($myApps['tickets']['name']), $inTickets];
+    }
     if (isset($myApps['links'])) {
         $nav[] = ['links', t($myApps['links']['name']), in_array($route, ['links', 'link_edit'], true)];
     }
@@ -73,6 +77,7 @@ if ($user && !company_pending($user)) {
         'formulare'      => ['forms', 'form_edit', 'form_layouts', 'form_settings', 'form_use', 'customers', 'customer_edit', 'customer_fields', 'customer_import'],
         'datensicherung' => ['company_backups'],
         'links'          => ['links', 'link_edit'],
+        'tickets'        => ['tickets', 'ticket', 'ticket_new', 'ticket_settings'],
     ];
     foreach ($routeApps as $slug => $routes) {
         if (in_array($route, $routes, true)) {

@@ -440,12 +440,13 @@ const ADMIN_AREAS = [
     'onboarding' => ['On- & Offboarding', 'Aufträge, Mitarbeiterliste, Abteilungen, Katalog und Vorlagen'],
     'forms'      => ['Formulare', 'Formulare, Kundendatenbank, Briefkopf, Logo und API'],
     'links'      => ['Linksammlung', 'Reiter, Überschriften und Links der Firmen'],
+    'tickets'    => ['Tickets', 'Queues und Einstellungen der Firmen; Tickets nur mit Einsicht-Freigabe der Firma'],
     'backups'    => ['Datensicherung', 'Sicherungen der Firmen; Portal-Sicherungen nur mit Zugriff auf alle Firmen'],
     'audit'      => ['Protokoll', 'Protokoll der Aktionen (nur ansehen)'],
     'updates'    => ['Updates', 'Update-Pakete ansehen und herunterladen (einspielen nur Superadmin)'],
 ];
 /** Welche App zu welchem Bereich gehört */
-const APP_AREAS = ['onboarding' => 'onboarding', 'formulare' => 'forms', 'links' => 'links', 'datensicherung' => 'backups'];
+const APP_AREAS = ['onboarding' => 'onboarding', 'formulare' => 'forms', 'links' => 'links', 'datensicherung' => 'backups', 'tickets' => 'tickets'];
 
 /** Gespeicherte Bereichsrechte eines Verwaltungsadmins (null = uneingeschränkt) */
 function admin_perms_of(array $u): ?array

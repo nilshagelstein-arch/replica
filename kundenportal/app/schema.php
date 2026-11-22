@@ -184,6 +184,73 @@ function schema_statements(string $driver): array
         created_at $ts NOT NULL
     )$tail";
 
+    // App „Tickets“: Helpdesk je Firma (Queues, Tickets, Verlauf, Anhänge)
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_queues (
+        id $pk,
+        company_id $fk NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        description VARCHAR(500) NOT NULL DEFAULT '',
+        active INT NOT NULL DEFAULT 1,
+        sort INT NOT NULL DEFAULT 0,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_queue_members (
+        id $pk,
+        queue_id $fk NOT NULL,
+        user_id $fk NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS tickets (
+        id $pk,
+        company_id $fk NOT NULL,
+        seq_year INT NOT NULL,
+        seq_no INT NOT NULL,
+        number VARCHAR(20) NOT NULL,
+        queue_id $fk NULL,
+        subject VARCHAR(190) NOT NULL,
+        priority VARCHAR(20) NOT NULL DEFAULT 'einschraenkung',
+        category VARCHAR(60) NOT NULL DEFAULT '',
+        status VARCHAR(20) NOT NULL DEFAULT 'offen',
+        created_by $fk NULL,
+        entered_by $fk NULL,
+        employee_id $fk NULL,
+        assigned_to $fk NULL,
+        follow_up_at VARCHAR(10) NOT NULL DEFAULT '',
+        resolved_at VARCHAR(19) NOT NULL DEFAULT '',
+        closed_at VARCHAR(19) NOT NULL DEFAULT '',
+        viewing_by $fk NULL,
+        viewing_at VARCHAR(19) NOT NULL DEFAULT '',
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL,
+        last_activity_at $ts NOT NULL,
+        UNIQUE (company_id, seq_year, seq_no)
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_messages (
+        id $pk,
+        ticket_id $fk NOT NULL,
+        company_id $fk NOT NULL,
+        user_id $fk NULL,
+        kind VARCHAR(10) NOT NULL DEFAULT 'message',
+        body TEXT,
+        status_from VARCHAR(20) NOT NULL DEFAULT '',
+        status_to VARCHAR(20) NOT NULL DEFAULT '',
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_attachments (
+        id $pk,
+        ticket_id $fk NOT NULL,
+        message_id $fk NOT NULL,
+        company_id $fk NOT NULL,
+        filename VARCHAR(190) NOT NULL,
+        mime VARCHAR(100) NOT NULL DEFAULT '',
+        size INT NOT NULL DEFAULT 0,
+        stored_name VARCHAR(80) NOT NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
     $tables[] = "CREATE TABLE IF NOT EXISTS links (
         id $pk,
         company_id $fk NOT NULL,
@@ -388,6 +455,13 @@ function schema_statements(string $driver): array
         'idx_linktabs_co'     => 'link_tabs (company_id, sort)',
         'idx_linksec_tab'     => 'link_sections (company_id, tab_id, sort)',
         'idx_links_sec'       => 'links (company_id, section_id, sort)',
+        'idx_tkq_co'          => 'ticket_queues (company_id, sort)',
+        'idx_tkqm_q'          => 'ticket_queue_members (queue_id, user_id)',
+        'idx_tk_queue'        => 'tickets (company_id, queue_id, status)',
+        'idx_tk_creator'      => 'tickets (company_id, created_by)',
+        'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
+        'idx_tkmsg_t'         => 'ticket_messages (ticket_id, id)',
+        'idx_tkatt_t'         => 'ticket_attachments (ticket_id)',
     ];
     foreach ($indexes as $name => $def) {
         $tables[] = $mysql
@@ -397,7 +471,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -409,6 +483,8 @@ const BUILTIN_APPS = [
         'target' => 'company_backups', 'icon' => '💾', 'color' => '#6b4fbb', 'sort' => 30],
     'links' => ['name' => 'Linksammlung', 'description' => 'Alle wichtigen Links der Firma an einem Ort – mit Bild, Beschreibung, Überschriften und Reitern, wie eine Intranet-Startseite.',
         'target' => 'links', 'icon' => '🔗', 'color' => '#c2410c', 'sort' => 40],
+    'tickets' => ['name' => 'Tickets', 'description' => 'Interner Helpdesk: Anliegen in Queues melden, bearbeiten und verfolgen – mit Verlauf, Anhängen und Benachrichtigungen.',
+        'target' => 'tickets', 'icon' => '🎫', 'color' => '#b4235a', 'sort' => 15],
 ];
 
 /**
@@ -463,6 +539,10 @@ function run_migrations(): void
         // Mehrsprachigkeit (ab Version 15): Sprache der Firma, Benutzer leer = Sprache der Firma
         ['companies', 'lang', "VARCHAR(5) NOT NULL DEFAULT 'de'"],
         ['users', 'lang', "VARCHAR(5) NOT NULL DEFAULT ''"],
+        // App „Tickets“ (ab Version 16): Einstellungen je Firma
+        ['companies', 'ticket_autoclose_days', 'INT NOT NULL DEFAULT 7'],
+        ['companies', 'ticket_provider_access', 'INT NOT NULL DEFAULT 0'],
+        ['companies', 'ticket_categories', 'TEXT NULL'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -515,6 +595,8 @@ function ensure_schema(): void
         db()->query('SELECT id FROM employees LIMIT 1');
         db()->query('SELECT image_fit FROM links LIMIT 1');
         db()->query('SELECT change_requested_at, change_requested_by, change_reason FROM requests LIMIT 1');
+        db()->query('SELECT id FROM tickets LIMIT 1');
+        db()->query('SELECT ticket_autoclose_days, ticket_provider_access FROM companies LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

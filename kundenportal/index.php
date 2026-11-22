@@ -43,6 +43,7 @@ require APP_DIR . '/pages/company_backups.php';
 require APP_DIR . '/updates.php';
 require APP_DIR . '/pages/updates.php';
 require APP_DIR . '/pages/links.php';
+require APP_DIR . '/pages/tickets.php';
 
 $routes = [
     'login'          => 'page_login',
@@ -103,6 +104,13 @@ $routes = [
     'link_action'     => 'page_link_action',
     'link_image'      => 'page_link_image',
     'link_suggest'    => 'page_link_suggest',
+    // App „Tickets“
+    'tickets'         => 'page_tickets',
+    'ticket_new'      => 'page_ticket_new',
+    'ticket'          => 'page_ticket',
+    'ticket_action'   => 'page_ticket_action',
+    'ticket_file'     => 'page_ticket_file',
+    'ticket_settings' => 'page_ticket_settings',
 ];
 
 /**
@@ -130,6 +138,8 @@ const ROUTE_AREAS = [
     'customer_fields' => ['forms', PERM_VIEW], 'customer_import' => ['forms', PERM_EDIT],
     'links' => ['links', PERM_VIEW], 'link_image' => ['links', PERM_VIEW],
     'link_edit' => ['links', PERM_EDIT], 'link_action' => ['links', PERM_EDIT], 'link_suggest' => ['links', PERM_EDIT],
+    'tickets' => ['tickets', PERM_VIEW], 'ticket' => ['tickets', PERM_VIEW], 'ticket_file' => ['tickets', PERM_VIEW],
+    'ticket_new' => ['tickets', PERM_EDIT], 'ticket_action' => ['tickets', PERM_EDIT], 'ticket_settings' => ['tickets', PERM_VIEW],
 ];
 
 /**

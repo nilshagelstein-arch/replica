@@ -158,11 +158,18 @@ function backup_create(string $kind): string
             if (is_file(APP_DIR . '/data/secret.key')) $zip->addFile(APP_DIR . '/data/secret.key', 'secret.key');
             if (is_file(ROOT_DIR . '/config.php')) $zip->addFile(ROOT_DIR . '/config.php', 'config.php');
             $zip->addFromString('LIESMICH.txt', backup_readme());
+            // Anhänge der Tickets (Dateien liegen nicht in der Datenbank): app/data/tickets/<Firma>/…
+            $attach = [];
+            foreach (glob(APP_DIR . '/data/tickets/*/*.bin') ?: [] as $f) {
+                $n = 'tickets/' . basename(dirname($f)) . '/' . basename($f);
+                $zip->addFile($f, $n);
+                $attach[] = $n;
+            }
             $pw = backup_password();
             if ($pw !== '') {
                 if (!backup_can_encrypt()) throw new RuntimeException(t('Der Server unterstützt keine verschlüsselten ZIP-Archive (AES). Bitte das Sicherungspasswort entfernen.'));
                 $zip->setPassword($pw);
-                foreach (['database.sql', 'secret.key', 'config.php'] as $n) {
+                foreach (array_merge(['database.sql', 'secret.key', 'config.php'], $attach) as $n) {
                     if ($zip->locateName($n) !== false) $zip->setEncryptionName($n, ZipArchive::EM_AES_256, $pw);
                 }
             }
@@ -622,6 +629,11 @@ function cbackup_data(int $cid): array
         'link_tabs'      => rows('SELECT * FROM link_tabs WHERE company_id = ?', [$cid]),
         'link_sections'  => rows('SELECT * FROM link_sections WHERE company_id = ?', [$cid]),
         'links'          => rows('SELECT * FROM links WHERE company_id = ?', [$cid]),
+        'ticket_queues'  => rows('SELECT * FROM ticket_queues WHERE company_id = ?', [$cid]),
+        'ticket_queue_members' => rows('SELECT m.* FROM ticket_queue_members m JOIN ticket_queues q ON q.id = m.queue_id WHERE q.company_id = ?', [$cid]),
+        'tickets'        => rows('SELECT * FROM tickets WHERE company_id = ?', [$cid]),
+        'ticket_messages'=> rows('SELECT * FROM ticket_messages WHERE company_id = ?', [$cid]),
+        'ticket_attachments' => rows('SELECT * FROM ticket_attachments WHERE company_id = ?', [$cid]),
     ];
 }
 
@@ -651,6 +663,8 @@ function cbackup_create(int $cid, string $kind): string
     if ($zip->open($file . '.tmp', ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException(t('ZIP-Archiv konnte nicht angelegt werden.'));
     $zip->addFromString('daten.json', json_encode(['format' => 'kundenportal-firma', 'version' => 1, 'schema' => defined('SCHEMA_VERSION') ? SCHEMA_VERSION : null,
         'exported_at' => date('c'), 'company' => $co['name'], 'tables' => $data], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
+    // Anhänge der Tickets (Dateien liegen nicht in der Datenbank)
+    foreach (glob(APP_DIR . '/data/tickets/' . $cid . '/*.bin') ?: [] as $f) $zip->addFile($f, 'ticket-anhaenge/' . basename($f));
     $zip->addFromString('kunden.csv', cbackup_csv(array_map(function ($r) { unset($r['company_id']); return $r; }, $data['customers'])));
     $zip->addFromString('LIESMICH.txt', "Datensicherung „{$co['name']}“ vom " . date('d.m.Y H:i') . "\r\n\r\n"
         . t("daten.json   alle Daten der Firma im Kundenportal: Firmenprofil, Benutzer (ohne Passwörter), Abteilungen,\n")
