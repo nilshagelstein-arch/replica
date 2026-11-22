@@ -201,6 +201,20 @@ function schema_statements(string $driver): array
         user_id $fk NOT NULL
     )$tail";
 
+    // Gruppen (= Abteilungen) als Bearbeiter einer Queue
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_queue_groups (
+        id $pk,
+        queue_id $fk NOT NULL,
+        department_id $fk NOT NULL
+    )$tail";
+
+    // Mitarbeiter-Konten in Abteilungen (Gruppen); ein Konto kann in mehreren sein
+    $tables[] = "CREATE TABLE IF NOT EXISTS user_departments (
+        id $pk,
+        user_id $fk NOT NULL,
+        department_id $fk NOT NULL
+    )$tail";
+
     $tables[] = "CREATE TABLE IF NOT EXISTS tickets (
         id $pk,
         company_id $fk NOT NULL,
@@ -457,6 +471,9 @@ function schema_statements(string $driver): array
         'idx_links_sec'       => 'links (company_id, section_id, sort)',
         'idx_tkq_co'          => 'ticket_queues (company_id, sort)',
         'idx_tkqm_q'          => 'ticket_queue_members (queue_id, user_id)',
+        'idx_tkqg_q'          => 'ticket_queue_groups (queue_id, department_id)',
+        'idx_udep_u'          => 'user_departments (user_id, department_id)',
+        'idx_udep_d'          => 'user_departments (department_id)',
         'idx_tk_queue'        => 'tickets (company_id, queue_id, status)',
         'idx_tk_creator'      => 'tickets (company_id, created_by)',
         'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
@@ -471,7 +488,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 16;
+const SCHEMA_VERSION = 17;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -541,6 +558,9 @@ function run_migrations(): void
         ['users', 'lang', "VARCHAR(5) NOT NULL DEFAULT ''"],
         // App „Tickets“ (ab Version 16): Einstellungen je Firma
         ['companies', 'ticket_autoclose_days', 'INT NOT NULL DEFAULT 7'],
+        ['ticket_queues', 'lead_user_id', 'INT NULL'],
+        ['tickets', 'visibility', "VARCHAR(10) NOT NULL DEFAULT 'me'"],
+        ['tickets', 'group_id', 'INT NULL'],
         ['companies', 'ticket_provider_access', 'INT NOT NULL DEFAULT 0'],
         ['companies', 'ticket_categories', 'TEXT NULL'],
     ];
@@ -597,6 +617,9 @@ function ensure_schema(): void
         db()->query('SELECT change_requested_at, change_requested_by, change_reason FROM requests LIMIT 1');
         db()->query('SELECT id FROM tickets LIMIT 1');
         db()->query('SELECT ticket_autoclose_days, ticket_provider_access FROM companies LIMIT 1');
+        db()->query('SELECT t.visibility, t.group_id, q.lead_user_id FROM tickets t, ticket_queues q LIMIT 1');
+        db()->query('SELECT id FROM user_departments LIMIT 1');
+        db()->query('SELECT id FROM ticket_queue_groups LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

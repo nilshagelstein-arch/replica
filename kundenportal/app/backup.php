@@ -631,6 +631,8 @@ function cbackup_data(int $cid): array
         'links'          => rows('SELECT * FROM links WHERE company_id = ?', [$cid]),
         'ticket_queues'  => rows('SELECT * FROM ticket_queues WHERE company_id = ?', [$cid]),
         'ticket_queue_members' => rows('SELECT m.* FROM ticket_queue_members m JOIN ticket_queues q ON q.id = m.queue_id WHERE q.company_id = ?', [$cid]),
+        'ticket_queue_groups' => rows('SELECT g.* FROM ticket_queue_groups g JOIN ticket_queues q ON q.id = g.queue_id WHERE q.company_id = ?', [$cid]),
+        'user_departments' => rows('SELECT ud.* FROM user_departments ud JOIN departments d ON d.id = ud.department_id WHERE d.company_id = ?', [$cid]),
         'tickets'        => rows('SELECT * FROM tickets WHERE company_id = ?', [$cid]),
         'ticket_messages'=> rows('SELECT * FROM ticket_messages WHERE company_id = ?', [$cid]),
         'ticket_attachments' => rows('SELECT * FROM ticket_attachments WHERE company_id = ?', [$cid]),

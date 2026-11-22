@@ -8,7 +8,11 @@
  *
  * Stufe 1 (Grundgerüst): Queues mit Bearbeitern je Benutzer, Tickets, Verlauf, Anhänge, Status,
  * Buchen/Abgeben/Weitergeben, Wiedervorlage, automatisches Schließen, Mails.
- * Gruppen/Rechte, Eskalation, E-Mail-Eingang, Dienstleister und Auswertung folgen (siehe Pflichtenheft).
+ * Stufe 2 (Gruppen/Rechte): Gruppen = Abteilungen der Firma (ein Konto kann in mehreren sein). Bearbeiter einer
+ * Queue sind eingetragene Benutzer, Mitglieder der eingetragenen Gruppen, die Teamleitung und die Firmen-Admins
+ * (Admin-Gruppe). Zuweisen an andere dürfen Teamleitung und Admins; der gebuchte Bearbeiter darf weitergeben.
+ * Beim Erstellen wählt man „nur ich“ oder „meine Gruppe“: Gruppenmitglieder sehen das Ticket und schreiben mit.
+ * Eskalation, E-Mail-Eingang, Dienstleister und Auswertung folgen (siehe Pflichtenheft).
  *
  * Tickets bleiben firmenintern: Verwaltungsadmins des Dienstleisters richten Queues ein, sehen Tickets
  * aber nur, wenn die Firma die „Einsicht für den IT-Dienstleister“ eingeschaltet hat.
@@ -80,10 +84,41 @@ function tickets_my_queue_ids(int $cid): array
     } elseif ($u['role'] === 'firma_admin') {
         $ids = array_map('intval', array_column(rows('SELECT id FROM ticket_queues WHERE company_id = ?', [$cid]), 'id'));
     } else {
-        $ids = array_map('intval', array_column(rows('SELECT m.queue_id FROM ticket_queue_members m JOIN ticket_queues q ON q.id = m.queue_id
-            WHERE q.company_id = ? AND m.user_id = ?', [$cid, $u['id']]), 'queue_id'));
+        $uid = (int)$u['id'];
+        $ids = array_map('intval', array_column(rows('SELECT q.id FROM ticket_queues q WHERE q.company_id = ? AND (q.lead_user_id = ?
+            OR q.id IN (SELECT m.queue_id FROM ticket_queue_members m WHERE m.user_id = ?)
+            OR q.id IN (SELECT g.queue_id FROM ticket_queue_groups g JOIN user_departments ud ON ud.department_id = g.department_id WHERE ud.user_id = ?))',
+            [$cid, $uid, $uid, $uid]), 'id'));
     }
     return $cache[$key] = $ids;
+}
+
+/** Gruppen (Abteilungen) eines Benutzers, nur aktive: [id => Name] */
+function user_groups(int $userId): array
+{
+    static $cache = [];
+    if (isset($cache[$userId])) return $cache[$userId];
+    $out = [];
+    foreach (rows('SELECT d.id, d.name FROM user_departments ud JOIN departments d ON d.id = ud.department_id
+        WHERE ud.user_id = ? AND d.active = 1 ORDER BY d.name', [$userId]) as $d) $out[(int)$d['id']] = $d['name'];
+    return $cache[$userId] = $out;
+}
+
+/** Gruppen-Ticket, und der Benutzer ist in dieser Gruppe */
+function ticket_in_group(array $tk): bool
+{
+    $u = current_user();
+    if (!$u || is_staff_role($u['role']) || ($tk['visibility'] ?? 'me') !== 'group' || !$tk['group_id']) return false;
+    return isset(user_groups((int)$u['id'])[(int)$tk['group_id']]);
+}
+
+/** Teamleitung der Queue oder Admin: darf Tickets beliebigen Bearbeitern zuweisen */
+function ticket_is_lead(array $tk): bool
+{
+    $u = current_user();
+    if (!$u || !ticket_can_process($tk)) return false;
+    if ($u['role'] === 'firma_admin' || is_staff_role($u['role'])) return true;
+    return (int)($tk['lead_user_id'] ?? 0) === (int)$u['id'];
 }
 
 function tickets_is_processor(int $cid): bool
@@ -99,17 +134,20 @@ function ticket_can_process(array $tk): bool
 function ticket_can_view(array $tk): bool
 {
     $u = current_user();
-    return (!is_staff_role($u['role']) && (int)$tk['created_by'] === (int)$u['id']) || ticket_can_process($tk);
+    return (!is_staff_role($u['role']) && (int)$tk['created_by'] === (int)$u['id']) || ticket_in_group($tk) || ticket_can_process($tk);
 }
 
-/** Bearbeiter einer Queue (aktive Benutzer): eingetragene Mitglieder, ohne Mitglieder die Firmen-Admins */
+/** Bearbeiter einer Queue (aktive Benutzer): eingetragene Benutzer, Mitglieder der Gruppen, Teamleitung und Firmen-Admins */
 function ticket_queue_processors(int $queueId, int $cid): array
 {
-    $members = rows('SELECT u.id, u.name, u.email, u.lang, u.company_id FROM ticket_queue_members m JOIN users u ON u.id = m.user_id
-        WHERE m.queue_id = ? AND u.company_id = ? AND u.active = 1 ORDER BY u.name', [$queueId, $cid]);
-    $admins = rows("SELECT id, name, email, lang, company_id FROM users WHERE company_id = ? AND role = 'firma_admin' AND active = 1 ORDER BY name", [$cid]);
+    $list = rows("SELECT u.id, u.name, u.email, u.lang, u.company_id FROM users u WHERE u.company_id = ? AND u.active = 1 AND (
+            u.role = 'firma_admin'
+            OR u.id IN (SELECT m.user_id FROM ticket_queue_members m WHERE m.queue_id = ?)
+            OR u.id IN (SELECT ud.user_id FROM ticket_queue_groups g JOIN user_departments ud ON ud.department_id = g.department_id WHERE g.queue_id = ?)
+            OR u.id IN (SELECT q.lead_user_id FROM ticket_queues q WHERE q.id = ?)
+        ) ORDER BY u.name", [$cid, $queueId, $queueId, $queueId]);
     $all = [];
-    foreach (array_merge($members, $admins) as $p) $all[(int)$p['id']] = $p;
+    foreach ($list as $p) $all[(int)$p['id']] = $p;
     return array_values($all);
 }
 
@@ -165,10 +203,12 @@ function ticket_categories(int $cid): array
 
 function load_ticket(int $id): ?array
 {
-    return row('SELECT t.*, q.name AS queue_name, cu.name AS creator_name, cu.email AS creator_email, au.name AS assignee_name,
-            vu.name AS viewer_name
+    return row('SELECT t.*, q.name AS queue_name, q.lead_user_id, lu.name AS lead_name, cu.name AS creator_name, cu.email AS creator_email,
+            au.name AS assignee_name, vu.name AS viewer_name, gd.name AS group_name
         FROM tickets t
         LEFT JOIN ticket_queues q ON q.id = t.queue_id
+        LEFT JOIN users lu ON lu.id = q.lead_user_id
+        LEFT JOIN departments gd ON gd.id = t.group_id
         LEFT JOIN users cu ON cu.id = t.created_by
         LEFT JOIN users au ON au.id = t.assigned_to
         LEFT JOIN users vu ON vu.id = t.viewing_by
@@ -279,7 +319,7 @@ function ticket_notify_creator(array $tk, callable $text): void
 }
 
 /** Mail an Bearbeiter: der gebuchte, sonst alle Bearbeiter der Queue (ohne den Handelnden) */
-function ticket_notify_processors(array $tk, callable $text, bool $wholeQueue = false): void
+function ticket_notify_processors(array $tk, callable $text, bool $wholeQueue = false, array $exclude = []): void
 {
     $u = current_user();
     if (!$wholeQueue && $tk['assigned_to']) {
@@ -288,7 +328,7 @@ function ticket_notify_processors(array $tk, callable $text, bool $wholeQueue = 
         $list = ticket_queue_processors((int)$tk['queue_id'], (int)$tk['company_id']);
     }
     $to = [];
-    foreach ($list as $p) if ($p['email'] !== '' && (!$u || (int)$p['id'] !== (int)$u['id'])) $to[] = $p['email'];
+    foreach ($list as $p) if ($p['email'] !== '' && (!$u || (int)$p['id'] !== (int)$u['id']) && !in_array((int)$p['id'], $exclude, true)) $to[] = $p['email'];
     if (!$to) return;
     send_mail_t($to, fn() => [ticket_mail_subject($tk), $text() . t("\n\nZum Ticket: ") . ticket_link((int)$tk['id'])], (int)$tk['company_id']);
 }
@@ -306,6 +346,8 @@ function page_tickets(): void
     $myQueues = tickets_my_queue_ids($cid);
     $processor = (bool)$myQueues;
     $views = $staff ? [] : ['mine' => t('Meine Tickets')];
+    $myGroups = $staff ? [] : user_groups((int)$u['id']);
+    if ($myGroups) $views['group'] = t('Meine Gruppen');
     if ($processor) $views += ['queue' => t('Offen in meinen Queues'), 'assigned' => t('Mir zugewiesen'), 'all' => t('Alle meiner Queues')];
     $view = (string)($_GET['view'] ?? '');
     if (!isset($views[$view])) $view = $processor ? 'queue' : 'mine';
@@ -316,6 +358,7 @@ function page_tickets(): void
     $where = ['t.company_id = ?'];
     $params = [$cid];
     if ($view === 'mine') { $where[] = 't.created_by = ?'; $params[] = $u['id']; }
+    elseif ($view === 'group') { $where[] = "t.visibility = 'group' AND t.group_id IN (" . implode(',', array_map('intval', array_keys($myGroups))) . ')'; }
     else {
         $where[] = $myQueues ? 't.queue_id IN (' . implode(',', $myQueues) . ')' : '1 = 0';
         if ($view === 'queue') { $where[] = "t.assigned_to IS NULL AND t.status IN ('offen', 'wieder_eroeffnet')"; }
@@ -331,8 +374,9 @@ function page_tickets(): void
         $where[] = '(t.subject LIKE ? OR t.number LIKE ? OR cu.name LIKE ?)';
         array_push($params, $like, $like, $like);
     }
-    $list = $staff && !tickets_staff_may_see($cid) ? [] : rows('SELECT t.*, q.name AS queue_name, cu.name AS creator_name, au.name AS assignee_name
+    $list = $staff && !tickets_staff_may_see($cid) ? [] : rows('SELECT t.*, q.name AS queue_name, cu.name AS creator_name, au.name AS assignee_name, gd.name AS group_name
         FROM tickets t LEFT JOIN ticket_queues q ON q.id = t.queue_id LEFT JOIN users cu ON cu.id = t.created_by LEFT JOIN users au ON au.id = t.assigned_to
+        LEFT JOIN departments gd ON gd.id = t.group_id
         WHERE ' . implode(' AND ', $where) . ' ORDER BY t.last_activity_at DESC, t.id DESC LIMIT 300', $params);
     // dringende zuerst, innerhalb gleicher Dringlichkeit die ältesten zuerst (offene Ansichten)
     if ($state === 'open' || $view === 'queue') {
@@ -396,7 +440,8 @@ function page_tickets(): void
                     <tr>
                         <td class="nowrap"><a href="<?= e(turl('ticket', ['id' => $tk['id']])) ?>">#<?= e($tk['number']) ?></a></td>
                         <td><a href="<?= e(turl('ticket', ['id' => $tk['id']])) ?>"><strong><?= e($tk['subject']) ?></strong></a>
-                            <?php if ($tk['category'] !== ''): ?><br><span class="muted small"><?= e(t($tk['category'])) ?></span><?php endif; ?></td>
+                            <?php if ($tk['category'] !== ''): ?><br><span class="muted small"><?= e(t($tk['category'])) ?></span><?php endif; ?>
+                            <?php if ($tk['visibility'] === 'group' && $tk['group_name'] !== null): ?> <span class="tag" title="<?= e(t('Sichtbar für die Gruppe')) ?>">👥 <?= e($tk['group_name']) ?></span><?php endif; ?></td>
                         <td><?= e($tk['queue_name'] ?? '–') ?></td>
                         <td><?= ticket_priority_badge($tk['priority']) ?></td>
                         <td><?= ticket_status_badge($tk['status']) ?><?= $tk['status'] === 'zurueckgestellt' && $tk['follow_up_at'] ? '<br><span class="muted small">' . e(t('bis')) . ' ' . fmt_date($tk['follow_up_at']) . '</span>' : '' ?></td>
@@ -429,8 +474,12 @@ function page_ticket_new(): void
     $people = $onBehalf ? rows('SELECT id, name, email FROM users WHERE company_id = ? AND active = 1 ORDER BY name', [$cid]) : [];
     $employees = rows("SELECT id, first_name, last_name, employee_no FROM employees WHERE company_id = ? AND status <> 'ausgetreten' ORDER BY last_name, first_name", [$cid]);
     $cats = ticket_categories($cid);
+    // Sichtbarkeit: nur der Ersteller oder eine seiner Gruppen. Wer für jemanden anlegt, wählt aus allen Gruppen der Firma.
+    $groups = [];
+    if ($onBehalf) foreach (departments_of($cid) as $d) $groups[(int)$d['id']] = $d['name'];
+    elseif (!$staff) $groups = user_groups((int)$u['id']);
     $data = ['queue_id' => (int)($queues[0]['id']), 'subject' => '', 'body' => '', 'priority' => 'einschraenkung', 'category' => '', 'employee_id' => 0,
-        'created_by' => $staff ? 0 : (int)$u['id']];
+        'created_by' => $staff ? 0 : (int)$u['id'], 'group_id' => 0];
     if (count($queues) > 1) $data['queue_id'] = query_int('queue');
     $errors = [];
 
@@ -443,6 +492,8 @@ function page_ticket_new(): void
         $data['category'] = (string)post('category');
         $data['employee_id'] = (int)post('employee_id', 0);
         if ($onBehalf) $data['created_by'] = (int)post('created_by', 0);
+        $data['group_id'] = (int)post('group_id', 0);
+        if ($data['group_id'] && !isset($groups[$data['group_id']])) $data['group_id'] = 0;
         if (!in_array($data['queue_id'], array_map('intval', array_column($queues, 'id')), true)) $errors[] = t('Bitte eine Queue wählen.');
         if ($data['subject'] === '') $errors[] = t('Bitte einen Betreff angeben.');
         if ($data['body'] === '') $errors[] = t('Bitte beschreiben Sie das Anliegen.');
@@ -450,6 +501,9 @@ function page_ticket_new(): void
         if ($data['category'] !== '' && !in_array($data['category'], $cats, true)) $data['category'] = '';
         if ($data['employee_id'] && !in_array($data['employee_id'], array_map('intval', array_column($employees, 'id')), true)) $data['employee_id'] = 0;
         if ($onBehalf && !in_array($data['created_by'], array_map('intval', array_column($people, 'id')), true)) $errors[] = t('Bitte wählen Sie, für wen das Ticket angelegt wird.');
+        elseif ($data['group_id'] && $data['created_by'] && !isset(user_groups((int)$data['created_by'])[$data['group_id']])) {
+            $errors[] = t('Der Ersteller ist nicht Mitglied der Gruppe „{x}“.', ['x' => $groups[$data['group_id']]]);
+        }
         [$files, $fileErr] = ticket_uploads();
         if ($fileErr) $errors[] = $fileErr;
         if (!$errors) {
@@ -460,6 +514,7 @@ function page_ticket_new(): void
                     $id = insert('tickets', ['company_id' => $cid, 'seq_year' => $year, 'seq_no' => $seq, 'number' => $number, 'queue_id' => $data['queue_id'],
                         'subject' => $data['subject'], 'priority' => $data['priority'], 'category' => $data['category'], 'status' => 'offen',
                         'created_by' => $data['created_by'], 'entered_by' => (int)$u['id'], 'employee_id' => $data['employee_id'] ?: null,
+                        'visibility' => $data['group_id'] ? 'group' : 'me', 'group_id' => $data['group_id'] ?: null,
                         'assigned_to' => null, 'follow_up_at' => '', 'resolved_at' => '', 'closed_at' => '', 'viewing_by' => null, 'viewing_at' => '',
                         'created_at' => now(), 'updated_at' => now(), 'last_activity_at' => now()]);
                 } catch (PDOException $ex) {
@@ -484,7 +539,7 @@ function page_ticket_new(): void
         }
     }
 
-    render_page(t('Neues Ticket'), function () use ($queues, $data, $errors, $cats, $employees, $onBehalf, $people) { ?>
+    render_page(t('Neues Ticket'), function () use ($queues, $data, $errors, $cats, $employees, $onBehalf, $people, $groups) { ?>
         <?php foreach ($errors as $err): ?><div class="alert error"><?= e($err) ?></div><?php endforeach; ?>
         <form method="post" enctype="multipart/form-data" class="form card">
             <?= csrf_field() ?>
@@ -517,6 +572,12 @@ function page_ticket_new(): void
                 </select></label>
                 <?php endif; ?>
             </div>
+            <?php if ($groups): ?>
+            <label><?= e(t('Wer soll das Ticket sehen?')) ?> <select name="group_id">
+                <option value="0"><?= e($onBehalf ? t('Nur der Ersteller (und die Bearbeiter)') : t('Nur ich (und die Bearbeiter)')) ?></option>
+                <?php foreach ($groups as $gid => $gname): ?><option value="<?= (int)$gid ?>" <?= (int)$data['group_id'] === (int)$gid ? 'selected' : '' ?>><?= e(t('Gruppe: {x}', ['x' => $gname])) ?></option><?php endforeach; ?>
+            </select><span class="muted small"><?= e(t('Mitglieder der Gruppe sehen das Ticket und können mitschreiben. Mails bekommt nur der Ersteller.')) ?></span></label>
+            <?php endif; ?>
             <label><?= e(t('Anhänge')) ?> <input type="file" name="files[]" multiple>
                 <span class="muted small"><?= e(t('Bis zu {n} Dateien, je höchstens 10 MB (Bilder, PDF, Office, Text, ZIP).', ['n' => TICKET_ATTACH_COUNT])) ?></span></label>
             <div class="buttons"><button class="btn primary"><?= e(t('Ticket absenden')) ?></button> <a class="btn" href="<?= e(turl('tickets')) ?>"><?= e(t('Abbrechen')) ?></a></div>
@@ -559,8 +620,12 @@ function page_ticket(): void
     $queues = $proc ? rows('SELECT id, name FROM ticket_queues WHERE company_id = ? AND active = 1 ORDER BY sort, name', [$cid]) : [];
     $employee = $tk['employee_id'] ? row('SELECT first_name, last_name, employee_no FROM employees WHERE id = ?', [$tk['employee_id']]) : null;
     $isCreator = (int)$tk['created_by'] === (int)$u['id'];
+    $requester = $isCreator || ticket_in_group($tk);
+    $lead = ticket_is_lead($tk);
+    // Zuweisen: Teamleitung und Admins an jeden Bearbeiter; der gebuchte Bearbeiter gibt weiter
+    $mayAssign = $lead || ($proc && (int)$tk['assigned_to'] === (int)$u['id']);
 
-    render_page('#' . $tk['number'] . ' ' . $tk['subject'], function () use ($tk, $u, $proc, $othersViewing, $msgs, $files, $processors, $queues, $employee, $isCreator) {
+    render_page('#' . $tk['number'] . ' ' . $tk['subject'], function () use ($tk, $u, $proc, $othersViewing, $msgs, $files, $processors, $queues, $employee, $isCreator, $requester, $lead, $mayAssign) {
         $closed = in_array($tk['status'], TICKET_CLOSED, true);
         $action = e(turl('ticket_action', ['id' => $tk['id']])); ?>
         <p><a href="<?= e(turl('tickets')) ?>"><?= e(t('← Zur Übersicht')) ?></a></p>
@@ -594,7 +659,7 @@ function page_ticket(): void
                     </ul>
                 </div>
 
-                <?php if ($tk['status'] !== 'geschlossen' && ($proc || $isCreator)): ?>
+                <?php if ($tk['status'] !== 'geschlossen' && ($proc || $requester)): ?>
                 <form method="post" action="<?= $action ?>" enctype="multipart/form-data" class="form card">
                     <?= csrf_field() ?><input type="hidden" name="action" value="reply">
                     <label><?= e($tk['status'] === 'rueckfrage' && $isCreator ? t('Antwort auf die Rückfrage') : t('Nachricht')) ?>
@@ -622,6 +687,8 @@ function page_ticket(): void
                         <?php if ($tk['category'] !== ''): ?><dt><?= e(t('Kategorie')) ?></dt><dd><?= e(t($tk['category'])) ?></dd><?php endif; ?>
                         <dt><?= e(t('Bearbeiter')) ?></dt><dd><?= $tk['assignee_name'] !== null ? e($tk['assignee_name']) : '<span class="muted">' . e(t('noch niemand')) . '</span>' ?></dd>
                         <dt><?= e(t('Erstellt von')) ?></dt><dd><?= e($tk['creator_name'] ?? '–') ?></dd>
+                        <dt><?= e(t('Sichtbar für')) ?></dt><dd><?= $tk['visibility'] === 'group' && $tk['group_name'] !== null ? '👥 ' . e(t('Gruppe: {x}', ['x' => $tk['group_name']])) : e(t('Ersteller')) ?></dd>
+                        <?php if ($proc && $tk['lead_name'] !== null): ?><dt><?= e(t('Teamleitung')) ?></dt><dd><?= e($tk['lead_name']) ?></dd><?php endif; ?>
                         <?php if ($employee): ?><dt><?= e(t('Betroffener Mitarbeiter')) ?></dt><dd><?= e($employee['first_name'] . ' ' . $employee['last_name']) ?></dd><?php endif; ?>
                         <dt><?= e(t('Erstellt')) ?></dt><dd><?= fmt_dt($tk['created_at']) ?><br><span class="muted small"><?= e(ticket_age($tk['created_at'])) ?></span></dd>
                     </dl>
@@ -637,10 +704,12 @@ function page_ticket(): void
                         <form method="post" action="<?= $action ?>"><?= csrf_field() ?><input type="hidden" name="action" value="release">
                             <button class="btn"><?= e(t('In die Queue zurückgeben')) ?></button></form>
                     <?php endif; ?>
+                    <?php if ($mayAssign): ?>
                     <form method="post" action="<?= $action ?>" class="inline-form"><?= csrf_field() ?><input type="hidden" name="action" value="assign">
-                        <label><?= e(t('Weitergeben an')) ?> <select name="user_id" required><option value=""><?= e(t('– bitte wählen –')) ?></option>
+                        <label><?= e((int)$tk['assigned_to'] === (int)$u['id'] ? t('Weitergeben an') : t('Zuweisen an')) ?> <select name="user_id" required><option value=""><?= e(t('– bitte wählen –')) ?></option>
                             <?php foreach ($processors as $p): if ((int)$p['id'] === (int)$tk['assigned_to']) continue; ?><option value="<?= (int)$p['id'] ?>"><?= e($p['name']) ?></option><?php endforeach; ?>
                         </select></label> <button class="btn small"><?= e(t('Zuweisen')) ?></button></form>
+                    <?php endif; ?>
                     <?php if (count($queues) > 1): ?>
                     <form method="post" action="<?= $action ?>" class="inline-form"><?= csrf_field() ?><input type="hidden" name="action" value="queue">
                         <label><?= e(t('Queue wechseln')) ?> <select name="queue_id">
@@ -689,6 +758,7 @@ function page_ticket_action(): void
     $id = (int)$tk['id'];
     $proc = ticket_can_process($tk);
     $isCreator = (int)$tk['created_by'] === (int)$u['id'];
+    $requester = $isCreator || ticket_in_group($tk);
     $action = (string)post('action');
     $back = fn() => tredirect('ticket', ['id' => $id]);
     $setStatus = function (string $to, string $label = '', bool $notify = true) use (&$tk, $id, $cid, $u) {
@@ -714,7 +784,7 @@ function page_ticket_action(): void
 
     switch ($action) {
         case 'reply':
-            if (!$proc && !$isCreator) abort(403);
+            if (!$proc && !$requester) abort(403);
             $body = mb_substr(trim((string)post('body')), 0, 20000);
             if ($body === '') { flash('error', t('Bitte eine Nachricht eingeben.')); $back(); }
             [$files, $fileErr] = ticket_uploads();
@@ -735,8 +805,11 @@ function page_ticket_action(): void
                 $statusLine = $note ? '' : $from . '>' . $status;
             }
             if (!$note) {
-                if ($isCreator && !$proc || ($isCreator && (int)$tk['assigned_to'] !== (int)$u['id'])) {
-                    ticket_notify_processors($tk, fn() => t("{name} hat geantwortet:\n\n", ['name' => $u['name']]) . $body);
+                if ($requester && (!$proc || (int)$tk['assigned_to'] !== (int)$u['id'])) {
+                    // Gruppen-Ticket: der Ersteller bekommt seine eigene Mail (unten), auch wenn er Bearbeiter ist
+                    ticket_notify_processors($tk, fn() => t("{name} hat geantwortet:\n\n", ['name' => $u['name']]) . $body, false, $isCreator ? [] : [(int)$tk['created_by']]);
+                    // Gruppen-Ticket: der Ersteller erfährt, was ein Gruppenmitglied geschrieben hat
+                    if (!$isCreator) ticket_notify_creator($tk, fn() => t("{name} hat auf Ihr Ticket geantwortet:\n\n", ['name' => $u['name']]) . $body);
                     // Antwort auf eine Rückfrage oder auf ein gelöstes Ticket: zurück in die Bearbeitung
                     if ($tk['status'] === 'rueckfrage') $setStatus($tk['assigned_to'] ? 'in_bearbeitung' : 'offen', 'Rückfrage beantwortet');
                     elseif ($tk['status'] === 'geloest') $setStatus('wieder_eroeffnet', 'Vom Ersteller wieder eröffnet');
@@ -780,7 +853,9 @@ function page_ticket_action(): void
             $back();
 
         case 'assign':
-            if (!$proc) abort(403);
+            if (!ticket_is_lead($tk) && !($proc && (int)$tk['assigned_to'] === (int)$u['id'])) {
+                abort(403, t('Zuweisen dürfen die Teamleitung der Queue und die Administratoren. Sie können das Ticket selbst übernehmen.'));
+            }
             $to = (int)post('user_id', 0);
             $target = null;
             foreach (ticket_queue_processors((int)$tk['queue_id'], $cid) as $p) if ((int)$p['id'] === $to) $target = $p;
@@ -892,6 +967,8 @@ function page_ticket_settings(): void
     $staff = is_staff_role($u['role']);
     $users = rows("SELECT id, name, email, role FROM users WHERE company_id = ? AND active = 1 ORDER BY name", [$cid]);
     $userIds = array_map('intval', array_column($users, 'id'));
+    $deps = departments_of($cid);
+    $depIds = array_map('intval', array_column($deps, 'id'));
 
     if (is_post()) {
         require_post_csrf();
@@ -900,8 +977,9 @@ function page_ticket_settings(): void
             $qid = (int)post('queue_id', 0);
             $name = mb_substr(trim((string)post('name')), 0, 120);
             if ($name === '') { flash('error', t('Bitte einen Namen angeben.')); tredirect('ticket_settings'); }
+            $lead = (int)post('lead_user_id', 0);
             $data = ['name' => $name, 'description' => mb_substr(trim((string)post('description')), 0, 500), 'sort' => (int)post('sort', 0),
-                'active' => post('active') === '1' ? 1 : 0];
+                'active' => post('active') === '1' ? 1 : 0, 'lead_user_id' => in_array($lead, $userIds, true) ? $lead : null];
             if ($qid) {
                 if (!row('SELECT id FROM ticket_queues WHERE id = ? AND company_id = ?', [$qid, $cid])) abort(404);
                 update('ticket_queues', $qid, $data);
@@ -911,7 +989,10 @@ function page_ticket_settings(): void
             $members = array_values(array_intersect(array_map('intval', (array)($_POST['members'] ?? [])), $userIds));
             q('DELETE FROM ticket_queue_members WHERE queue_id = ?', [$qid]);
             foreach ($members as $m) insert('ticket_queue_members', ['queue_id' => $qid, 'user_id' => $m]);
-            audit('ticket.queue', $name . ' (' . count($members) . ')', $cid);
+            $qgroups = array_values(array_intersect(array_map('intval', (array)($_POST['groups'] ?? [])), $depIds));
+            q('DELETE FROM ticket_queue_groups WHERE queue_id = ?', [$qid]);
+            foreach ($qgroups as $g) insert('ticket_queue_groups', ['queue_id' => $qid, 'department_id' => $g]);
+            audit('ticket.queue', $name . ' (' . count($members) . ' / ' . count($qgroups) . ')', $cid);
             flash('success', t('Die Queue „{x}“ wurde gespeichert.', ['x' => $name]));
             tredirect('ticket_settings');
         }
@@ -923,9 +1004,21 @@ function page_ticket_settings(): void
                 tredirect('ticket_settings');
             }
             q('DELETE FROM ticket_queue_members WHERE queue_id = ?', [$q['id']]);
+            q('DELETE FROM ticket_queue_groups WHERE queue_id = ?', [$q['id']]);
             q('DELETE FROM ticket_queues WHERE id = ?', [$q['id']]);
             audit('ticket.queue_delete', $q['name'], $cid);
             flash('success', t('Die Queue wurde gelöscht.'));
+            tredirect('ticket_settings');
+        }
+        if ($action === 'group_save') {
+            $did = (int)post('department_id', 0);
+            if (!in_array($did, $depIds, true)) abort(404);
+            $ids = array_values(array_intersect(array_map('intval', (array)($_POST['members'] ?? [])), $userIds));
+            user_departments_set_for_group($did, $ids, $userIds);
+            $dname = '';
+            foreach ($deps as $d) if ((int)$d['id'] === $did) $dname = $d['name'];
+            audit('ticket.group', $dname . ' (' . count($ids) . ')', $cid);
+            flash('success', t('Die Gruppe „{x}“ wurde gespeichert.', ['x' => $dname]));
             tredirect('ticket_settings');
         }
         if ($action === 'settings') {
@@ -947,28 +1040,62 @@ function page_ticket_settings(): void
     foreach (rows('SELECT m.queue_id, m.user_id FROM ticket_queue_members m JOIN ticket_queues q ON q.id = m.queue_id WHERE q.company_id = ?', [$cid]) as $m) {
         $members[(int)$m['queue_id']][] = (int)$m['user_id'];
     }
+    $qgroups = [];
+    foreach (rows('SELECT g.queue_id, g.department_id FROM ticket_queue_groups g JOIN ticket_queues q ON q.id = g.queue_id WHERE q.company_id = ?', [$cid]) as $g) {
+        $qgroups[(int)$g['queue_id']][] = (int)$g['department_id'];
+    }
+    $gmembers = [];
+    foreach (rows('SELECT ud.department_id, ud.user_id FROM user_departments ud JOIN departments d ON d.id = ud.department_id WHERE d.company_id = ?', [$cid]) as $m) {
+        $gmembers[(int)$m['department_id']][] = (int)$m['user_id'];
+    }
+    $userNames = array_column($users, 'name', 'id');
+    $depNames = array_column($deps, 'name', 'id');
     $co = tickets_company($cid);
     $cats = ticket_categories($cid);
 
-    render_page(t('Queues & Einstellungen'), function () use ($cid, $staff, $users, $queues, $members, $co, $cats) {
+    render_page(t('Queues & Einstellungen'), function () use ($cid, $staff, $users, $queues, $members, $qgroups, $deps, $gmembers, $userNames, $depNames, $co, $cats) {
         if (is_admin()) echo company_switcher($cid, 'ticket_settings'); ?>
         <p><a href="<?= e(turl('tickets')) ?>"><?= e(t('← Zur Übersicht')) ?></a></p>
         <div class="card">
             <h2><?= e(t('Queues')) ?></h2>
-            <p class="muted"><?= e(t('Beim Erstellen wählt man die Queue. Bearbeiter einer Queue sehen und bearbeiten deren Tickets und bekommen bei neuen Tickets eine Mail. Firmen-Administratoren sind in allen Queues Bearbeiter.')) ?></p>
-            <?php foreach ($queues as $q): $qm = $members[(int)$q['id']] ?? []; ?>
+            <p class="muted"><?= e(t('Beim Erstellen wählt man die Queue. Bearbeiter einer Queue sehen und bearbeiten deren Tickets und bekommen bei neuen Tickets eine Mail. Bearbeiter sind die angehakten Gruppen und Personen, die Teamleitung und die Firmen-Administratoren (Admin-Gruppe). Zuweisen dürfen Teamleitung und Administratoren.')) ?></p>
+            <?php foreach ($queues as $q): $qm = $members[(int)$q['id']] ?? []; $qg = $qgroups[(int)$q['id']] ?? []; ?>
                 <details class="queue-box">
                     <summary><strong><?= e($q['name']) ?></strong> <?= (int)$q['active'] ? '' : '<span class="tag">' . e(t('inaktiv')) . '</span>' ?>
-                        <span class="muted small">· <?= e(t('{n} offene Tickets', ['n' => (int)$q['open_count']])) ?> · <?= e(t('{n} Bearbeiter', ['n' => count($qm)])) ?></span></summary>
-                    <?php ticket_queue_form($q, $qm, $users); ?>
+                        <span class="muted small">· <?= e(t('{n} offene Tickets', ['n' => (int)$q['open_count']])) ?>
+                        <?php if ($qg): ?>· 👥 <?= e(implode(', ', array_map(fn($g) => $depNames[$g] ?? '?', $qg))) ?><?php endif; ?>
+                        <?php if ($qm): ?>· <?= e(t('{n} Personen', ['n' => count($qm)])) ?><?php endif; ?>
+                        <?php if ($q['lead_user_id'] && isset($userNames[$q['lead_user_id']])): ?>· <?= e(t('Teamleitung: {x}', ['x' => $userNames[$q['lead_user_id']]])) ?><?php endif; ?></span></summary>
+                    <?php ticket_queue_form($q, $qm, $qg, $users, $deps); ?>
                     <form method="post" class="inline-form"><?= csrf_field() ?><input type="hidden" name="action" value="queue_delete"><input type="hidden" name="queue_id" value="<?= (int)$q['id'] ?>">
                         <button class="btn small danger" data-confirm="<?= e(t('Queue „{x}“ löschen?', ['x' => $q['name']])) ?>"><?= e(t('Queue löschen')) ?></button></form>
                 </details>
             <?php endforeach; ?>
             <details class="queue-box" <?= $queues ? '' : 'open' ?>>
                 <summary><strong><?= e(t('+ Neue Queue')) ?></strong></summary>
-                <?php ticket_queue_form(null, [], $users); ?>
+                <?php ticket_queue_form(null, [], [], $users, $deps); ?>
             </details>
+        </div>
+        <div class="card">
+            <h2><?= e(t('Gruppen')) ?></h2>
+            <p class="muted"><?= e(t('Gruppen sind die Abteilungen der Firma (Stammdaten). Ein Konto kann in mehreren Gruppen sein. Gruppen werden als Bearbeiter einer Queue eingetragen; beim Erstellen kann man ein Ticket für die eigene Gruppe sichtbar machen.')) ?></p>
+            <?php if (!$deps): ?>
+                <p class="muted"><?= e(t('Es sind noch keine Abteilungen angelegt.')) ?> <a href="<?= e(url('structure', is_admin() ? ['company' => $cid] : [])) ?>"><?= e(t('Abteilungen anlegen')) ?></a></p>
+            <?php endif; ?>
+            <?php foreach ($deps as $d): $gm = $gmembers[(int)$d['id']] ?? []; ?>
+                <details class="queue-box">
+                    <summary><strong><?= e($d['name']) ?></strong> <span class="muted small">· <?= e(t('{n} Mitglieder', ['n' => count(array_intersect($gm, array_map('intval', array_keys($userNames))))])) ?>
+                        <?php if ($gm): ?>: <?= e(implode(', ', array_filter(array_map(fn($x) => $userNames[$x] ?? null, $gm)))) ?><?php endif; ?></span></summary>
+                    <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="action" value="group_save"><input type="hidden" name="department_id" value="<?= (int)$d['id'] ?>">
+                        <div class="checks">
+                        <?php foreach ($users as $usr): ?>
+                            <label class="check"><input type="checkbox" name="members[]" value="<?= (int)$usr['id'] ?>" <?= in_array((int)$usr['id'], $gm, true) ? 'checked' : '' ?>> <?= e($usr['name']) ?></label>
+                        <?php endforeach; ?>
+                        </div>
+                        <button class="btn primary"><?= e(t('Gruppe speichern')) ?></button>
+                    </form>
+                </details>
+            <?php endforeach; ?>
         </div>
         <form method="post" class="form card">
             <?= csrf_field() ?><input type="hidden" name="action" value="settings">
@@ -984,7 +1111,7 @@ function page_ticket_settings(): void
     <?php });
 }
 
-function ticket_queue_form(?array $q, array $qm, array $users): void
+function ticket_queue_form(?array $q, array $qm, array $qg, array $users, array $deps): void
 { ?>
     <form method="post" class="form">
         <?= csrf_field() ?><input type="hidden" name="action" value="queue_save"><input type="hidden" name="queue_id" value="<?= (int)($q['id'] ?? 0) ?>">
@@ -993,7 +1120,19 @@ function ticket_queue_form(?array $q, array $qm, array $users): void
             <label><?= e(t('Reihenfolge')) ?> <input type="number" name="sort" value="<?= (int)($q['sort'] ?? 0) ?>"></label>
         </div>
         <label><?= e(t('Beschreibung (wird beim Erstellen angezeigt)')) ?> <input name="description" maxlength="500" value="<?= e($q['description'] ?? '') ?>"></label>
-        <fieldset><legend><?= e(t('Bearbeiter')) ?></legend>
+        <?php if ($deps): ?>
+        <fieldset><legend><?= e(t('Bearbeiter-Gruppen')) ?></legend>
+            <div class="checks">
+            <?php foreach ($deps as $d): ?>
+                <label class="check"><input type="checkbox" name="groups[]" value="<?= (int)$d['id'] ?>" <?= in_array((int)$d['id'], $qg, true) ? 'checked' : '' ?>> 👥 <?= e($d['name']) ?></label>
+            <?php endforeach; ?>
+            </div>
+        </fieldset>
+        <?php endif; ?>
+        <label><?= e(t('Teamleitung')) ?> <select name="lead_user_id"><option value="0"><?= e(t('– keine –')) ?></option>
+            <?php foreach ($users as $usr): ?><option value="<?= (int)$usr['id'] ?>" <?= (int)($q['lead_user_id'] ?? 0) === (int)$usr['id'] ? 'selected' : '' ?>><?= e($usr['name']) ?></option><?php endforeach; ?>
+        </select><span class="muted small"><?= e(t('Weist Tickets zu und ist Bearbeiter der Queue. Bei zu langer Wartezeit wird an sie eskaliert (folgt).')) ?></span></label>
+        <fieldset><legend><?= e(t('Weitere Bearbeiter (einzelne Personen)')) ?></legend>
             <div class="checks">
             <?php foreach ($users as $usr): ?>
                 <label class="check"><input type="checkbox" name="members[]" value="<?= (int)$usr['id'] ?>" <?= in_array((int)$usr['id'], $qm, true) || $usr['role'] === 'firma_admin' ? 'checked' : '' ?> <?= $usr['role'] === 'firma_admin' ? 'disabled' : '' ?>>
@@ -1005,3 +1144,17 @@ function ticket_queue_form(?array $q, array $qm, array $users): void
         <button class="btn primary"><?= e(t('Queue speichern')) ?></button>
     </form>
 <?php }
+
+/** Mitglieder einer Gruppe setzen (nur Konten der Firma, Mitgliedschaften in anderen Gruppen bleiben) */
+function user_departments_set_for_group(int $departmentId, array $userIds, array $companyUserIds): void
+{
+    if ($companyUserIds) q('DELETE FROM user_departments WHERE department_id = ? AND user_id IN (' . implode(',', array_map('intval', $companyUserIds)) . ')', [$departmentId]);
+    foreach (array_unique($userIds) as $uid) insert('user_departments', ['user_id' => (int)$uid, 'department_id' => $departmentId]);
+}
+
+/** Gruppen eines Kontos setzen (nur Abteilungen der Firma) */
+function user_departments_set_for_user(int $userId, array $departmentIds, array $companyDepartmentIds): void
+{
+    if ($companyDepartmentIds) q('DELETE FROM user_departments WHERE user_id = ? AND department_id IN (' . implode(',', array_map('intval', $companyDepartmentIds)) . ')', [$userId]);
+    foreach (array_unique(array_intersect(array_map('intval', $departmentIds), $companyDepartmentIds)) as $d) insert('user_departments', ['user_id' => $userId, 'department_id' => (int)$d]);
+}
