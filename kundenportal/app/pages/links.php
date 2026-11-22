@@ -144,14 +144,7 @@ function links_prepare_image(string $raw, int $maxW = LINK_FRAME_W, int $maxH = 
 /** Öffentliche IP-Adresse des Hosts oder null */
 function links_public_ip(string $host): ?string
 {
-    $host = trim($host, '[]');
-    $ips = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : (@gethostbynamel($host) ?: []);
-    if (!$ips) return null;
-    $allowPrivate = (bool)cfg('links.allow_private_fetch', false); // nur zum lokalen Testen
-    foreach ($ips as $ip) {
-        if (!$allowPrivate && !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return null;
-    }
-    return $ips[0];
+    return public_ip($host, (bool)cfg('links.allow_private_fetch', false)); // Ausnahme nur zum lokalen Testen
 }
 
 /** Lädt eine Adresse. Liefert ['body' => …, 'type' => Content-Type, 'url' => End-Adresse] oder null. */
@@ -266,7 +259,10 @@ function links_page_meta(string $url): array
     $host = (string)parse_url($base, PHP_URL_HOST);
     if ($host !== '') {
         $add('/apple-touch-icon.png', 'Logo / App-Symbol');
-        $add('https://www.google.com/s2/favicons?sz=256&domain=' . rawurlencode($host), 'Symbol der Website');
+        // Google-Favicon-Dienst verrät Google jede verlinkte Website – daher nur auf ausdrücklichen Wunsch
+        if (cfg('links.google_favicons', false)) {
+            $add('https://www.google.com/s2/favicons?sz=256&domain=' . rawurlencode($host), 'Symbol der Website');
+        }
     }
     return $out;
 }
@@ -281,7 +277,16 @@ function page_link_suggest(): void
     links_require_manage();
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
-    @set_time_limit(40);
+    // Begrenzung je Sitzung: jeder Abruf lädt fremde Webseiten und belegt den PHP-Prozess bis zu 25 s
+    $now = time();
+    $calls = array_values(array_filter((array)($_SESSION['link_suggest_calls'] ?? []), fn($t) => (int)$t > $now - 600));
+    if (count($calls) >= 30) {
+        echo json_encode(['ok' => false, 'error' => 'Zu viele Abrufe in kurzer Zeit. Bitte in einigen Minuten erneut versuchen.']);
+        exit;
+    }
+    $calls[] = $now;
+    $_SESSION['link_suggest_calls'] = $calls;
+    @set_time_limit(25);
     $url = links_normalize_url((string)($_GET['url'] ?? ''));
     if ($url === null || !link_is_web($url)) { echo json_encode(['ok' => false, 'error' => 'Keine Webadresse.']); exit; }
     if (!function_exists('curl_init')) { echo json_encode(['ok' => false, 'error' => 'Der Server kann keine Webseiten abrufen (PHP-Erweiterung curl fehlt).']); exit; }
@@ -290,7 +295,7 @@ function page_link_suggest(): void
     $images = [];
     $seen = [];
     foreach ($meta['images'] as $src => $kind) {
-        if (count($images) >= 8 || microtime(true) - $started > 20) break;
+        if (count($images) >= 8 || microtime(true) - $started > 12) break;
         $r = links_fetch($src, LINK_IMAGE_MAX_BYTES, 4.0);
         if (!$r) continue;
         $info = @getimagesizefromstring($r['body']);

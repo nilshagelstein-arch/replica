@@ -20,6 +20,27 @@ function request_editable(array $r): bool
     return in_array($r['status'], ['eingereicht', 'rueckfrage'], true);
 }
 
+/**
+ * Abgeschlossene Aufträge (freigegeben/storniert) darf der IT-Service nicht mehr direkt ändern.
+ * Er kann nur einen Änderungsantrag stellen; gibt die Firma ihn frei, wird der Auftrag wieder geöffnet.
+ */
+function request_locked(array $r): bool
+{
+    return in_array($r['status'], ['freigegeben', 'storniert'], true);
+}
+
+function request_change_open(array $r): bool
+{
+    return !empty($r['change_requested_at']);
+}
+
+/** Über einen Änderungsantrag entscheiden: Firmen-Admins der Firma und die Person, die den Auftrag eingereicht hat */
+function can_decide_change(array $u, array $r): bool
+{
+    if (is_staff_role((string)$u['role']) || (int)$u['company_id'] !== (int)$r['company_id']) return false;
+    return $u['role'] === 'firma_admin' || (int)$u['id'] === (int)$r['created_by'];
+}
+
 function request_log(int $requestId, string $kind, string $message = '', ?string $from = null, ?string $to = null, bool $internal = false): void
 {
     insert('request_log', [
@@ -154,7 +175,7 @@ function page_dashboard(): void
                         <td class="<?= $soon ? 'soon' : '' ?>"><?= fmt_date($r['entry_date']) ?><?= $soon ? ' ⚠' : '' ?></td>
                         <td><progress max="100" value="<?= $pct ?>" title="<?= (int)$r['done_count'] ?> von <?= (int)$r['item_count'] ?> erledigt"></progress>
                             <span class="muted small"><?= (int)$r['done_count'] ?>/<?= (int)$r['item_count'] ?></span></td>
-                        <td><?= status_badge($r['status'], $r['type']) ?></td>
+                        <td><?= status_badge($r['status'], $r['type']) ?><?= request_change_open($r) ? ' <span class="tag warn">Änderungsantrag</span>' : '' ?></td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -514,7 +535,7 @@ function page_request_detail(): void
             </div>
             <div class="card">
                 <h2>Checkliste</h2>
-                <?php $canCheck = is_admin() && !in_array($r['status'], ['storniert'], true); ?>
+                <?php $canCheck = is_admin() && !request_locked($r); ?>
                 <form method="post" action="<?= e(url('request_action', ['id' => $r['id']])) ?>">
                     <?= csrf_field() ?><input type="hidden" name="action" value="checklist">
                     <?php foreach ($items as $type => $list): if (!$list) continue; ?>
@@ -536,7 +557,40 @@ function page_request_detail(): void
             </div>
         </div>
 
-        <?php if (is_admin()): ?>
+        <?php if (request_change_open($r)): ?>
+        <div class="card">
+            <h2>Änderungsantrag</h2>
+            <p>Der IT-Service möchte diesen abgeschlossenen Auftrag noch einmal ändern<?= $r['change_requested_at'] ? ' (beantragt am ' . fmt_dt($r['change_requested_at']) . ')' : '' ?>.</p>
+            <p class="prewrap"><strong>Begründung:</strong> <?= e((string)$r['change_reason']) ?></p>
+            <?php if (can_decide_change($u, $r)): ?>
+            <form method="post" action="<?= e(url('request_action', ['id' => $r['id']])) ?>" class="form">
+                <?= csrf_field() ?>
+                <label>Nachricht an den IT-Service (optional)<textarea name="message" rows="2"></textarea></label>
+                <p class="muted small">Freigeben setzt den Auftrag wieder auf „In Bearbeitung“. Der IT-Service kann ihn dann ändern und schließt ihn anschließend erneut ab.</p>
+                <button class="btn primary" name="action" value="change_approve" data-confirm="Änderung freigeben und den Auftrag wieder öffnen?">Änderung freigeben</button>
+                <button class="btn danger" name="action" value="change_reject" data-confirm="Änderungsantrag ablehnen? Der Auftrag bleibt abgeschlossen.">Ablehnen</button>
+            </form>
+            <?php elseif (is_admin()): ?>
+            <p class="muted">Wartet auf die Freigabe durch einen Firmen-Administrator oder die Person, die den Auftrag eingereicht hat.</p>
+            <form method="post" action="<?= e(url('request_action', ['id' => $r['id']])) ?>">
+                <?= csrf_field() ?><input type="hidden" name="action" value="change_withdraw">
+                <button class="btn" data-confirm="Änderungsantrag zurückziehen?">Antrag zurückziehen</button>
+            </form>
+            <?php else: ?>
+            <p class="muted">Freigeben oder ablehnen können die Firmen-Administratoren und die Person, die den Auftrag eingereicht hat.</p>
+            <?php endif; ?>
+        </div>
+        <?php elseif (is_admin() && request_locked($r)): ?>
+        <form method="post" action="<?= e(url('request_action', ['id' => $r['id']])) ?>" class="card form">
+            <?= csrf_field() ?><input type="hidden" name="action" value="change_request">
+            <h2>Änderung beantragen</h2>
+            <p class="muted small">Der Auftrag ist <?= e(status_label($r['status'], $r['type'])) ?> und kann nicht mehr direkt geändert werden. Gibt die Firma den Antrag frei, wird er wieder auf „In Bearbeitung“ gesetzt.</p>
+            <label>Was soll geändert werden und warum?<textarea name="message" rows="3" required></textarea></label>
+            <button class="btn primary">Änderungsantrag an die Firma senden</button>
+        </form>
+        <?php endif; ?>
+
+        <?php if (is_admin() && !request_locked($r)): ?>
         <div class="card">
             <h2>Status ändern</h2>
             <form method="post" action="<?= e(url('request_action', ['id' => $r['id']])) ?>" class="form">
@@ -550,13 +604,12 @@ function page_request_detail(): void
                 <p class="muted small"><?php if (in_array($r['type'], ['offboarding', 'stilllegung'], true)): ?>„Durchgeführt“ = Zugänge gesperrt bzw. stillgelegt · „Abgeschlossen“ = alle Punkte erledigt, Geräte zurück.<?php else: ?>„Eingerichtet“ = technisch vorbereitet · „Freigegeben“ = Zugang ist aktiv und an die Firma übergeben. Zugangsdaten bitte nicht über das Portal versenden.<?php endif; ?></p>
                 <button class="btn primary">Status speichern</button>
             </form>
-            <?php if (!in_array($r['status'], ['freigegeben', 'storniert'], true)): ?>
+            <p class="muted small">Nach „Freigegeben“ oder „Storniert“ ist der Auftrag abgeschlossen. Spätere Änderungen gehen nur noch über einen Änderungsantrag, den die Firma freigibt.</p>
             <form method="post" action="<?= e(url('request_action', ['id' => $r['id']])) ?>" class="form complete-form">
                 <?= csrf_field() ?><input type="hidden" name="action" value="complete_all">
                 <label class="check"><input type="checkbox" name="notify" value="1" <?= company_has_app((int)$r['company_id'], 'onboarding') ? 'checked' : '' ?>> Firma per E-Mail informieren</label>
                 <button class="btn" data-confirm="Alle Punkte als erledigt markieren und den Auftrag abschließen?">Alles erledigt und abschließen</button>
             </form>
-            <?php endif; ?>
         </div>
         <?php endif; ?>
 
@@ -570,6 +623,8 @@ function page_request_detail(): void
                         <?= (int)$l['internal'] ? '<span class="tag warn">intern</span>' : '' ?></div>
                     <?php if ($l['kind'] === 'status'): ?>
                         <div>Status: <?= status_badge((string)$l['status_from'], $r['type']) ?> → <?= status_badge((string)$l['status_to'], $r['type']) ?></div>
+                    <?php elseif ($l['kind'] === 'change_request'): ?>
+                        <div><strong>Änderungsantrag gestellt</strong></div>
                     <?php endif; ?>
                     <?php if ($l['message']): ?><div class="prewrap"><?= e($l['message']) ?></div><?php endif; ?>
                 </li>
@@ -608,7 +663,7 @@ function page_request_action(): void
     $adminRecipients = (array)cfg('mail.admin_recipients', []);
 
     if ($action === 'checklist') {
-        if (!is_admin() || $r['status'] === 'storniert') abort(403);
+        if (!is_admin() || request_locked($r)) abort(403);
         $doneIds = array_map('intval', (array)($_POST['done'] ?? []));
         $changed = 0;
         foreach (rows('SELECT id, done FROM request_items WHERE request_id = ?', [$id]) as $it) {
@@ -628,7 +683,7 @@ function page_request_action(): void
         }
         flash('success', 'Die Checkliste wurde gespeichert.');
     } elseif ($action === 'status') {
-        if (!is_admin()) abort(403);
+        if (!is_admin() || request_locked($r)) abort(403);
         $new = post('status');
         if (!isset(STATUSES[$new])) abort(400);
         if ($new === 'rueckfrage' && $msg === '') {
@@ -683,6 +738,45 @@ function page_request_action(): void
         send_mail($adminRecipients, 'Storniert: ' . request_subject($r) . ' (' . $r['company_name'] . ')',
             'Der Auftrag wurde von ' . $u['name'] . ' storniert.' . ($msg ? "\nGrund: $msg" : '') . "\n\n" . request_link($id));
         flash('success', 'Der Auftrag wurde storniert.');
+    } elseif ($action === 'change_request') {
+        // IT-Service beantragt, einen abgeschlossenen Auftrag wieder zu öffnen
+        if (!is_admin() || !request_locked($r) || request_change_open($r)) abort(403);
+        if ($msg === '') {
+            flash('error', 'Bitte begründen Sie, was am Auftrag geändert werden soll.');
+            redirect('request', ['id' => $id]);
+        }
+        update('requests', $id, ['change_requested_at' => now(), 'change_requested_by' => $u['id'],
+            'change_reason' => $msg, 'updated_at' => now()]);
+        request_log($id, 'change_request', $msg);
+        send_mail($firmRecipients(), 'Änderungsantrag zu ' . request_subject($r),
+            "Der IT-Service möchte den abgeschlossenen Auftrag " . request_subject($r) . " noch einmal ändern.\n\n"
+            . "Begründung:\n$msg\n\n"
+            . "Bitte geben Sie den Antrag im Portal frei oder lehnen Sie ihn ab (Firmen-Administratoren oder die Person, die den Auftrag eingereicht hat).\n\n"
+            . "Zum Auftrag: " . request_link($id), (int)$r['company_id']);
+        flash('success', 'Der Änderungsantrag wurde an die Firma geschickt.');
+    } elseif ($action === 'change_withdraw') {
+        if (!is_admin() || !request_change_open($r)) abort(403);
+        update('requests', $id, ['change_requested_at' => null, 'change_requested_by' => null, 'change_reason' => null, 'updated_at' => now()]);
+        request_log($id, 'change_withdrawn', 'Änderungsantrag zurückgezogen');
+        flash('success', 'Der Änderungsantrag wurde zurückgezogen.');
+    } elseif ($action === 'change_approve' || $action === 'change_reject') {
+        if (!request_change_open($r) || !can_decide_change($u, $r)) abort(403);
+        $approve = $action === 'change_approve';
+        $requester = $r['change_requested_by'] ? row('SELECT email FROM users WHERE id = ? AND active = 1', [$r['change_requested_by']]) : null;
+        $notify = array_merge($adminRecipients, $requester ? [$requester['email']] : []);
+        $clear = ['change_requested_at' => null, 'change_requested_by' => null, 'change_reason' => null, 'updated_at' => now()];
+        if ($approve) {
+            update('requests', $id, $clear + ['status' => 'in_bearbeitung', 'completed_at' => null]);
+            request_log($id, 'status', 'Änderungsantrag freigegeben' . ($msg ? ": $msg" : ''), $r['status'], 'in_bearbeitung');
+        } else {
+            update('requests', $id, $clear);
+            request_log($id, 'change_rejected', 'Änderungsantrag abgelehnt' . ($msg ? ": $msg" : ''));
+        }
+        send_mail($notify, ($approve ? 'Änderung freigegeben: ' : 'Änderung abgelehnt: ') . request_subject($r) . ' (' . $r['company_name'] . ')',
+            $u['name'] . ($approve ? ' hat den Änderungsantrag freigegeben. Der Auftrag ist wieder in Bearbeitung.'
+                                  : ' hat den Änderungsantrag abgelehnt. Der Auftrag bleibt abgeschlossen.')
+            . ($msg ? "\n\nNachricht:\n$msg" : '') . "\n\nZum Auftrag: " . request_link($id));
+        flash('success', $approve ? 'Der Auftrag ist wieder in Bearbeitung.' : 'Der Änderungsantrag wurde abgelehnt.');
     } else {
         abort(400);
     }

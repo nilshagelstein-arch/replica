@@ -18,10 +18,12 @@ if (!is_dir($outDir)) mkdir($outDir, 0775, true);
 
 $opt = getopt('', ['summary:', 'summary-file:', 'author:', 'date:']);
 $summary = isset($opt['summary-file']) ? trim((string)file_get_contents($opt['summary-file'])) : trim((string)($opt['summary'] ?? ''));
-$commit = trim((string)@shell_exec('git -C ' . escapeshellarg($root) . ' rev-parse --short HEAD 2>/dev/null'));
+// Fehlerausgabe von git verwerfen – unter Windows (cmd.exe) heißt das Ziel NUL statt /dev/null
+$nullDev = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
+$commit = trim((string)@shell_exec('git -C ' . escapeshellarg($root) . ' rev-parse --short HEAD 2>' . $nullDev));
 $updateInfo = [
     'date'    => (string)($opt['date'] ?? date('Y-m-d')),
-    'author'  => (string)($opt['author'] ?? trim((string)@shell_exec('git -C ' . escapeshellarg($root) . ' config user.name 2>/dev/null'))),
+    'author'  => (string)($opt['author'] ?? trim((string)@shell_exec('git -C ' . escapeshellarg($root) . ' config user.name 2>' . $nullDev))),
     'summary' => $summary,
     'build'   => date('Y-m-d H:i') . ($commit !== '' ? ' · ' . $commit : ''),
 ];

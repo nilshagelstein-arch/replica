@@ -130,15 +130,28 @@ const ROUTE_AREAS = [
     'link_edit' => ['links', PERM_EDIT], 'link_action' => ['links', PERM_EDIT], 'link_suggest' => ['links', PERM_EDIT],
 ];
 
+/**
+ * Seiten ohne Verwaltungsbereich (Anmeldung, Selbstbedienung, Startseite, eigenes Konto).
+ * Jede andere Route MUSS in ROUTE_AREAS stehen – sonst bekommen Verwaltungsadmins 403 (sicherer Standard,
+ * damit eine neue Seite nicht versehentlich ohne Rechteprüfung erreichbar ist).
+ */
+const ROUTES_WITHOUT_AREA = ['login', 'login_2fa', 'setup_2fa', 'logout', 'register', 'verify_email',
+    'forgot_password', 'reset_password', 'account', 'home', 'app_css'];
+
 $r = (string)($_GET['r'] ?? '');
 if ($r === '') {
     redirect(current_user() ? 'home' : 'login');
 }
 if (!isset($routes[$r])) abort(404);
 
-if (isset(ROUTE_AREAS[$r]) && is_admin()) {
-    [$area, $level] = ROUTE_AREAS[$r];
-    require_area($area, is_post() || $level === PERM_EDIT);
+if (is_admin()) {
+    if (isset(ROUTE_AREAS[$r])) {
+        [$area, $level] = ROUTE_AREAS[$r];
+        require_area($area, is_post() || $level === PERM_EDIT);
+    } elseif (!in_array($r, ROUTES_WITHOUT_AREA, true)) {
+        error_log("[kundenportal] Route '$r' fehlt in ROUTE_AREAS – Zugriff für Verwaltungsadmins gesperrt");
+        abort(403);
+    }
 }
 
 try {

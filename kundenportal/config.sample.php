@@ -30,6 +30,9 @@ return [
         'from_name'  => 'Kundenportal',
         // Empfänger für neue Aufträge und Rückmeldungen der Firmen
         'admin_recipients' => ['it-service@example.de'],
+        // SMTP-Server in internen Netzen (10.x, 192.168.x, localhost …) sind gesperrt (SSRF-Schutz).
+        // Nur zum lokalen Testen, z. B. mit MailHog, auf true setzen:
+        // 'smtp_allow_private' => false,
     ],
 
     // Selbstregistrierung von Firmen (Link „Firma registrieren“ auf der Anmeldeseite)
@@ -46,6 +49,9 @@ return [
     'session_lifetime_minutes' => 60,   // Abmeldung nach Inaktivität
     'max_login_attempts'       => 5,    // danach Sperre
     'lockout_minutes'          => 15,
+    'max_login_attempts_ip'    => 20,
+    // Linksammlung: zusätzlich Google-Favicon-Dienst für Bildvorschläge nutzen (Google erfährt dann die verlinkte Website)
+    // 'links' => ['google_favicons' => false],   // Fehlversuche je IP-Adresse (alle Konten) innerhalb von lockout_minutes, danach Sperre der IP
 
     'timezone' => 'Europe/Berlin',
 ];
