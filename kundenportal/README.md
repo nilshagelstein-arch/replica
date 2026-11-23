@@ -71,7 +71,8 @@ Eingebaute Apps sind **On- & Offboarding**, **Formulare**, **Datensicherung** un
 - **Standorte und Lager** je Firma mit eigenem Bestand; Übersicht „Bestand an Lager“ je Standort und Typ.
 - **BitLocker-Schlüssel** liegen verschlüsselt in der Datenbank, werden nur mit Recht „bearbeiten“ über „Anzeigen“ sichtbar und jedes Anzeigen steht im Verlauf und im Protokoll. Sie sind nicht Teil der Firmensicherung.
 - **Rechte:** Firmen-Administratoren dürfen alles; weitere Rechte (ansehen oder bearbeiten) je Gruppe (Abteilung). Der Dienstleister sieht das Inventar nur, wenn die Firma die Einsicht in den Einstellungen einschaltet, und dann nach seinem Bereichsrecht „Geräte & Lizenzen“.
-- Lizenzen, Übergabeprotokolle, „Meine Geräte“, Erinnerungen und Import folgen in den nächsten Stufen.
+- **Lizenzen** (Reiter „Lizenzen“): Abo, Kauflizenz oder Wartung/Support mit Plätzen (0 = unbegrenzt), Vergabe an Mitarbeiter oder Geräte (Warnung bei Überbelegung), Laufzeit mit Kündigungsfrist („Kündigen bis“ wird berechnet), automatischer Verlängerung (rückt nach Ablauf selbst weiter), Kosten je Monat/Jahr/einmalig, Kündigen und Beenden, Verlauf und Anhänge. Lizenzschlüssel verschlüsselt mit „Anzeigen“ wie BitLocker. „Läuft bald ab“: Ende oder letzter Kündigungstag in den nächsten 60 Tagen.
+- Übergabeprotokolle, „Meine Geräte“, Erinnerungen und Import folgen in den nächsten Stufen.
 
 ### API der Kundendatenbank
 
