@@ -177,7 +177,11 @@ function mime_encode_header(string $s): string
     return preg_match('/[^\x20-\x7E]/', $s) ? '=?UTF-8?B?' . base64_encode($s) . '?=' : $s;
 }
 
-function build_mime(string $fromEmail, string $fromName, string $to, string $subject, string $body, string $replyTo = ''): string
+/**
+ * Baut die Rohnachricht. $attachments: Liste von ['name' => Dateiname, 'mime' => Typ, 'data' => Inhalt];
+ * mit Anhängen wird die Nachricht multipart/mixed, sonst wie bisher text/plain.
+ */
+function build_mime(string $fromEmail, string $fromName, string $to, string $subject, string $body, string $replyTo = '', array $attachments = []): string
 {
     $domain = substr(strrchr($fromEmail, '@') ?: '@localhost', 1);
     $h = [
@@ -193,7 +197,26 @@ function build_mime(string $fromEmail, string $fromName, string $to, string $sub
         'Auto-Submitted: auto-generated',
     ];
     if ($replyTo !== '') $h[] = 'Reply-To: <' . mail_header_clean($replyTo) . '>';
-    return implode("\r\n", $h) . "\r\n\r\n" . rtrim(chunk_split(base64_encode($body), 76, "\r\n")) . "\r\n";
+    if (!$attachments) return implode("\r\n", $h) . "\r\n\r\n" . rtrim(chunk_split(base64_encode($body), 76, "\r\n")) . "\r\n";
+    $boundary = '=_kp_' . bin2hex(random_bytes(12));
+    $h = array_values(array_filter($h, fn($x) => !str_starts_with($x, 'Content-Type:') && !str_starts_with($x, 'Content-Transfer-Encoding:')));
+    $h[] = 'Content-Type: multipart/mixed; boundary="' . $boundary . '"';
+    return implode("\r\n", $h) . "\r\n\r\n" . mime_multipart_body($boundary, $body, $attachments);
+}
+
+/** Teile einer multipart/mixed-Nachricht: Text plus Anhänge (base64) */
+function mime_multipart_body(string $boundary, string $body, array $attachments): string
+{
+    $out = "--$boundary\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"
+        . rtrim(chunk_split(base64_encode($body), 76, "\r\n")) . "\r\n";
+    foreach ($attachments as $a) {
+        $name = str_replace(['"', '\\'], '', mail_header_clean((string)$a['name']));
+        $mime = preg_match('#^[a-z]+/[a-z0-9.+-]+$#i', (string)($a['mime'] ?? '')) ? $a['mime'] : 'application/octet-stream';
+        $out .= "--$boundary\r\nContent-Type: $mime; name=\"" . mime_encode_header($name) . "\"\r\nContent-Transfer-Encoding: base64\r\n"
+            . "Content-Disposition: attachment; filename=\"" . mime_encode_header($name) . "\"\r\n\r\n"
+            . rtrim(chunk_split(base64_encode((string)$a['data']), 76, "\r\n")) . "\r\n";
+    }
+    return $out . "--$boundary--\r\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -317,7 +340,7 @@ function mail_account_ready(?array $acc): bool
     return !empty($acc['oauth_refresh_enc']) && oauth_app_configured($acc['provider']);
 }
 
-function send_via_account(array $acc, string $to, string $subject, string $body): void
+function send_via_account(array $acc, string $to, string $subject, string $body, array $attachments = []): void
 {
     // Ticket-Mails setzen die Eingangsadresse der Queue als Antwortadresse (siehe ticket_mail.php)
     $replyTo = (string)($GLOBALS['mail_reply_to'] ?? '') ?: (string)$acc['reply_to'];
@@ -325,18 +348,22 @@ function send_via_account(array $acc, string $to, string $subject, string $body)
         if ($acc['provider'] === 'smtp') {
             $smtp = new SmtpClient($acc['smtp_host'], (int)$acc['smtp_port'], $acc['smtp_security']);
             if ($acc['smtp_user'] !== '') $smtp->auth($acc['smtp_user'], decrypt_secret($acc['secret_enc']));
-            $smtp->send($acc['from_email'], $to, build_mime($acc['from_email'], $acc['from_name'], $to, $subject, $body, $replyTo));
+            $smtp->send($acc['from_email'], $to, build_mime($acc['from_email'], $acc['from_name'], $to, $subject, $body, $replyTo, $attachments));
             $smtp->quit();
         } elseif ($acc['provider'] === 'microsoft') {
             $msg = ['subject' => mail_header_clean($subject), 'body' => ['contentType' => 'Text', 'content' => $body],
                 'toRecipients' => [['emailAddress' => ['address' => $to]]]];
             if ($replyTo !== '') $msg['replyTo'] = [['emailAddress' => ['address' => $replyTo]]];
+            foreach ($attachments as $a) {
+                $msg['attachments'][] = ['@odata.type' => '#microsoft.graph.fileAttachment', 'name' => (string)$a['name'],
+                    'contentType' => (string)($a['mime'] ?? 'application/octet-stream'), 'contentBytes' => base64_encode((string)$a['data'])];
+            }
             [$status, $resp] = http_call('POST', oauth_endpoints('microsoft')['send'],
                 ['Authorization: Bearer ' . oauth_access_token($acc), 'Content-Type: application/json'],
                 json_encode(['message' => $msg, 'saveToSentItems' => true]));
             if ($status !== 202) throw new RuntimeException(t('Microsoft 365: ') . mb_substr($resp, 0, 300));
         } elseif ($acc['provider'] === 'google') {
-            $raw = rtrim(strtr(base64_encode(build_mime($acc['from_email'], $acc['from_name'], $to, $subject, $body, $replyTo)), '+/', '-_'), '=');
+            $raw = rtrim(strtr(base64_encode(build_mime($acc['from_email'], $acc['from_name'], $to, $subject, $body, $replyTo, $attachments)), '+/', '-_'), '=');
             [$status, $resp] = http_call('POST', oauth_endpoints('google')['send'],
                 ['Authorization: Bearer ' . oauth_access_token($acc), 'Content-Type: application/json'], json_encode(['raw' => $raw]));
             if ($status !== 200) throw new RuntimeException('Gmail: ' . mb_substr($resp, 0, 300));
@@ -350,19 +377,26 @@ function send_via_account(array $acc, string $to, string $subject, string $body)
     }
 }
 
-function send_via_php_mail(string $to, string $subject, string $body): void
+function send_via_php_mail(string $to, string $subject, string $body, array $attachments = []): void
 {
     $from = cfg('mail.from', 'noreply@localhost');
     $fromName = cfg('mail.from_name', cfg('app_name', 'Kundenportal'));
     if (!cfg('mail.enabled', false)) {
         $dir = APP_DIR . '/data';
         if (!is_dir($dir)) mkdir($dir, 0770, true);
-        file_put_contents($dir . '/mail.log', '[' . now() . "] An: $to\nBetreff: $subject\n$body\n" . str_repeat('-', 60) . "\n", FILE_APPEND | LOCK_EX);
+        $att = $attachments ? 'Anhänge: ' . implode(', ', array_map(fn($a) => $a['name'] . ' (' . strlen((string)$a['data']) . ' Bytes)', $attachments)) . "\n" : '';
+        file_put_contents($dir . '/mail.log', '[' . now() . "] An: $to\nBetreff: $subject\n$att$body\n" . str_repeat('-', 60) . "\n", FILE_APPEND | LOCK_EX);
         return;
     }
     $headers = ['From: ' . mime_encode_header($fromName) . ' <' . $from . '>', 'MIME-Version: 1.0',
         'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: 8bit', 'X-Mailer: Kundenportal'];
     if (!empty($GLOBALS['mail_reply_to'])) $headers[] = 'Reply-To: ' . mail_header_clean((string)$GLOBALS['mail_reply_to']);
+    if ($attachments) {
+        $boundary = '=_kp_' . bin2hex(random_bytes(12));
+        $headers[2] = 'Content-Type: multipart/mixed; boundary="' . $boundary . '"';
+        unset($headers[3]);
+        $body = mime_multipart_body($boundary, $body, $attachments);
+    }
     if (!@mail($to, mime_encode_header($subject), $body, implode("\r\n", $headers), '-f' . $from)) {
         throw new RuntimeException(t('PHP mail() fehlgeschlagen'));
     }
@@ -372,7 +406,7 @@ function send_via_php_mail(string $to, string $subject, string $body): void
  * Sendet eine Nachricht an jede Adresse einzeln.
  * $companyId: Firma, in deren Namen versendet wird (deren Postfach wird bevorzugt).
  */
-function send_mail(array $to, string $subject, string $body, ?int $companyId = null): void
+function send_mail(array $to, string $subject, string $body, ?int $companyId = null, array $attachments = []): void
 {
     $to = array_values(array_unique(array_filter(array_map('strtolower', $to), fn($a) => filter_var($a, FILTER_VALIDATE_EMAIL))));
     if (!$to) return;
@@ -391,7 +425,7 @@ function send_mail(array $to, string $subject, string $body, ?int $companyId = n
         $sent = false;
         foreach ($chain as $acc) {
             try {
-                send_via_account($acc, $addr, $subject, $body);
+                send_via_account($acc, $addr, $subject, $body, $attachments);
                 $sent = true;
                 break;
             } catch (Throwable $ex) {
@@ -400,7 +434,7 @@ function send_mail(array $to, string $subject, string $body, ?int $companyId = n
         }
         if (!$sent) {
             try {
-                send_via_php_mail($addr, $subject, $body);
+                send_via_php_mail($addr, $subject, $body, $attachments);
             } catch (Throwable $ex) {
                 error_log('[kundenportal] ' . $ex->getMessage());
             }

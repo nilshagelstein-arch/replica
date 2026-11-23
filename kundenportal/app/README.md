@@ -41,7 +41,7 @@ Der ganze Ordner ist per `.htaccess` (`Require all denied`) vor direktem Zugriff
 
   Quelle: `[bootstrap.php:*]`
 - **`schema.php`**:
-  - `SCHEMA_VERSION` (= 30; ab 29 gibt es die App „Verträge & Laufzeiten“ mit `ct_types`, `contracts`, `ct_log`, `ct_files`, `ct_group_perms` und den Schaltern `companies.ct_provider_access`/`ct_provider_costs`; ab 30 `ct_prices` (Preishistorie), `ct_links` (Verknüpfung mit Geräten/Lizenzen) und `companies.ct_inv_licenses`), `BUILTIN_APPS` (`onboarding`, `formulare`, `datensicherung`, `links`, `tickets`, `inventar`, `vertraege`)
+  - `SCHEMA_VERSION` (= 31; ab 31 `ct_notices` (gemeldete Fristen), `ct_feeds` (Kalender-Abos, Token nur als SHA-256 plus verschlüsselt) und `companies.ct_lead_days`/`ct_pdf_*`; ab 29 gibt es die App „Verträge & Laufzeiten“ mit `ct_types`, `contracts`, `ct_log`, `ct_files`, `ct_group_perms` und den Schaltern `companies.ct_provider_access`/`ct_provider_costs`; ab 30 `ct_prices` (Preishistorie), `ct_links` (Verknüpfung mit Geräten/Lizenzen) und `companies.ct_inv_licenses`), `BUILTIN_APPS` (`onboarding`, `formulare`, `datensicherung`, `links`, `tickets`, `inventar`, `vertraege`)
   - `schema_statements()` für MySQL und SQLite
   - `run_migrations()`, `ensure_schema()`
   - Tabellen: `companies`, `users`, `user_tokens`, `departments`, `positions`, `catalog_items`, `template_items`, `requests`, `request_items`, `request_log`, `audit_log`, `apps`, `company_apps`, `link_tabs`, `link_sections`, `links`, `mail_accounts`, `settings`, `form_folders`, `forms`, `form_layouts`, `form_branding`, `customer_fields`, `customers`, `api_tokens`, `employees`
@@ -68,6 +68,8 @@ Der ganze Ordner ist per `.htaccess` (`Require all denied`) vor direktem Zugriff
   - Kunden: `customer_save`
   - CSV: `csv_read`, `csv_map_headers` und `csv_cell_safe`/`csv_cell_unescape` (Schutz gegen Formel-Injection beim Export, wird beim Import wieder entfernt)
   - API-Schlüssel: `api_token_generate`, `api_token_lookup`
+- **`pdf.php`**: `SimplePdf` erzeugt PDFs ohne Fremdbibliothek (A4, Helvetica/WinAnsi, Tabellen mit Seitenumbruch und Seitenzahlen).
+- **`mail.php`/`i18n.php`**: `send_mail()`, `send_mail_t()`, `send_via_account()` und `build_mime()` nehmen optional Anhänge `[['name', 'mime', 'data'], …]` (SMTP, Microsoft Graph, Gmail, PHP `mail()`).
 - **`updates.php`**: `updates_dir`, `update_embedded_info`, `update_check_package`, `update_extract_zip`, `update_valid_id`, `update_meta_path`, `update_store`, `updates_list`, `update_get`, `update_save_meta`, `update_apply`. Das Paket erzeugt `../../tools/build-update.php` (siehe [../../tools/README.md](../../tools/README.md)).
 
 - **`i18n.php`**: Mehrsprachigkeit.

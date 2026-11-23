@@ -34,9 +34,10 @@ function ct_app_url(int $cid, string $route, array $params = []): string
  * Abo- und Wartungslizenzen aus dem Inventar als Zeilen der Vertragsliste (gleiche Felder wie ein Vertrag).
  * Lizenzen, die mit einem Vertrag verknüpft sind, fehlen hier bewusst.
  */
-function ct_inv_license_rows(int $cid, string $search = ''): array
+function ct_inv_license_rows(int $cid, string $search = '', bool $checkPerm = true): array
 {
-    if (!ct_inv_can_view($cid) || !(int)(ct_company($cid)['ct_inv_licenses'] ?? 1)) return [];
+    // $checkPerm = false nur für Systemaufgaben (automatischer PDF-Versand), die die Firma selbst eingerichtet hat
+    if (!ct_inv_available($cid) || ($checkPerm && !ct_inv_can_view($cid)) || !(int)(ct_company($cid)['ct_inv_licenses'] ?? 1)) return [];
     inv_lic_renew($cid);
     $p = [$cid];
     $w = '';

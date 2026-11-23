@@ -84,7 +84,7 @@ if ($user && !company_pending($user)) {
         'datensicherung' => ['company_backups'],
         'links'          => ['links', 'link_edit'],
         'tickets'        => ['tickets', 'ticket', 'ticket_new', 'ticket_settings', 'ticket_inbox'],
-        'vertraege'      => ['contracts', 'contract', 'contract_settings'],
+        'vertraege'      => ['contracts', 'contract', 'contract_settings', 'contract_deadlines'],
     ];
     foreach ($routeApps as $slug => $routes) {
         if (in_array($route, $routes, true)) {
