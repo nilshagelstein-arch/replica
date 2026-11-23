@@ -51,6 +51,7 @@ require APP_DIR . '/pages/inv_lifecycle.php';
 require APP_DIR . '/pages/inv_links.php';
 require APP_DIR . '/pages/inv_reminders.php';
 require APP_DIR . '/pages/inv_integrations.php';
+require APP_DIR . '/pages/contracts.php';
 require APP_DIR . '/ticket_mail.php';
 
 $routes = [
@@ -143,6 +144,12 @@ $routes = [
     'inv_import'      => 'page_inv_import',
     'inv_integrations'=> 'page_inv_integrations',
     'inv_req_action'  => 'page_inv_req_action',
+    // App „Verträge & Laufzeiten“
+    'contracts'         => 'page_contracts',
+    'contract'          => 'page_contract',
+    'contract_action'   => 'page_contract_action',
+    'contract_file'     => 'page_contract_file',
+    'contract_settings' => 'page_contract_settings',
 ];
 
 /**
@@ -181,6 +188,8 @@ const ROUTE_AREAS = [
     'inv_my' => ['inventory', PERM_VIEW], 'inv_req_action' => ['inventory', PERM_EDIT],
     'inv_costs' => ['inventory', PERM_VIEW], 'inv_export' => ['inventory', PERM_VIEW], 'inv_import' => ['inventory', PERM_EDIT],
     'inv_integrations' => ['inventory', PERM_VIEW],
+    'contracts' => ['contracts', PERM_VIEW], 'contract' => ['contracts', PERM_VIEW], 'contract_file' => ['contracts', PERM_VIEW],
+    'contract_action' => ['contracts', PERM_EDIT], 'contract_settings' => ['contracts', PERM_VIEW],
 ];
 
 /**

@@ -8,6 +8,9 @@ Das Repository enthält das **Kundenportal**, ein mandantenfähiges PHP-Webporta
 - Formulare mit Kundendatenbank und REST-API
 - Datensicherung
 - Linksammlung
+- Tickets
+- Geräte & Lizenzen
+- Verträge & Laufzeiten
 
 Der Dienstleister verwaltet Firmen, Benutzer, App-Freigaben, E-Mail-Versand, Sicherungen und Updates. Dazu gehört ein Build-Werkzeug, das das Portal in ein selbstinstallierendes Update-Paket verpackt.
 
