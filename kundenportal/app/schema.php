@@ -559,7 +559,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 20;
+const SCHEMA_VERSION = 21;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -643,6 +643,8 @@ function run_migrations(): void
         ['companies', 'ticket_categories', 'TEXT NULL'],
         // Dienstleister (ab Version 20): Übergabe je Ticket; Nachrichten von Absendern ohne Konto
         ['tickets', 'provider_id', 'INT NULL'],
+        // Auswertung (ab Version 21): Mitarbeiter-Statistik je Firma, zunächst aus
+        ['companies', 'ticket_staff_stats', 'INT NOT NULL DEFAULT 0'],
         ['tickets', 'provider_internal', 'INT NOT NULL DEFAULT 0'],
         ['tickets', 'provider_since', "VARCHAR(19) NOT NULL DEFAULT ''"],
         ['ticket_messages', 'author_name', "VARCHAR(190) NOT NULL DEFAULT ''"],
@@ -709,6 +711,7 @@ function ensure_schema(): void
         db()->query('SELECT id FROM ticket_providers LIMIT 1');
         db()->query('SELECT provider_id, provider_internal, provider_since FROM tickets LIMIT 1');
         db()->query('SELECT author_name FROM ticket_messages LIMIT 1');
+        db()->query('SELECT ticket_staff_stats FROM companies LIMIT 1');
         db()->query('SELECT id FROM ticket_mail_rules LIMIT 1');
         db()->query('SELECT id FROM ticket_inbox LIMIT 1');
     } catch (PDOException $ex) {
