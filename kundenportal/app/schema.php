@@ -709,7 +709,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 24;
+const SCHEMA_VERSION = 25;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -816,6 +816,8 @@ function run_migrations(): void
         ['inv_devices', 'wipe_confirmed', 'INT NOT NULL DEFAULT 0'],
         ['inv_files', 'handover_id', 'INT NULL'],
         ['companies', 'inv_handover_text', 'TEXT NULL'],
+        // Verknüpfungen (ab Version 25): betroffenes Gerät im Ticket
+        ['tickets', 'device_id', 'INT NULL'],
         ['tickets', 'provider_internal', 'INT NOT NULL DEFAULT 0'],
         ['tickets', 'provider_since', "VARCHAR(19) NOT NULL DEFAULT ''"],
         ['ticket_messages', 'author_name', "VARCHAR(190) NOT NULL DEFAULT ''"],
@@ -891,6 +893,7 @@ function ensure_schema(): void
         db()->query('SELECT id FROM inv_handovers LIMIT 1');
         db()->query('SELECT wipe_confirmed, repair_until FROM inv_devices LIMIT 1');
         db()->query('SELECT handover_id FROM inv_files LIMIT 1');
+        db()->query('SELECT device_id FROM tickets LIMIT 1');
         db()->query('SELECT id FROM ticket_mail_rules LIMIT 1');
         db()->query('SELECT id FROM ticket_inbox LIMIT 1');
     } catch (PDOException $ex) {
