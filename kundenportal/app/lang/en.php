@@ -2993,4 +2993,8 @@ When you sign in for the first time, you set up two-factor authentication with a
     'Netzwerkgeräte (Switches, Firewalls, Access Points) mit IP und Status' => 'Network devices (switches, firewalls, access points) with IP and status',
     'Notebooks und Smartphones mit Benutzer, Compliance und BitLocker-Schlüssel; Microsoft-365-Lizenzen' => 'Laptops and smartphones with user, compliance and BitLocker key; Microsoft 365 licences',
     'Geräte und Verträge aus TANSS; Tickets mit Gerätebezug' => 'Devices and contracts from TANSS; tickets linked to devices',
+    'Schlüssel anzeigen' => 'Show key',
+    'Das Anzeigen eines Schlüssels wird protokolliert. Bitte geben Sie Lizenzschlüssel nicht weiter.' => 'Showing a key is logged. Please do not pass licence keys on.',
+    'Mitarbeiter dürfen die Schlüssel ihrer eigenen Lizenzen unter „Meine Geräte“ anzeigen' => 'Employees may show the keys of their own licences under “My devices”',
+    'Jedes Anzeigen wird im Verlauf der Lizenz protokolliert.' => 'Every display is logged in the licence history.',
 ];
