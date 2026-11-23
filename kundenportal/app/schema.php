@@ -432,6 +432,24 @@ function schema_statements(string $driver): array
         item_condition VARCHAR(30) NOT NULL DEFAULT ''
     )$tail";
 
+    // Erinnerungen (Stufe 5): Mindestbestand je Standort und Typ; bereits gemeldete Punkte
+    $tables[] = "CREATE TABLE IF NOT EXISTS inv_min_stock (
+        id $pk,
+        company_id $fk NOT NULL,
+        location_id $fk NOT NULL,
+        type_id $fk NOT NULL,
+        min_qty INT NOT NULL DEFAULT 0
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS inv_notices (
+        id $pk,
+        company_id $fk NOT NULL,
+        kind VARCHAR(20) NOT NULL,
+        ref_id $fk NOT NULL,
+        ref_key VARCHAR(20) NOT NULL DEFAULT '',
+        sent_at $ts NOT NULL
+    )$tail";
+
     $tables[] = "CREATE TABLE IF NOT EXISTS inv_group_perms (
         id $pk,
         company_id $fk NOT NULL,
@@ -695,6 +713,7 @@ function schema_statements(string $driver): array
         'idx_inv_dev_emp'     => 'inv_devices (company_id, employee_id)',
         'idx_inv_log'         => 'inv_log (device_id, id)',
         'idx_inv_lic'         => 'inv_licenses (company_id, status)',
+        'idx_inv_notice'      => 'inv_notices (company_id, kind, ref_id)',
         'idx_inv_lic_as'      => 'inv_license_assign (license_id)',
         'idx_tk_creator'      => 'tickets (company_id, created_by)',
         'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
@@ -709,7 +728,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 25;
+const SCHEMA_VERSION = 26;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -821,6 +840,8 @@ function run_migrations(): void
         ['tickets', 'provider_internal', 'INT NOT NULL DEFAULT 0'],
         ['tickets', 'provider_since', "VARCHAR(19) NOT NULL DEFAULT ''"],
         ['ticket_messages', 'author_name', "VARCHAR(190) NOT NULL DEFAULT ''"],
+        // Erinnerungen (ab Version 26): Vorlauf in Tagen
+        ['companies', 'inv_lead_days', 'INT NOT NULL DEFAULT 60'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -896,6 +917,9 @@ function ensure_schema(): void
         db()->query('SELECT device_id FROM tickets LIMIT 1');
         db()->query('SELECT id FROM ticket_mail_rules LIMIT 1');
         db()->query('SELECT id FROM ticket_inbox LIMIT 1');
+        db()->query('SELECT inv_lead_days FROM companies LIMIT 1');
+        db()->query('SELECT id FROM inv_min_stock LIMIT 1');
+        db()->query('SELECT id FROM inv_notices LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

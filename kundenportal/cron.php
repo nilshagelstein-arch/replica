@@ -1,7 +1,7 @@
 <?php
 /**
  * Cronjob-Einstieg für die tägliche Datensicherung und die Zeitsteuerung der Tickets
- * (Erinnerungen, Eskalationen, Wiedervorlagen). Empfehlung: stündlich aufrufen – gesichert wird höchstens einmal pro Tag.
+ * (Erinnerungen, Eskalationen, Wiedervorlagen) sowie die Erinnerungen aus „Geräte & Lizenzen“. Empfehlung: stündlich aufrufen – gesichert wird höchstens einmal pro Tag.
  *
  * IONOS-Konto (HTTP GET):  https://ihre-domain.de/portal/cron.php?token=GEHEIM
  * SSH-Crontab:             0 * * * * /usr/bin/php8.3 -f /pfad/zum/portal/cron.php
@@ -22,6 +22,11 @@ require APP_DIR . '/backup.php';
 require APP_DIR . '/pages/masterdata.php';
 require APP_DIR . '/pages/tickets.php';
 require APP_DIR . '/ticket_mail.php';
+require APP_DIR . '/pages/inventory.php';
+require APP_DIR . '/pages/inv_licenses.php';
+require APP_DIR . '/pages/inv_lifecycle.php';
+require APP_DIR . '/pages/inv_links.php';
+require APP_DIR . '/pages/inv_reminders.php';
 
 if (!$cli) {
     header('Content-Type: text/plain; charset=utf-8');
@@ -43,6 +48,14 @@ try {
     if ($cli && $tk) echo implode("\n", $tk) . "\n";
 } catch (Throwable $ex) {
     error_log('[kundenportal] Ticket-Zeitsteuerung: ' . $ex->getMessage());
+}
+// Erinnerungen aus „Geräte & Lizenzen“ (jeder Punkt wird nur einmal gemeldet)
+try {
+    $iv = inv_reminders_run();
+    setting_set('inv_reminder_last', (string)time());
+    if ($cli && $iv) echo implode("\n", $iv) . "\n";
+} catch (Throwable $ex) {
+    error_log('[kundenportal] Inventar-Erinnerung: ' . $ex->getMessage());
 }
 $force = $cli ? in_array('--force', $argv ?? [], true) : !empty($_GET['force']);
 

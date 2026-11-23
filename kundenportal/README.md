@@ -77,7 +77,11 @@ Eingebaute Apps sind **On- & Offboarding**, **Formulare**, **Datensicherung** un
 - **Meine Geräte:** Jeder Benutzer sieht die Geräte und Lizenzen des Mitarbeiters mit seiner E-Mail-Adresse (Mitarbeiterliste), unterschreibt eigene Übergabeprotokolle selbst und meldet einen Defekt direkt als Ticket. Ohne Recht im Inventar landet man in der App automatisch hier.
 - **Tickets:** Beim Anlegen kann das betroffene Gerät gewählt werden (eigene Geräte; Bearbeiter alle aktiven); das Ticket zeigt das Gerät, die Geräteseite die Tickets (für Bearbeiter und Firmen-Admins).
 - **On- und Offboarding:** Im Auftrag zeigt eine Karte die Geräte und Lizenzen des Mitarbeiters – beim Onboarding mit Ausgabe aus dem Lager und Vergabe von Lizenzplätzen, beim Offboarding als Rückgabeliste mit Rücknahme und „Alle Lizenzplätze freigeben“.
-- Erinnerungen, Kostenübersicht und Import folgen in der nächsten Stufe.
+- **Demnächst fällig** auf der Übersicht: Lizenzende, Kündigungsfrist, Garantieende (Vorlauf einstellbar, Standard 60 Tage), überfällige Reparatur, seit 7 Tagen nicht unterschriebene Protokolle, überbelegte Lizenzen und unterschrittener Mindestbestand.
+- **Erinnerungsmails:** je Firma eine Sammelmail an die Firmen-Admins (Bestandswarnungen zusätzlich an Gruppen mit „bearbeiten“), mit eingeschalteter Einsicht auch an den IT-Dienstleister. Jeder Punkt wird nur einmal gemeldet. Läuft über `cron.php` (stündlich) und höchstens stündlich bei Seitenaufrufen.
+- **Mindestbestand** je Lager und Gerätetyp unter Einstellungen.
+- **Kostenübersicht** (Reiter „Kosten“, für Firmen-Admins und den Dienstleister mit Einsicht): laufende Lizenzkosten je Monat und Jahr, nach Produkt und Hersteller, Gerätekäufe je Jahr und Typ, Ausblick auf die nächsten 12 Monate.
+- **CSV-Export** von Geräten, Lizenzen und Lizenzvergabe; **CSV-Import** von Geräten und Lizenzen mit Vorschau (Spalten auf Deutsch, Englisch oder Französisch; bestehende Inventarnummern bzw. Produkt + Vertragsnummer werden aktualisiert).
 
 ### API der Kundendatenbank
 

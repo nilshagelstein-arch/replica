@@ -644,6 +644,7 @@ function cbackup_data(int $cid): array
         'inv_types'      => rows('SELECT * FROM inv_types WHERE company_id = ?', [$cid]),
         'inv_locations'  => rows('SELECT * FROM inv_locations WHERE company_id = ?', [$cid]),
         'inv_group_perms'=> rows('SELECT * FROM inv_group_perms WHERE company_id = ?', [$cid]),
+        'inv_min_stock'  => rows('SELECT * FROM inv_min_stock WHERE company_id = ?', [$cid]),
         // BitLocker-Schlüssel bleiben nur verschlüsselt in der Datenbank
         'inv_devices'    => rows('SELECT id, company_id, inv_no, type_id, manufacturer, model, serial, status, location_id, room, employee_id, purchase_date, price_cents, supplier, warranty_until, os, ip, mac, phone_no, sim_no, mobile_contract, notes, repair_reason, repair_vendor, repair_until, retire_reason, retired_at, disposal_date, disposal_vendor, wipe_method, wipe_by, wipe_confirmed, created_by, created_at, updated_at FROM inv_devices WHERE company_id = ?', [$cid]),
         'inv_log'        => rows('SELECT * FROM inv_log WHERE company_id = ?', [$cid]),
