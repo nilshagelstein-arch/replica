@@ -65,6 +65,14 @@ Eingebaute Apps sind **On- & Offboarding**, **Formulare**, **Datensicherung** un
 - **Rechte:** Alle Benutzer einer Firma mit Freigabe sehen die Seite. Bearbeiten dürfen Firmen-Administratoren und der Dienstleister (wählt die Firma oben aus).
 - Die Daten sind Teil der Firmen-Datensicherung.
 
+### App „Geräte & Lizenzen“ (Inventar)
+
+- **Geräte** je Firma mit Inventarnummer (automatisch `INV-2026-0001` oder frei, je Firma einstellbar), Typ, Hersteller, Modell, Seriennummer, Status (an Lager, im Einsatz, in Reparatur, ausgemustert, entsorgt), Standort und Raum, zugeordnetem Mitarbeiter (aus der Mitarbeiterliste), Kaufdaten, Garantie, Technik (Betriebssystem, IP, MAC, BitLocker-Schlüssel) und Mobilfunk. Jede Änderung steht im Verlauf; Anhänge (Rechnung, Fotos) liegen unter `app/data/inventory/<Firma>/`.
+- **Standorte und Lager** je Firma mit eigenem Bestand; Übersicht „Bestand an Lager“ je Standort und Typ.
+- **BitLocker-Schlüssel** liegen verschlüsselt in der Datenbank, werden nur mit Recht „bearbeiten“ über „Anzeigen“ sichtbar und jedes Anzeigen steht im Verlauf und im Protokoll. Sie sind nicht Teil der Firmensicherung.
+- **Rechte:** Firmen-Administratoren dürfen alles; weitere Rechte (ansehen oder bearbeiten) je Gruppe (Abteilung). Der Dienstleister sieht das Inventar nur, wenn die Firma die Einsicht in den Einstellungen einschaltet, und dann nach seinem Bereichsrecht „Geräte & Lizenzen“.
+- Lizenzen, Übergabeprotokolle, „Meine Geräte“, Erinnerungen und Import folgen in den nächsten Stufen.
+
 ### API der Kundendatenbank
 
 Schlüssel werden in der App unter **Logo, Briefpapier & API** erzeugt (nur einmal angezeigt, gespeichert wird nur ein Hash). Aufruf mit `Authorization: Bearer kp_…` oder `X-API-Key: kp_…`.

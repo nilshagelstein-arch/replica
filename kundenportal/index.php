@@ -45,6 +45,7 @@ require APP_DIR . '/pages/updates.php';
 require APP_DIR . '/pages/links.php';
 require APP_DIR . '/pages/tickets.php';
 require APP_DIR . '/pages/ticket_stats.php';
+require APP_DIR . '/pages/inventory.php';
 require APP_DIR . '/ticket_mail.php';
 
 $routes = [
@@ -116,6 +117,12 @@ $routes = [
     'ticket_inbox'   => 'page_ticket_inbox',
     'ticket_mb_oauth' => 'page_ticket_mb_oauth',
     'ticket_stats'    => 'page_ticket_stats',
+    // App „Geräte & Lizenzen“
+    'inventory'       => 'page_inventory',
+    'inv_device'      => 'page_inv_device',
+    'inv_action'      => 'page_inv_action',
+    'inv_file'        => 'page_inv_file',
+    'inv_settings'    => 'page_inv_settings',
 ];
 
 /**
@@ -146,6 +153,8 @@ const ROUTE_AREAS = [
     'tickets' => ['tickets', PERM_VIEW], 'ticket' => ['tickets', PERM_VIEW], 'ticket_file' => ['tickets', PERM_VIEW],
     'ticket_new' => ['tickets', PERM_EDIT], 'ticket_action' => ['tickets', PERM_EDIT], 'ticket_settings' => ['tickets', PERM_VIEW],
     'ticket_inbox' => ['tickets', PERM_VIEW], 'ticket_mb_oauth' => ['tickets', PERM_EDIT], 'ticket_stats' => ['tickets', PERM_VIEW],
+    'inventory' => ['inventory', PERM_VIEW], 'inv_device' => ['inventory', PERM_VIEW], 'inv_file' => ['inventory', PERM_VIEW],
+    'inv_action' => ['inventory', PERM_EDIT], 'inv_settings' => ['inventory', PERM_VIEW],
 ];
 
 /**

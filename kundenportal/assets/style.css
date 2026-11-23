@@ -710,3 +710,20 @@ fieldset.rights { margin-top: 1rem; }
 .grid2 + .grid2 { margin-top: 1.25rem; }
 .stats-filters { align-items: flex-end; }
 .stats-filters label { text-align: left; }
+
+/* Inventar */
+.badge.inv-lager { background: #e3eefa; color: #1f4f86; }
+.badge.inv-einsatz { background: #e2f4e6; color: #1a6b31; }
+.badge.inv-reparatur { background: #fff1d6; color: #7a4b00; }
+.badge.inv-ausgemustert, .badge.inv-entsorgt { background: #eceff3; color: #59636f; }
+.warn-text { color: var(--warn); font-weight: 600; }
+.inv-log { list-style: none; padding: 0; margin: .5rem 0 0; }
+.inv-log li { padding: .45rem 0; border-top: 1px solid var(--line); }
+.file-list { padding-left: 1.1rem; }
+.file-list .inline-form { display: inline-flex; margin: 0 0 0 .4rem; }
+code.secret { font-size: 1rem; word-break: break-all; user-select: all; }
+.pre { white-space: pre-wrap; }
+.narrow-input { width: 5rem; }
+.inv-grid { align-items: start; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); }
+.inv-grid .form .grid2 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+@media (max-width: 900px) { .inv-grid { grid-template-columns: 1fr; } }

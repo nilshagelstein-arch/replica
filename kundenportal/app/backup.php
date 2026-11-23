@@ -160,8 +160,8 @@ function backup_create(string $kind): string
             $zip->addFromString('LIESMICH.txt', backup_readme());
             // Anhänge der Tickets (Dateien liegen nicht in der Datenbank): app/data/tickets/<Firma>/…
             $attach = [];
-            foreach (glob(APP_DIR . '/data/tickets/*/*.bin') ?: [] as $f) {
-                $n = 'tickets/' . basename(dirname($f)) . '/' . basename($f);
+            foreach (array_merge(glob(APP_DIR . '/data/tickets/*/*.bin') ?: [], glob(APP_DIR . '/data/inventory/*/*.bin') ?: []) as $f) {
+                $n = basename(dirname(dirname($f))) . '/' . basename(dirname($f)) . '/' . basename($f);
                 $zip->addFile($f, $n);
                 $attach[] = $n;
             }
@@ -641,6 +641,13 @@ function cbackup_data(int $cid): array
         'tickets'        => rows('SELECT * FROM tickets WHERE company_id = ?', [$cid]),
         'ticket_messages'=> rows('SELECT * FROM ticket_messages WHERE company_id = ?', [$cid]),
         'ticket_attachments' => rows('SELECT * FROM ticket_attachments WHERE company_id = ?', [$cid]),
+        'inv_types'      => rows('SELECT * FROM inv_types WHERE company_id = ?', [$cid]),
+        'inv_locations'  => rows('SELECT * FROM inv_locations WHERE company_id = ?', [$cid]),
+        'inv_group_perms'=> rows('SELECT * FROM inv_group_perms WHERE company_id = ?', [$cid]),
+        // BitLocker-Schlüssel bleiben nur verschlüsselt in der Datenbank
+        'inv_devices'    => rows('SELECT id, company_id, inv_no, type_id, manufacturer, model, serial, status, location_id, room, employee_id, purchase_date, price_cents, supplier, warranty_until, os, ip, mac, phone_no, sim_no, mobile_contract, notes, created_by, created_at, updated_at FROM inv_devices WHERE company_id = ?', [$cid]),
+        'inv_log'        => rows('SELECT * FROM inv_log WHERE company_id = ?', [$cid]),
+        'inv_files'      => rows('SELECT * FROM inv_files WHERE company_id = ?', [$cid]),
     ];
 }
 
@@ -672,6 +679,7 @@ function cbackup_create(int $cid, string $kind): string
         'exported_at' => date('c'), 'company' => $co['name'], 'tables' => $data], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE));
     // Anhänge der Tickets (Dateien liegen nicht in der Datenbank)
     foreach (glob(APP_DIR . '/data/tickets/' . $cid . '/*.bin') ?: [] as $f) $zip->addFile($f, 'ticket-anhaenge/' . basename($f));
+    foreach (glob(APP_DIR . '/data/inventory/' . $cid . '/*.bin') ?: [] as $f) $zip->addFile($f, 'inventar-anhaenge/' . basename($f));
     $zip->addFromString('kunden.csv', cbackup_csv(array_map(function ($r) { unset($r['company_id']); return $r; }, $data['customers'])));
     $zip->addFromString('LIESMICH.txt', "Datensicherung „{$co['name']}“ vom " . date('d.m.Y H:i') . "\r\n\r\n"
         . t("daten.json   alle Daten der Firma im Kundenportal: Firmenprofil, Benutzer (ohne Passwörter), Abteilungen,\n")
