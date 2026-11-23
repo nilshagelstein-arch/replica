@@ -98,6 +98,10 @@ function page_user_edit(): void
     $allowedRoles = $companyId === null ? ['admin'] : ['firma_user', 'firma_admin'];
     if ($target && $target['role'] === 'superadmin') $allowedRoles = ['superadmin'];
     $data = $target ?? ['name' => '', 'email' => '', 'role' => $allowedRoles[0], 'active' => 1, 'lang' => ''];
+    // Gruppen (Abteilungen) des Kontos, z. B. für die Ticket-Queues
+    $groupDeps = $companyId ? departments_of($companyId) : [];
+    $groupIds = array_map('intval', array_column($groupDeps, 'id'));
+    $userGroups = $target && $groupDeps ? array_map('intval', array_column(rows('SELECT department_id FROM user_departments WHERE user_id = ?', [$target['id']]), 'department_id')) : [];
     $errors = [];
     $newPassword = null;
 
@@ -160,6 +164,10 @@ function page_user_edit(): void
                     $target = row('SELECT * FROM users WHERE id = ?', [$id]);
                     $data = $target;
                 }
+                if ($groupDeps) {
+                    $userGroups = array_values(array_intersect(array_map('intval', (array)($_POST['groups'] ?? [])), $groupIds));
+                    user_departments_set_for_user((int)$id, $userGroups, $groupIds);
+                }
             }
         } elseif ($target && !$isSelf && $action === 'reset_password') {
             $newPassword = random_password();
@@ -217,7 +225,7 @@ function page_user_edit(): void
 
     $backParams = $companyId === null ? ['admins' => 1] : (is_staff_role($me['role']) ? ['company' => $companyId] : []);
     $showRights = $companyId === null && ($data['role'] ?? '') === 'admin' && $me['role'] === 'superadmin';
-    render_page($target ? t('Benutzer bearbeiten') : t('Neuer Benutzer'), function () use ($data, $errors, $target, $allowedRoles, $isSelf, $newPassword, $backParams, $companyId, $showRights) {
+    render_page($target ? t('Benutzer bearbeiten') : t('Neuer Benutzer'), function () use ($data, $errors, $target, $allowedRoles, $isSelf, $newPassword, $backParams, $companyId, $showRights, $groupDeps, $userGroups) {
         foreach ($errors as $err) echo '<div class="alert error">' . e($err) . '</div>';
         if ($newPassword): ?>
             <div class="alert success">
@@ -253,6 +261,16 @@ function page_user_edit(): void
             <?php if ($showRights) render_admin_rights_fields($data); ?>
             <?php else: ?>
             <p class="muted small"><?= e(t('Firmen-Benutzer können Aufträge erstellen und verfolgen. Firmen-Administratoren pflegen zusätzlich Firmenprofil, Benutzer, Abteilungen, Positionen, Katalog und Vorlagen der Firma.')) ?></p>
+            <?php if ($groupDeps): ?>
+            <fieldset><legend><?= e(t('Gruppen (Abteilungen)')) ?></legend>
+                <div class="checks">
+                <?php foreach ($groupDeps as $d): ?>
+                    <label class="check"><input type="checkbox" name="groups[]" value="<?= (int)$d['id'] ?>" <?= in_array((int)$d['id'], $userGroups, true) ? 'checked' : '' ?>> <?= e($d['name']) ?></label>
+                <?php endforeach; ?>
+                </div>
+                <span class="muted small"><?= e(t('Ein Konto kann in mehreren Gruppen sein. Gruppen legen z. B. fest, wer Tickets einer Queue bearbeitet.')) ?></span>
+            </fieldset>
+            <?php endif; ?>
             <?php endif; ?>
             <label class="check"><input type="checkbox" name="active" value="1" <?= (int)$data['active'] ? 'checked' : '' ?> <?= $isSelf || ($data['role'] ?? '') === 'superadmin' ? 'disabled' : '' ?>> <?= e(t('Zugang aktiv')) ?></label>
             <div class="buttons">

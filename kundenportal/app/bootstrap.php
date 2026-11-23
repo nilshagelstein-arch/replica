@@ -27,6 +27,8 @@ const ROLES = [
     'admin'       => 'Verwaltungsadmin (Dienstleister)',
     'firma_admin' => 'Firmen-Administrator',
     'firma_user'  => 'Firmen-Benutzer',
+    // Externer Dienstleister: ohne eigene Firma, Zugriff nur auf die App „Tickets“ der Firmen, die ihn eingetragen haben
+    'dienstleister' => 'Externer Dienstleister',
 ];
 
 const STATUSES = [
@@ -440,12 +442,13 @@ const ADMIN_AREAS = [
     'onboarding' => ['On- & Offboarding', 'Aufträge, Mitarbeiterliste, Abteilungen, Katalog und Vorlagen'],
     'forms'      => ['Formulare', 'Formulare, Kundendatenbank, Briefkopf, Logo und API'],
     'links'      => ['Linksammlung', 'Reiter, Überschriften und Links der Firmen'],
+    'tickets'    => ['Tickets', 'Queues und Einstellungen der Firmen; Tickets nur mit Einsicht-Freigabe der Firma'],
     'backups'    => ['Datensicherung', 'Sicherungen der Firmen; Portal-Sicherungen nur mit Zugriff auf alle Firmen'],
     'audit'      => ['Protokoll', 'Protokoll der Aktionen (nur ansehen)'],
     'updates'    => ['Updates', 'Update-Pakete ansehen und herunterladen (einspielen nur Superadmin)'],
 ];
 /** Welche App zu welchem Bereich gehört */
-const APP_AREAS = ['onboarding' => 'onboarding', 'formulare' => 'forms', 'links' => 'links', 'datensicherung' => 'backups'];
+const APP_AREAS = ['onboarding' => 'onboarding', 'formulare' => 'forms', 'links' => 'links', 'datensicherung' => 'backups', 'tickets' => 'tickets'];
 
 /** Gespeicherte Bereichsrechte eines Verwaltungsadmins (null = uneingeschränkt) */
 function admin_perms_of(array $u): ?array
@@ -554,6 +557,7 @@ function can_access_company(int $companyId): bool
         $ids = admin_company_ids($u);
         return $ids === null || in_array($companyId, $ids, true);
     }
+    if ($u['role'] === 'dienstleister') return in_array($companyId, provider_company_ids(), true);
     return $u['company_id'] === $companyId;
 }
 
@@ -578,7 +582,30 @@ function context_company_id(): int
         }
         return $id;
     }
+    if ($u['role'] === 'dienstleister') {
+        $ids = provider_company_ids();
+        $id = query_int('company') ?: (int)post('company_id', 0);
+        if ($id && !in_array($id, $ids, true)) abort(403);
+        return $id ?: (int)($ids[0] ?? 0);
+    }
     return (int)$u['company_id'];
+}
+
+/** Externer Dienstleister: Firmen, die ihn eingetragen haben (aktiv, mit App „Tickets“), nach Name */
+function provider_company_ids(?array $u = null): array
+{
+    static $cache = [];
+    $u ??= current_user();
+    if (!$u || ($u['role'] ?? '') !== 'dienstleister') return [];
+    $uid = (int)$u['id'];
+    return $cache[$uid] ??= array_map('intval', array_column(rows("SELECT DISTINCT c.id, c.name FROM ticket_providers p
+        JOIN companies c ON c.id = p.company_id JOIN company_apps ca ON ca.company_id = c.id JOIN apps a ON a.id = ca.app_id
+        WHERE p.user_id = ? AND p.active = 1 AND c.active = 1 AND a.slug = 'tickets' AND a.active = 1 ORDER BY c.name", [$uid]), 'id'));
+}
+
+function is_provider_user(): bool
+{
+    return (current_user()['role'] ?? '') === 'dienstleister';
 }
 
 // ---------------------------------------------------------------------------
@@ -598,6 +625,9 @@ function apps_for_user(): array
     if (is_staff_role($u['role'])) {
         return array_values(array_filter(rows('SELECT * FROM apps WHERE active = 1 ORDER BY sort, name'),
             fn($a) => !isset(APP_AREAS[$a['slug']]) || admin_perm(APP_AREAS[$a['slug']], $u) >= PERM_VIEW));
+    }
+    if ($u['role'] === 'dienstleister') {
+        return provider_company_ids($u) ? rows("SELECT * FROM apps WHERE slug = 'tickets' AND active = 1") : [];
     }
     return rows('SELECT a.* FROM apps a JOIN company_apps ca ON ca.app_id = a.id
         WHERE ca.company_id = ? AND a.active = 1 ORDER BY a.sort, a.name', [$u['company_id']]);
@@ -619,6 +649,10 @@ function require_app(string $slug): array
         if (isset(APP_AREAS[$slug])) require_area(APP_AREAS[$slug]);
         return $u;
     }
+    if ($u['role'] === 'dienstleister') {
+        if ($slug !== 'tickets' || !provider_company_ids()) abort(403, t('Für Ihren Zugang ist derzeit keine Firma freigegeben.'));
+        return $u;
+    }
     if (!company_has_app((int)$u['company_id'], $slug)) {
         abort(403, t('Diese App ist für Ihre Firma nicht freigeschaltet. Bitte wenden Sie sich an Ihren IT-Dienstleister.'));
     }
@@ -635,6 +669,10 @@ function companies_with_app(string $slug): array
 function companies_for_select(): array
 {
     if (is_admin()) return rows('SELECT id, name, active FROM companies WHERE 1 = 1' . company_scope_sql('id') . ' ORDER BY name');
+    if (is_provider_user()) {
+        $ids = provider_company_ids();
+        return $ids ? rows('SELECT id, name, active FROM companies WHERE id IN (' . implode(',', $ids) . ') ORDER BY name') : [];
+    }
     $u = current_user();
     return rows('SELECT id, name, active FROM companies WHERE id = ?', [$u['company_id']]);
 }
@@ -662,7 +700,7 @@ function render_page(string $title, callable $content): void
 
 function company_switcher(int $current, string $route, array $extra = []): string
 {
-    if (!is_admin()) return '';
+    if (!is_admin() && !(is_provider_user() && count(provider_company_ids()) > 1)) return '';
     $html = '<form method="get" class="company-switch"><input type="hidden" name="r" value="' . e($route) . '">';
     foreach ($extra as $k => $v) $html .= '<input type="hidden" name="' . e($k) . '" value="' . e($v) . '">';
     $html .= ('<label>' . e(t('Firma:')) . ' <select name="company" onchange="this.form.submit()">');

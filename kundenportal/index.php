@@ -43,6 +43,8 @@ require APP_DIR . '/pages/company_backups.php';
 require APP_DIR . '/updates.php';
 require APP_DIR . '/pages/updates.php';
 require APP_DIR . '/pages/links.php';
+require APP_DIR . '/pages/tickets.php';
+require APP_DIR . '/ticket_mail.php';
 
 $routes = [
     'login'          => 'page_login',
@@ -103,6 +105,15 @@ $routes = [
     'link_action'     => 'page_link_action',
     'link_image'      => 'page_link_image',
     'link_suggest'    => 'page_link_suggest',
+    // App „Tickets“
+    'tickets'         => 'page_tickets',
+    'ticket_new'      => 'page_ticket_new',
+    'ticket'          => 'page_ticket',
+    'ticket_action'   => 'page_ticket_action',
+    'ticket_file'     => 'page_ticket_file',
+    'ticket_settings' => 'page_ticket_settings',
+    'ticket_inbox'   => 'page_ticket_inbox',
+    'ticket_mb_oauth' => 'page_ticket_mb_oauth',
 ];
 
 /**
@@ -130,6 +141,9 @@ const ROUTE_AREAS = [
     'customer_fields' => ['forms', PERM_VIEW], 'customer_import' => ['forms', PERM_EDIT],
     'links' => ['links', PERM_VIEW], 'link_image' => ['links', PERM_VIEW],
     'link_edit' => ['links', PERM_EDIT], 'link_action' => ['links', PERM_EDIT], 'link_suggest' => ['links', PERM_EDIT],
+    'tickets' => ['tickets', PERM_VIEW], 'ticket' => ['tickets', PERM_VIEW], 'ticket_file' => ['tickets', PERM_VIEW],
+    'ticket_new' => ['tickets', PERM_EDIT], 'ticket_action' => ['tickets', PERM_EDIT], 'ticket_settings' => ['tickets', PERM_VIEW],
+    'ticket_inbox' => ['tickets', PERM_VIEW], 'ticket_mb_oauth' => ['tickets', PERM_EDIT],
 ];
 
 /**
@@ -155,6 +169,21 @@ if (is_admin()) {
         abort(403);
     }
 }
+
+// Externe Dienstleister: nur Anmeldung, eigenes Konto und die App „Tickets“ (Start leitet dorthin)
+const PROVIDER_ROUTES = ['login', 'login_2fa', 'setup_2fa', 'logout', 'forgot_password', 'reset_password', 'verify_email', 'account',
+    'home', 'app_css', 'i18n_js', 'tickets', 'ticket', 'ticket_action', 'ticket_file'];
+if (is_provider_user()) {
+    if (!in_array($r, PROVIDER_ROUTES, true)) abort(403);
+    if ($r === 'home' && !(int)current_user()['must_change_password']) redirect('tickets');
+}
+
+// Zeitsteuerung und E-Mail-Abruf der Tickets, falls kein (stündlicher) Cronjob läuft: höchstens alle 5 Minuten,
+// nach der Antwort an den Browser (die Seite wartet also nicht auf den Mailserver)
+if (current_user()) register_shutdown_function(function () {
+    if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request();
+    tickets_timers_tick();
+});
 
 try {
     $routes[$r]();

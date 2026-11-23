@@ -93,6 +93,7 @@ Der ganze Ordner ist per `.htaccess` (`Require all denied`) vor direktem Zugriff
   - Ein leeres `admin_companies` bedeutet „alle Firmen“.
   - `company_scope_sql()` hängt `IN (ids)` an, bei leerer Liste `IN (0)`.
 - **App-Zugriff:** `require_app()` verlangt von Mitarbeitenden des Dienstleisters das Bereichsrecht aus `APP_AREAS` und von Firmenbenutzern eine Freigabe in `company_apps` für eine aktive App.
+- **Externe Dienstleister (Rolle `dienstleister`):** Konto ohne `company_id`. Die Firmen, die den Dienstleister in `ticket_providers` mit `user_id` eingetragen haben, liefert `provider_company_ids()`; nur dort greifen `can_access_company()` und `context_company_id()`. `index.php` lässt für diese Rolle nur `PROVIDER_ROUTES` zu (Anmeldung, eigenes Konto, App „Tickets“). Ein Ticket sieht der Dienstleister nur, solange es bei ihm liegt (`beim_dienstleister`), oder mit `see_all`. Interne Notizen (`kind = 'note'`) sieht er nie, Ersteller sehen den Austausch mit dem Dienstleister (`kind = 'provider'`) nicht.
 - **Passwortregeln:** mindestens 10 Zeichen, mindestens ein Buchstabe und eine Ziffer `[bootstrap.php:validate_password]`.
 - **Superadmin:** `run_migrations()` stellt sicher, dass es mindestens einen Superadmin gibt: Fehlt er, wird der aktive Admin mit der kleinsten ID befördert. Weitere Superadmins werden nicht herabgestuft. Dass genau einer existiert, sichern die Seiten (Übertragung in `users.php`) zusammen mit `active_superadmin_count()`.
 - **TOTP** `[totp.php:totp_verify]`:

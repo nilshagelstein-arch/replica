@@ -95,6 +95,9 @@ function oauth_endpoints(string $provider): array
             'profile'   => 'https://graph.microsoft.com/v1.0/me',
             'send'      => 'https://graph.microsoft.com/v1.0/me/sendMail',
             'scope'     => 'offline_access openid email https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.Send',
+            // Eingangspostfach der Tickets: Lesen und als gelesen markieren
+            'mailbox_scope' => 'offline_access openid email https://graph.microsoft.com/User.Read https://graph.microsoft.com/Mail.ReadWrite',
+            'mail_base' => 'https://graph.microsoft.com/v1.0/me',
         ],
         'google' => [
             'authorize' => 'https://accounts.google.com/o/oauth2/v2/auth',
@@ -102,6 +105,8 @@ function oauth_endpoints(string $provider): array
             'profile'   => 'https://openidconnect.googleapis.com/v1/userinfo',
             'send'      => 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
             'scope'     => 'openid email https://www.googleapis.com/auth/gmail.send',
+            'mailbox_scope' => 'openid email https://www.googleapis.com/auth/gmail.modify',
+            'mail_base' => 'https://gmail.googleapis.com/gmail/v1/users/me',
         ],
     ];
     // nur für Tests: Endpunkte per config.php umleiten
@@ -314,7 +319,8 @@ function mail_account_ready(?array $acc): bool
 
 function send_via_account(array $acc, string $to, string $subject, string $body): void
 {
-    $replyTo = (string)$acc['reply_to'];
+    // Ticket-Mails setzen die Eingangsadresse der Queue als Antwortadresse (siehe ticket_mail.php)
+    $replyTo = (string)($GLOBALS['mail_reply_to'] ?? '') ?: (string)$acc['reply_to'];
     try {
         if ($acc['provider'] === 'smtp') {
             $smtp = new SmtpClient($acc['smtp_host'], (int)$acc['smtp_port'], $acc['smtp_security']);
@@ -356,6 +362,7 @@ function send_via_php_mail(string $to, string $subject, string $body): void
     }
     $headers = ['From: ' . mime_encode_header($fromName) . ' <' . $from . '>', 'MIME-Version: 1.0',
         'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: 8bit', 'X-Mailer: Kundenportal'];
+    if (!empty($GLOBALS['mail_reply_to'])) $headers[] = 'Reply-To: ' . mail_header_clean((string)$GLOBALS['mail_reply_to']);
     if (!@mail($to, mime_encode_header($subject), $body, implode("\r\n", $headers), '-f' . $from)) {
         throw new RuntimeException(t('PHP mail() fehlgeschlagen'));
     }

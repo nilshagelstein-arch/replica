@@ -184,6 +184,153 @@ function schema_statements(string $driver): array
         created_at $ts NOT NULL
     )$tail";
 
+    // App „Tickets“: Helpdesk je Firma (Queues, Tickets, Verlauf, Anhänge)
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_queues (
+        id $pk,
+        company_id $fk NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        description VARCHAR(500) NOT NULL DEFAULT '',
+        active INT NOT NULL DEFAULT 1,
+        sort INT NOT NULL DEFAULT 0,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_queue_members (
+        id $pk,
+        queue_id $fk NOT NULL,
+        user_id $fk NOT NULL
+    )$tail";
+
+    // Gruppen (= Abteilungen) als Bearbeiter einer Queue
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_queue_groups (
+        id $pk,
+        queue_id $fk NOT NULL,
+        department_id $fk NOT NULL
+    )$tail";
+
+    // Mitarbeiter-Konten in Abteilungen (Gruppen); ein Konto kann in mehreren sein
+    $tables[] = "CREATE TABLE IF NOT EXISTS user_departments (
+        id $pk,
+        user_id $fk NOT NULL,
+        department_id $fk NOT NULL
+    )$tail";
+
+    // E-Mail-Eingang der Tickets: Postfächer (je Queue oder firmenweit), Zuordnungsregeln, Eingangsprotokoll/Prüfliste
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_mailboxes (
+        id $pk,
+        company_id $fk NOT NULL,
+        queue_id $fk NULL,
+        address VARCHAR(190) NOT NULL DEFAULT '',
+        provider VARCHAR(20) NOT NULL DEFAULT 'imap',
+        imap_host VARCHAR(190) NOT NULL DEFAULT '',
+        imap_port INT NOT NULL DEFAULT 993,
+        imap_security VARCHAR(10) NOT NULL DEFAULT 'ssl',
+        imap_user VARCHAR(190) NOT NULL DEFAULT '',
+        imap_folder VARCHAR(190) NOT NULL DEFAULT 'INBOX',
+        secret_enc TEXT NULL,
+        oauth_refresh_enc TEXT NULL,
+        oauth_access_enc TEXT NULL,
+        oauth_expires INT NOT NULL DEFAULT 0,
+        active INT NOT NULL DEFAULT 1,
+        last_check_at VARCHAR(19) NOT NULL DEFAULT '',
+        last_ok_at VARCHAR(19) NOT NULL DEFAULT '',
+        last_error VARCHAR(500) NOT NULL DEFAULT '',
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_mail_rules (
+        id $pk,
+        company_id $fk NOT NULL,
+        field VARCHAR(10) NOT NULL DEFAULT 'subject',
+        pattern VARCHAR(190) NOT NULL,
+        queue_id $fk NOT NULL,
+        sort INT NOT NULL DEFAULT 0
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_inbox (
+        id $pk,
+        company_id $fk NOT NULL,
+        mailbox_id $fk NULL,
+        message_id VARCHAR(250) NOT NULL DEFAULT '',
+        from_email VARCHAR(190) NOT NULL DEFAULT '',
+        from_name VARCHAR(190) NOT NULL DEFAULT '',
+        to_email VARCHAR(500) NOT NULL DEFAULT '',
+        subject VARCHAR(250) NOT NULL DEFAULT '',
+        body TEXT,
+        content_hash VARCHAR(64) NOT NULL DEFAULT '',
+        attachment_count INT NOT NULL DEFAULT 0,
+        stored_name VARCHAR(80) NOT NULL DEFAULT '',
+        status VARCHAR(12) NOT NULL DEFAULT 'review',
+        reason VARCHAR(190) NOT NULL DEFAULT '',
+        ticket_id $fk NULL,
+        handled_by $fk NULL,
+        handled_at VARCHAR(19) NOT NULL DEFAULT '',
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS tickets (
+        id $pk,
+        company_id $fk NOT NULL,
+        seq_year INT NOT NULL,
+        seq_no INT NOT NULL,
+        number VARCHAR(20) NOT NULL,
+        queue_id $fk NULL,
+        subject VARCHAR(190) NOT NULL,
+        priority VARCHAR(20) NOT NULL DEFAULT 'einschraenkung',
+        category VARCHAR(60) NOT NULL DEFAULT '',
+        status VARCHAR(20) NOT NULL DEFAULT 'offen',
+        created_by $fk NULL,
+        entered_by $fk NULL,
+        employee_id $fk NULL,
+        assigned_to $fk NULL,
+        follow_up_at VARCHAR(10) NOT NULL DEFAULT '',
+        resolved_at VARCHAR(19) NOT NULL DEFAULT '',
+        closed_at VARCHAR(19) NOT NULL DEFAULT '',
+        viewing_by $fk NULL,
+        viewing_at VARCHAR(19) NOT NULL DEFAULT '',
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL,
+        last_activity_at $ts NOT NULL,
+        UNIQUE (company_id, seq_year, seq_no)
+    )$tail";
+
+    // Dienstleister je Firma (Stufe 5): externe Partner mit Portal-Zugang (Rolle „dienstleister“) oder nur per Mail
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_providers (
+        id $pk,
+        company_id $fk NOT NULL,
+        name VARCHAR(190) NOT NULL,
+        email VARCHAR(190) NOT NULL DEFAULT '',
+        user_id $fk NULL,
+        see_all INT NOT NULL DEFAULT 0,
+        notes VARCHAR(500) NOT NULL DEFAULT '',
+        active INT NOT NULL DEFAULT 1,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_messages (
+        id $pk,
+        ticket_id $fk NOT NULL,
+        company_id $fk NOT NULL,
+        user_id $fk NULL,
+        kind VARCHAR(10) NOT NULL DEFAULT 'message',
+        body TEXT,
+        status_from VARCHAR(20) NOT NULL DEFAULT '',
+        status_to VARCHAR(20) NOT NULL DEFAULT '',
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_attachments (
+        id $pk,
+        ticket_id $fk NOT NULL,
+        message_id $fk NOT NULL,
+        company_id $fk NOT NULL,
+        filename VARCHAR(190) NOT NULL,
+        mime VARCHAR(100) NOT NULL DEFAULT '',
+        size INT NOT NULL DEFAULT 0,
+        stored_name VARCHAR(80) NOT NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
     $tables[] = "CREATE TABLE IF NOT EXISTS links (
         id $pk,
         company_id $fk NOT NULL,
@@ -388,6 +535,21 @@ function schema_statements(string $driver): array
         'idx_linktabs_co'     => 'link_tabs (company_id, sort)',
         'idx_linksec_tab'     => 'link_sections (company_id, tab_id, sort)',
         'idx_links_sec'       => 'links (company_id, section_id, sort)',
+        'idx_tkq_co'          => 'ticket_queues (company_id, sort)',
+        'idx_tkqm_q'          => 'ticket_queue_members (queue_id, user_id)',
+        'idx_tkqg_q'          => 'ticket_queue_groups (queue_id, department_id)',
+        'idx_tkmb_co'         => 'ticket_mailboxes (company_id)',
+        'idx_tkrule_co'       => 'ticket_mail_rules (company_id, sort)',
+        'idx_tkin_co'         => 'ticket_inbox (company_id, status, created_at)',
+        'idx_tkin_msg'        => 'ticket_inbox (company_id, message_id)',
+        'idx_tkin_hash'       => 'ticket_inbox (company_id, from_email, content_hash)',
+        'idx_udep_u'          => 'user_departments (user_id, department_id)',
+        'idx_udep_d'          => 'user_departments (department_id)',
+        'idx_tk_queue'        => 'tickets (company_id, queue_id, status)',
+        'idx_tk_creator'      => 'tickets (company_id, created_by)',
+        'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
+        'idx_tkmsg_t'         => 'ticket_messages (ticket_id, id)',
+        'idx_tkatt_t'         => 'ticket_attachments (ticket_id)',
     ];
     foreach ($indexes as $name => $def) {
         $tables[] = $mysql
@@ -397,7 +559,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 20;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -409,6 +571,8 @@ const BUILTIN_APPS = [
         'target' => 'company_backups', 'icon' => '💾', 'color' => '#6b4fbb', 'sort' => 30],
     'links' => ['name' => 'Linksammlung', 'description' => 'Alle wichtigen Links der Firma an einem Ort – mit Bild, Beschreibung, Überschriften und Reitern, wie eine Intranet-Startseite.',
         'target' => 'links', 'icon' => '🔗', 'color' => '#c2410c', 'sort' => 40],
+    'tickets' => ['name' => 'Tickets', 'description' => 'Interner Helpdesk: Anliegen in Queues melden, bearbeiten und verfolgen – mit Verlauf, Anhängen und Benachrichtigungen.',
+        'target' => 'tickets', 'icon' => '🎫', 'color' => '#b4235a', 'sort' => 15],
 ];
 
 /**
@@ -463,6 +627,25 @@ function run_migrations(): void
         // Mehrsprachigkeit (ab Version 15): Sprache der Firma, Benutzer leer = Sprache der Firma
         ['companies', 'lang', "VARCHAR(5) NOT NULL DEFAULT 'de'"],
         ['users', 'lang', "VARCHAR(5) NOT NULL DEFAULT ''"],
+        // App „Tickets“ (ab Version 16): Einstellungen je Firma
+        ['companies', 'ticket_autoclose_days', 'INT NOT NULL DEFAULT 7'],
+        ['ticket_queues', 'lead_user_id', 'INT NULL'],
+        ['tickets', 'visibility', "VARCHAR(10) NOT NULL DEFAULT 'me'"],
+        ['tickets', 'group_id', 'INT NULL'],
+        ['tickets', 'waiting_since', "VARCHAR(19) NOT NULL DEFAULT ''"],
+        ['tickets', 'reminder_level', 'INT NOT NULL DEFAULT 0'],
+        ['tickets', 'due_at', "VARCHAR(10) NOT NULL DEFAULT ''"],
+        ['tickets', 'due_notified', 'INT NOT NULL DEFAULT 0'],
+        ['companies', 'ticket_times', 'TEXT NULL'],
+        ['companies', 'ticket_default_queue_id', 'INT NULL'],
+        ['companies', 'ticket_blocklist', 'TEXT NULL'],
+        ['companies', 'ticket_provider_access', 'INT NOT NULL DEFAULT 0'],
+        ['companies', 'ticket_categories', 'TEXT NULL'],
+        // Dienstleister (ab Version 20): Übergabe je Ticket; Nachrichten von Absendern ohne Konto
+        ['tickets', 'provider_id', 'INT NULL'],
+        ['tickets', 'provider_internal', 'INT NOT NULL DEFAULT 0'],
+        ['tickets', 'provider_since', "VARCHAR(19) NOT NULL DEFAULT ''"],
+        ['ticket_messages', 'author_name', "VARCHAR(190) NOT NULL DEFAULT ''"],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -515,6 +698,19 @@ function ensure_schema(): void
         db()->query('SELECT id FROM employees LIMIT 1');
         db()->query('SELECT image_fit FROM links LIMIT 1');
         db()->query('SELECT change_requested_at, change_requested_by, change_reason FROM requests LIMIT 1');
+        db()->query('SELECT id FROM tickets LIMIT 1');
+        db()->query('SELECT ticket_autoclose_days, ticket_provider_access FROM companies LIMIT 1');
+        db()->query('SELECT t.visibility, t.group_id, q.lead_user_id FROM tickets t, ticket_queues q LIMIT 1');
+        db()->query('SELECT id FROM user_departments LIMIT 1');
+        db()->query('SELECT id FROM ticket_queue_groups LIMIT 1');
+        db()->query('SELECT waiting_since, reminder_level, due_at, due_notified FROM tickets LIMIT 1');
+        db()->query('SELECT ticket_times, ticket_default_queue_id, ticket_blocklist FROM companies LIMIT 1');
+        db()->query('SELECT id FROM ticket_mailboxes LIMIT 1');
+        db()->query('SELECT id FROM ticket_providers LIMIT 1');
+        db()->query('SELECT provider_id, provider_internal, provider_since FROM tickets LIMIT 1');
+        db()->query('SELECT author_name FROM ticket_messages LIMIT 1');
+        db()->query('SELECT id FROM ticket_mail_rules LIMIT 1');
+        db()->query('SELECT id FROM ticket_inbox LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

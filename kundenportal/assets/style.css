@@ -640,3 +640,54 @@ fieldset.rights { margin-top: 1rem; }
 .lang-switch a { color: #b8c4d2; }
 .lang-switch a:hover { color: #fff; text-decoration: underline; }
 .lang-switch strong { color: #fff; font-weight: 600; }
+
+/* App „Tickets“ */
+.tk-offen, .tk-wieder_eroeffnet { background: #e3edfa; color: #184a86; }
+.tk-in_bearbeitung { background: #fff1d6; color: #7a4b00; }
+.tk-rueckfrage { background: #fde4e1; color: #8a1f13; }
+.tk-zurueckgestellt, .tk-beim_dienstleister { background: #efe9fb; color: #4b2f8f; }
+.tk-geloest { background: #dff3e4; color: #145c28; }
+.tk-geschlossen { background: #eceff2; color: #5d6670; }
+.prio { font-size: .85rem; white-space: nowrap; }
+.prio::before { content: ""; display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; margin-right: .35rem; background: #9aa5b1; }
+.prio-einschraenkung::before { background: #d39e00; }
+.prio-blockiert::before { background: #d13b2b; }
+.prio-mehrere::before { background: #8a1f13; box-shadow: 0 0 0 2px #f4c7c0; }
+.prio-blockiert, .prio-mehrere { font-weight: 600; }
+.type-tabs .count { display: inline-block; min-width: 1.3rem; padding: 0 .35rem; margin-left: .3rem; border-radius: 999px; background: var(--accent); color: #fff; font-size: .75rem; text-align: center; }
+.ticket-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 1.25rem; align-items: start; }
+.ticket-side .card { margin-bottom: 1rem; }
+.ticket-side .facts { grid-template-columns: 110px 1fr; }
+.ticket-actions form { margin: 0 0 .7rem; }
+.ticket-actions .inline-form label { display: block; margin-bottom: .3rem; }
+.ticket-actions select, .ticket-actions input[type=date] { width: 100%; }
+.chat { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .7rem; }
+.chat-msg { max-width: 85%; padding: .6rem .8rem; border-radius: 10px; background: #f3f5f8; border: 1px solid var(--line); }
+.chat-msg.from-processor { align-self: flex-end; background: #eaf2fd; border-color: #cddff7; }
+.chat-msg.note { align-self: flex-end; background: #fffaf0; border: 1px dashed #e0b84d; }
+.chat-msg .meta { font-size: .8rem; color: var(--muted); margin-bottom: .25rem; }
+.chat-event { align-self: center; font-size: .85rem; color: var(--muted); text-align: center; }
+.attachments { list-style: none; margin: .4rem 0 0; padding: 0; font-size: .9rem; }
+.queue-box { border: 1px solid var(--line); border-radius: 8px; padding: .6rem .9rem; margin-bottom: .7rem; }
+.queue-box summary { cursor: pointer; }
+.queue-box .form { margin-top: .8rem; }
+.queue-hints { margin: -.4rem 0 1rem; padding-left: 1.1rem; }
+@media (max-width: 860px) {
+  .ticket-layout { grid-template-columns: 1fr; }
+  .chat-msg { max-width: 100%; }
+}
+
+/* Tickets: Zeitsteuerung */
+.tag.danger { background: #fde2e1; color: #a1201b; }
+.due { white-space: nowrap; font-size: .85rem; }
+.due.today { color: #7a4b00; font-weight: 600; }
+.due.over { color: #a1201b; font-weight: 600; }
+.times-table input[type=number] { width: 6rem; }
+
+/* Tickets: E-Mail-Eingang */
+.inbox-item .meta { margin-bottom: .3rem; }
+.inbox-body { background: #f7f8fa; border-radius: 6px; padding: .5rem .7rem; max-height: 14rem; overflow: auto; margin: .4rem 0 .6rem; }
+
+/* Tickets: Austausch mit dem Dienstleister */
+.chat-msg.provider { align-self: flex-end; background: #eef4fb; border: 1px dashed #7da3cf; }
+.tag.info { background: #e3eefa; color: #1f4f86; }
