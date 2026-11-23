@@ -476,6 +476,24 @@ function inv_import_devices(int $cid, array $rowsIn): array
     return ['ok' => $ok, 'upd' => $upd, 'errors' => $errors];
 }
 
+/**
+ * Vorhandene Lizenz zu einer Importzeile: mit Vertragsnummer über Produkt und Vertragsnummer; ohne über Produkt und
+ * Lieferant (ersatzweise Hersteller) unter den Lizenzen ohne Vertragsnummer. Groß-/Kleinschreibung egal.
+ * @return array [Lizenz oder null, mehrdeutig]
+ */
+function inv_lic_find_existing(int $cid, string $product, string $contract, string $supplier, string $manufacturer): array
+{
+    if ($contract !== '') {
+        return [row('SELECT id FROM inv_licenses WHERE company_id = ? AND LOWER(product) = LOWER(?) AND LOWER(contract_no) = LOWER(?) ORDER BY id LIMIT 1', [$cid, $product, $contract]), false];
+    }
+    $sql = "SELECT id FROM inv_licenses WHERE company_id = ? AND LOWER(product) = LOWER(?) AND contract_no = ''";
+    $p = [$cid, $product];
+    if ($supplier !== '') { $sql .= ' AND LOWER(supplier) = LOWER(?)'; $p[] = $supplier; }
+    elseif ($manufacturer !== '') { $sql .= ' AND LOWER(manufacturer) = LOWER(?)'; $p[] = $manufacturer; }
+    $found = rows($sql . ' ORDER BY id LIMIT 2', $p);
+    return [count($found) === 1 ? $found[0] : null, count($found) > 1];
+}
+
 function inv_import_licenses(int $cid, array $rowsIn): array
 {
     $ok = 0; $upd = 0; $errors = [];
@@ -499,8 +517,8 @@ function inv_import_licenses(int $cid, array $rowsIn): array
         if (array_key_exists('renew_months', $r) && (int)$r['renew_months'] > 0) $data['renew_months'] = min(120, (int)$r['renew_months']);
         if (array_key_exists('cost', $r) && inv_can_see_costs($cid)) $data['cost_cents'] = inv_parse_price($r['cost']);
         if (array_key_exists('cost_interval', $r) && inv_can_see_costs($cid)) $data['cost_interval'] = $intMap[mb_strtolower(trim($r['cost_interval']))] ?? 'monat';
-        $contract = trim($r['contract_no'] ?? '');
-        $existing = $contract !== '' ? row('SELECT id FROM inv_licenses WHERE company_id = ? AND product = ? AND contract_no = ?', [$cid, $product, $contract]) : null;
+        [$existing, $ambiguous] = inv_lic_find_existing($cid, $product, trim($r['contract_no'] ?? ''), trim($r['supplier'] ?? ''), trim($r['manufacturer'] ?? ''));
+        if ($ambiguous) { $errors[] = t('Zeile {n}: „{x}“ passt zu mehreren Lizenzen ohne Vertragsnummer. Bitte Vertragsnummer oder Lieferant ergänzen.', ['n' => $line, 'x' => $product]); continue; }
         if ($existing) {
             update('inv_licenses', (int)$existing['id'], $data);
             inv_lic_log($cid, (int)$existing['id'], 'Per CSV-Import aktualisiert');
