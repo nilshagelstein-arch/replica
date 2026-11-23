@@ -381,6 +381,7 @@ function page_inv_device(): void
         <?php if (!$isNew): ?>
             <?php inv_lifecycle_card($cid, $d, $edit); ?>
             <?php inv_device_tickets_card($cid, $d); ?>
+            <?php if (function_exists('ct_inventory_card')) ct_inventory_card($cid, 'device', (int)$d['id']); ?>
             <?php if ($edit && !empty($d['bitlocker_enc'])): ?>
             <div class="card">
                 <h3><?= e(t('BitLocker-Schlüssel')) ?></h3>
@@ -512,6 +513,7 @@ function page_inv_action(): void
         if (array_key_exists('bitlocker_enc', $data)) $changes[] = $data['bitlocker_enc'] === null ? 'BitLocker-Schlüssel gelöscht' : 'BitLocker-Schlüssel geändert';
         if ($d['notes'] !== $data['notes']) $changes[] = 'Notiz geändert';
         update('inv_devices', (int)$d['id'], $data);
+        if ($d['status'] !== $status && in_array($status, ['ausgemustert', 'entsorgt'], true) && function_exists('ct_retire_hint')) ct_retire_hint($cid, (int)$d['id']);
         foreach ($changes as $c) inv_log($cid, (int)$d['id'], $c);
         if ($changes) audit('inventory.update', $invNo . ': ' . implode('; ', array_map(fn($c) => mb_substr($c, 0, 60), $changes)), $cid);
         flash('success', $changes ? t('Gespeichert.') : t('Keine Änderungen.'));
@@ -564,6 +566,7 @@ function page_inv_action(): void
             q('DELETE FROM inv_files WHERE device_id = ?', [$d['id']]);
             q('DELETE FROM inv_log WHERE device_id = ?', [$d['id']]);
             q('DELETE FROM inv_license_assign WHERE device_id = ?', [$d['id']]);
+            q('DELETE FROM ct_links WHERE device_id = ? AND company_id = ?', [$d['id'], $cid]);
             q('UPDATE inv_licenses SET device_id = NULL WHERE device_id = ?', [$d['id']]);
             q('DELETE FROM inv_devices WHERE id = ?', [$d['id']]);
             audit('inventory.delete', $d['inv_no'], $cid);

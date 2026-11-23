@@ -528,6 +528,29 @@ function schema_statements(string $driver): array
         approve_cancel INT NOT NULL DEFAULT 0
     )$tail";
 
+    // Verträge, Stufe 2 (ab Version 30): Preishistorie und Verknüpfung mit Geräten/Lizenzen des Inventars
+    $tables[] = "CREATE TABLE IF NOT EXISTS ct_prices (
+        id $pk,
+        company_id $fk NOT NULL,
+        contract_id $fk NOT NULL,
+        valid_from VARCHAR(10) NOT NULL,
+        cost_cents INT NULL,
+        cost_interval VARCHAR(10) NOT NULL DEFAULT 'monat',
+        note VARCHAR(255) NOT NULL DEFAULT '',
+        user_id $fk NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ct_links (
+        id $pk,
+        company_id $fk NOT NULL,
+        contract_id $fk NOT NULL,
+        device_id $fk NULL,
+        license_id $fk NULL,
+        user_id $fk NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
     // Dienstleister je Firma (Stufe 5): externe Partner mit Portal-Zugang (Rolle „dienstleister“) oder nur per Mail
     $tables[] = "CREATE TABLE IF NOT EXISTS ticket_providers (
         id $pk,
@@ -789,6 +812,10 @@ function schema_statements(string $driver): array
         'idx_ct_co'           => 'contracts (company_id, status)',
         'idx_ct_log'          => 'ct_log (contract_id, id)',
         'idx_ct_files'        => 'ct_files (contract_id)',
+        'idx_ct_prices'       => 'ct_prices (contract_id, valid_from)',
+        'idx_ct_links_c'      => 'ct_links (contract_id)',
+        'idx_ct_links_d'      => 'ct_links (company_id, device_id)',
+        'idx_ct_links_l'      => 'ct_links (company_id, license_id)',
         'idx_tk_creator'      => 'tickets (company_id, created_by)',
         'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
         'idx_tkmsg_t'         => 'ticket_messages (ticket_id, id)',
@@ -802,7 +829,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 29;
+const SCHEMA_VERSION = 30;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -926,6 +953,8 @@ function run_migrations(): void
         // Verträge & Laufzeiten (ab Version 29): Einsicht für den Dienstleister, dabei Kosten sehen
         ['companies', 'ct_provider_access', 'INT NOT NULL DEFAULT 0'],
         ['companies', 'ct_provider_costs', 'INT NOT NULL DEFAULT 0'],
+        // Verträge, Stufe 2 (ab Version 30): Lizenzen aus dem Inventar in der Vertragsliste zeigen
+        ['companies', 'ct_inv_licenses', 'INT NOT NULL DEFAULT 1'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -1008,6 +1037,9 @@ function ensure_schema(): void
         db()->query('SELECT ct_provider_access, ct_provider_costs FROM companies LIMIT 1');
         db()->query('SELECT id FROM contracts LIMIT 1');
         db()->query('SELECT id FROM ct_group_perms LIMIT 1');
+        db()->query('SELECT ct_inv_licenses FROM companies LIMIT 1');
+        db()->query('SELECT id FROM ct_prices LIMIT 1');
+        db()->query('SELECT id FROM ct_links LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

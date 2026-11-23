@@ -396,6 +396,7 @@ function page_inv_life(): void
             inv_log($cid, $id, 'Ausgemustert: ' . $reason . ($n ? ' · Lizenzplätze freigegeben: ' . $n : ''));
             audit('inventory.retire', $d['inv_no'], $cid);
             flash('success', t('Das Gerät ist ausgemustert.'));
+            if (function_exists('ct_retire_hint')) ct_retire_hint($cid, $id);
             $back();
         case 'reactivate':
             if ($d['status'] !== 'ausgemustert') $back();
@@ -429,6 +430,7 @@ function page_inv_life(): void
             inv_log($cid, $id, 'Entsorgt: ' . fmt_date($date) . ' · ' . $vendor . ($noData ? '' : ' · Datenlöschung bestätigt: ' . ($f('wipe_method', 190) ?: '–') . ($f('wipe_by', 190) !== '' ? ', ' . $f('wipe_by', 190) : '')));
             audit('inventory.dispose', $d['inv_no'] . ' · ' . $vendor, $cid);
             flash('success', t('Die Entsorgung ist dokumentiert.'));
+            if (function_exists('ct_retire_hint')) ct_retire_hint($cid, $id);
             $back();
     }
     abort(400);
