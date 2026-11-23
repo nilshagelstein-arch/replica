@@ -73,7 +73,7 @@ function ct_seed(int $cid): void
 function ct_company(int $cid): array
 {
     static $cache = [];
-    return $cache[$cid] ??= (row('SELECT id, name, ct_provider_access, ct_provider_costs, ct_inv_licenses FROM companies WHERE id = ?', [$cid]) ?? []);
+    return $cache[$cid] ??= (row('SELECT id, name, ct_provider_access, ct_provider_costs, ct_inv_licenses, ct_lead_days, ct_pdf_interval, ct_pdf_recipients, ct_pdf_costs FROM companies WHERE id = ?', [$cid]) ?? []);
 }
 
 function ct_staff_blocked(int $cid): bool
@@ -81,11 +81,11 @@ function ct_staff_blocked(int $cid): bool
     return is_staff_role(current_user()['role']) && (int)(ct_company($cid)['ct_provider_access'] ?? 0) !== 1;
 }
 
-/** Rechte des angemeldeten Benutzers: ['perm' => 0|1|2, 'costs' => bool, 'approve' => bool] */
-function ct_rights(int $cid): array
+/** Rechte eines Benutzers (Standard: angemeldeter Benutzer): ['perm' => 0|1|2, 'costs' => bool, 'approve' => bool] */
+function ct_rights(int $cid, ?array $u = null): array
 {
     static $cache = [];
-    $u = current_user();
+    $u ??= current_user();
     $none = ['perm' => CT_PERM_NONE, 'costs' => false, 'approve' => false];
     if (!$u) return $none;
     $key = $cid . ':' . (int)$u['id'];
@@ -93,7 +93,10 @@ function ct_rights(int $cid): array
     if (is_staff_role($u['role'])) {
         $co = ct_company($cid);
         if ((int)($co['ct_provider_access'] ?? 0) !== 1) return $cache[$key] = $none;
-        $p = admin_perm('contracts');
+        $p = admin_perm('contracts', $u);
+        // eingeschränkte Verwaltungsadmins nur für ihre Firmen
+        $ids = admin_company_ids($u);
+        if ($ids !== null && !in_array($cid, $ids, true)) $p = PERM_NONE;
         $perm = $p >= PERM_EDIT ? CT_PERM_EDIT : ($p >= PERM_VIEW ? CT_PERM_VIEW : CT_PERM_NONE);
         return $cache[$key] = ['perm' => $perm, 'costs' => $perm > CT_PERM_NONE && (int)($co['ct_provider_costs'] ?? 0) === 1, 'approve' => false];
     }
@@ -321,7 +324,7 @@ function ct_users(int $cid, ?int $keep = null): array
 function ct_tabs(string $active): void
 {
     $cid = (int)($GLOBALS['ct_cid'] ?? 0);
-    $tabs = ['contracts' => t('Verträge')];
+    $tabs = ['contracts' => t('Verträge'), 'contract_deadlines' => t('Fristenkalender')];
     if ($cid && ct_can_manage($cid)) $tabs['contract_settings'] = t('Einstellungen'); ?>
     <nav class="type-tabs">
         <?php foreach ($tabs as $route => $label): ?><a class="<?= $route === $active ? 'active' : '' ?>" href="<?= e(cturl($route)) ?>"><?= e($label) ?></a><?php endforeach; ?>
@@ -402,8 +405,10 @@ function page_contracts(): void
         ct_tabs('contracts'); ?>
         <div class="toolbar">
             <?php if ($perm >= CT_PERM_EDIT): ?><a class="btn primary" href="<?= e(cturl('contract', ['id' => 'new'])) ?>"><?= e(t('+ Vertrag erfassen')) ?></a><?php endif; ?>
+            <a class="btn" href="<?= e(cturl('contract_deadlines')) ?>"><?= e(t('Fristenkalender')) ?></a>
             <?php if (ct_can_manage($cid)): ?><a class="btn" href="<?= e(cturl('contract_settings')) ?>"><?= e(t('Einstellungen')) ?></a><?php endif; ?>
         </div>
+        <?php ct_due_box($cid, $costs); ?>
         <div class="tiles">
             <?php $tiles = ['laufend' => [t('Laufend'), $counts['aktiv'] + $counts['kuendigung_freigabe'] + $counts['verlaengert'] + $counts['gekuendigt']]];
             foreach (CT_STATUSES as $k => $l) $tiles[$k] = [t($l), $counts[$k]];
@@ -567,7 +572,7 @@ function page_contract(): void
                         <dt><?= e(t('Kündigen bis')) ?></dt><dd><strong><?= fmt_date($dl['by']) ?></strong></dd>
                     <?php elseif ($dl['end'] !== '' && in_array($c['status'], CT_RUNNING, true)): ?><dt><?= e(t('Kündigung')) ?></dt><dd><?= e(t('nicht nötig, der Vertrag endet ohne Verlängerung')) ?></dd><?php endif; ?>
                 </dl>
-                <?php if ($edit && in_array($c['status'], CT_RUNNING, true)): ?><p class="muted small"><?= e(t('Kündigung mit Freigabe und Erinnerungen an Fristen folgen in den nächsten Stufen.')) ?></p><?php endif; ?>
+                <?php if ($edit && in_array($c['status'], CT_RUNNING, true)): ?><p class="muted small"><?= e(t('An Fristen erinnert das Portal per E-Mail. Die Kündigung mit Freigabe folgt in der nächsten Stufe.')) ?></p><?php endif; ?>
             </div>
             <?php if ($costs) ct_prices_card($c, $prices, $edit); ?>
             <?php ct_links_card($cid, $c, $edit); ?>
@@ -830,6 +835,20 @@ function page_contract_settings(): void
                 audit('contract.settings', json_encode($data), $cid);
                 flash('success', t('Die Einstellungen wurden gespeichert.'));
                 break;
+            case 'reminders':
+                $to = trim((string)post('pdf_recipients'));
+                $list = ct_parse_recipients($to);
+                if ($to !== '' && !$list) { flash('error', t('Bitte gültige E-Mail-Adressen angeben (höchstens {n}).', ['n' => CT_MAIL_MAX])); break; }
+                $interval = (string)post('pdf_interval');
+                $data = ['ct_lead_days' => max(7, min(365, (int)post('lead_days', CT_LEAD_DEFAULT))),
+                    'ct_pdf_interval' => isset(CT_PDF_INTERVALS[$interval]) ? $interval : '', 'ct_pdf_recipients' => implode(', ', $list)];
+                // Kosten im PDF nur, wer selbst Kosten sehen darf
+                if (ct_can_costs($cid)) $data['ct_pdf_costs'] = post('pdf_costs') === '1' ? 1 : 0;
+                if ($data['ct_pdf_interval'] !== '' && !$list) { flash('error', t('Für den automatischen Versand bitte Empfänger angeben.')); break; }
+                update('companies', $cid, $data);
+                audit('contract.settings', json_encode($data, JSON_UNESCAPED_UNICODE), $cid);
+                flash('success', t('Die Einstellungen wurden gespeichert.'));
+                break;
             case 'view':
                 update('companies', $cid, ['ct_inv_licenses' => post('inv_licenses') === '1' ? 1 : 0]);
                 audit('contract.settings', 'ct_inv_licenses=' . (post('inv_licenses') === '1' ? 1 : 0), $cid);
@@ -890,6 +909,19 @@ function page_contract_settings(): void
             <p class="muted small"><?= e(t('Ohne diese Einsicht sieht der IT-Dienstleister keine Verträge. Ihre eigenen Rechte über Gruppen gelten unabhängig davon.')) ?></p>
             <?php if ($staff): ?><p class="muted small"><?= e(t('Diese Einsicht kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p>
             <?php else: ?><button class="btn primary"><?= e(t('Speichern')) ?></button><?php endif; ?>
+        </form>
+
+        <form method="post" class="form card">
+            <?= csrf_field() ?><input type="hidden" name="action" value="reminders">
+            <h2><?= e(t('Erinnerungen und Fristenübersicht')) ?></h2>
+            <label><?= e(t('Vorlauf für Erinnerungen (Tage)')) ?> <input type="number" name="lead_days" min="7" max="365" class="narrow-input" value="<?= (int)($co['ct_lead_days'] ?? CT_LEAD_DEFAULT) ?: CT_LEAD_DEFAULT ?>"></label>
+            <p class="muted small"><?= e(t('So viele Tage vor dem Ende einer Kündigungsfrist oder eines Vertrags erscheint der Punkt unter „Demnächst fällig“, und die Firmen-Admins und die verantwortliche Person bekommen eine E-Mail – bei Einsicht auch Ihr IT-Dienstleister für die Verträge, die er betreut. Preisänderungen melden wir 14 Tage vorher an alle mit „Kosten sehen“.')) ?></p>
+            <label><?= e(t('Fristenübersicht als PDF automatisch senden')) ?> <select name="pdf_interval">
+                <?php foreach (CT_PDF_INTERVALS as $k => $l): ?><option value="<?= e($k) ?>" <?= ($co['ct_pdf_interval'] ?? '') === $k ? 'selected' : '' ?>><?= e(t($l)) ?></option><?php endforeach; ?></select></label>
+            <label><?= e(t('Empfänger (mehrere mit Komma trennen)')) ?> <input name="pdf_recipients" maxlength="1000" value="<?= e((string)($co['ct_pdf_recipients'] ?? '')) ?>" placeholder="<?= e(t('z. B. geschaeftsfuehrung@firma.de')) ?>"></label>
+            <?php if (ct_can_costs($cid)): ?><label class="check"><input type="checkbox" name="pdf_costs" value="1" <?= (int)($co['ct_pdf_costs'] ?? 0) ? 'checked' : '' ?>> <?= e(t('Kosten im PDF zeigen')) ?></label><?php endif; ?>
+            <p class="muted small"><?= e(t('Monatlich mit den Fristen der nächsten 3 Monate, vierteljährlich mit den nächsten 6 Monaten.')) ?></p>
+            <button class="btn primary"><?= e(t('Speichern')) ?></button>
         </form>
 
         <?php if (company_has_app($cid, 'inventar')): ?>

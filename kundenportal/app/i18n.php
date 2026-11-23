@@ -178,16 +178,16 @@ function lang_for_email(string $email, ?int $companyId = null): string
  * Sendet eine Mail an jeden Empfänger in seiner Sprache.
  * $compose wird je Sprache einmal aufgerufen und liefert [Betreff, Text]; darin t() verwenden.
  */
-function send_mail_t(array $to, callable $compose, ?int $companyId = null, ?string $forceLang = null): void
+function send_mail_t(array $to, callable $compose, ?int $companyId = null, ?string $forceLang = null, array $attachments = []): void
 {
     $groups = [];
     foreach (array_unique(array_filter(array_map('trim', $to))) as $addr) {
         $groups[$forceLang ?? lang_for_email($addr, $companyId)][] = $addr;
     }
     foreach ($groups as $lang => $addrs) {
-        with_lang($lang, function () use ($compose, $addrs, $companyId) {
+        with_lang($lang, function () use ($compose, $addrs, $companyId, $attachments) {
             [$subject, $body] = $compose();
-            send_mail($addrs, $subject, $body, $companyId);
+            send_mail($addrs, $subject, $body, $companyId, $attachments);
         });
     }
 }

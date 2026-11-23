@@ -53,6 +53,8 @@ require APP_DIR . '/pages/inv_reminders.php';
 require APP_DIR . '/pages/inv_integrations.php';
 require APP_DIR . '/pages/contracts.php';
 require APP_DIR . '/pages/ct_inventory.php';
+require APP_DIR . '/pdf.php';
+require APP_DIR . '/pages/ct_deadlines.php';
 require APP_DIR . '/ticket_mail.php';
 
 $routes = [
@@ -151,6 +153,9 @@ $routes = [
     'contract_action'   => 'page_contract_action',
     'contract_file'     => 'page_contract_file',
     'contract_settings' => 'page_contract_settings',
+    'contract_deadlines'=> 'page_contract_deadlines',
+    'contract_pdf'      => 'page_contract_pdf',
+    'contract_ics'      => 'page_contract_ics',
 ];
 
 /**
@@ -191,6 +196,7 @@ const ROUTE_AREAS = [
     'inv_integrations' => ['inventory', PERM_VIEW],
     'contracts' => ['contracts', PERM_VIEW], 'contract' => ['contracts', PERM_VIEW], 'contract_file' => ['contracts', PERM_VIEW],
     'contract_action' => ['contracts', PERM_EDIT], 'contract_settings' => ['contracts', PERM_VIEW],
+    'contract_deadlines' => ['contracts', PERM_VIEW], 'contract_pdf' => ['contracts', PERM_VIEW],
 ];
 
 /**
@@ -199,7 +205,7 @@ const ROUTE_AREAS = [
  * damit eine neue Seite nicht versehentlich ohne Rechteprüfung erreichbar ist).
  */
 const ROUTES_WITHOUT_AREA = ['login', 'login_2fa', 'setup_2fa', 'logout', 'register', 'verify_email',
-    'forgot_password', 'reset_password', 'account', 'home', 'app_css', 'i18n_js'];
+    'forgot_password', 'reset_password', 'account', 'home', 'app_css', 'i18n_js', 'contract_ics'];
 
 $r = (string)($_GET['r'] ?? '');
 if ($r === '') {
@@ -231,6 +237,7 @@ if (current_user()) register_shutdown_function(function () {
     if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request();
     tickets_timers_tick();
     inv_reminders_tick();
+    ct_reminders_tick();
 });
 
 try {

@@ -551,6 +551,26 @@ function schema_statements(string $driver): array
         created_at $ts NOT NULL
     )$tail";
 
+    // Verträge, Stufe 3 (ab Version 31): gemeldete Fristen, Kalender-Abos je Benutzer
+    $tables[] = "CREATE TABLE IF NOT EXISTS ct_notices (
+        id $pk,
+        company_id $fk NOT NULL,
+        kind VARCHAR(20) NOT NULL,
+        ref_id $fk NOT NULL,
+        ref_key VARCHAR(20) NOT NULL DEFAULT '',
+        sent_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ct_feeds (
+        id $pk,
+        company_id $fk NOT NULL,
+        user_id $fk NOT NULL,
+        token_hash VARCHAR(64) NOT NULL,
+        token_enc TEXT,
+        created_at $ts NOT NULL,
+        last_used_at VARCHAR(19) NOT NULL DEFAULT ''
+    )$tail";
+
     // Dienstleister je Firma (Stufe 5): externe Partner mit Portal-Zugang (Rolle „dienstleister“) oder nur per Mail
     $tables[] = "CREATE TABLE IF NOT EXISTS ticket_providers (
         id $pk,
@@ -816,6 +836,8 @@ function schema_statements(string $driver): array
         'idx_ct_links_c'      => 'ct_links (contract_id)',
         'idx_ct_links_d'      => 'ct_links (company_id, device_id)',
         'idx_ct_links_l'      => 'ct_links (company_id, license_id)',
+        'idx_ct_notice'       => 'ct_notices (company_id, kind, ref_id)',
+        'idx_ct_feed'         => 'ct_feeds (token_hash)',
         'idx_tk_creator'      => 'tickets (company_id, created_by)',
         'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
         'idx_tkmsg_t'         => 'ticket_messages (ticket_id, id)',
@@ -829,7 +851,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 30;
+const SCHEMA_VERSION = 31;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -955,6 +977,11 @@ function run_migrations(): void
         ['companies', 'ct_provider_costs', 'INT NOT NULL DEFAULT 0'],
         // Verträge, Stufe 2 (ab Version 30): Lizenzen aus dem Inventar in der Vertragsliste zeigen
         ['companies', 'ct_inv_licenses', 'INT NOT NULL DEFAULT 1'],
+        // Verträge, Stufe 3 (ab Version 31): Vorlauf, automatischer PDF-Versand
+        ['companies', 'ct_lead_days', 'INT NOT NULL DEFAULT 60'],
+        ['companies', 'ct_pdf_interval', "VARCHAR(10) NOT NULL DEFAULT ''"],
+        ['companies', 'ct_pdf_recipients', "VARCHAR(1000) NOT NULL DEFAULT ''"],
+        ['companies', 'ct_pdf_costs', 'INT NOT NULL DEFAULT 0'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -1040,6 +1067,9 @@ function ensure_schema(): void
         db()->query('SELECT ct_inv_licenses FROM companies LIMIT 1');
         db()->query('SELECT id FROM ct_prices LIMIT 1');
         db()->query('SELECT id FROM ct_links LIMIT 1');
+        db()->query('SELECT ct_lead_days, ct_pdf_interval, ct_pdf_recipients, ct_pdf_costs FROM companies LIMIT 1');
+        db()->query('SELECT id FROM ct_notices LIMIT 1');
+        db()->query('SELECT id FROM ct_feeds LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }
