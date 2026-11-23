@@ -64,4 +64,5 @@ return [
     'rechter Seitenrand',
     '{n} Einträge aus den Vorlagen für Abteilung/Position vorausgewählt. Sie können die Auswahl anpassen.',
     'Änderungen am Inhalt gelten für alle Formulare mit dieser Vorlage.',
+    'Bitte im Feld unterschreiben.',
 ];

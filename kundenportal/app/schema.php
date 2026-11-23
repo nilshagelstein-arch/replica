@@ -402,6 +402,36 @@ function schema_statements(string $driver): array
         user_id $fk NULL
     )$tail";
 
+    // Lebenszyklus (Stufe 3): Übergabe- und Rückgabeprotokolle mit Unterschrift
+    $tables[] = "CREATE TABLE IF NOT EXISTS inv_handovers (
+        id $pk,
+        company_id $fk NOT NULL,
+        kind VARCHAR(20) NOT NULL DEFAULT 'ausgabe',
+        employee_id $fk NULL,
+        employee_name VARCHAR(190) NOT NULL DEFAULT '',
+        handover_date VARCHAR(10) NOT NULL DEFAULT '',
+        accessories TEXT,
+        note TEXT,
+        terms TEXT,
+        status VARCHAR(20) NOT NULL DEFAULT 'offen',
+        sign_name VARCHAR(190) NOT NULL DEFAULT '',
+        signature_png $long,
+        signed_at VARCHAR(19) NOT NULL DEFAULT '',
+        signed_by $fk NULL,
+        created_by $fk NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS inv_handover_items (
+        id $pk,
+        handover_id $fk NOT NULL,
+        device_id $fk NULL,
+        inv_no VARCHAR(60) NOT NULL DEFAULT '',
+        description VARCHAR(255) NOT NULL DEFAULT '',
+        serial VARCHAR(120) NOT NULL DEFAULT '',
+        item_condition VARCHAR(30) NOT NULL DEFAULT ''
+    )$tail";
+
     $tables[] = "CREATE TABLE IF NOT EXISTS inv_group_perms (
         id $pk,
         company_id $fk NOT NULL,
@@ -679,7 +709,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 23;
+const SCHEMA_VERSION = 24;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -773,6 +803,19 @@ function run_migrations(): void
         // Lizenzen (ab Version 23): Verlauf und Anhänge auch für Lizenzen (device_id = 0)
         ['inv_log', 'license_id', 'INT NULL'],
         ['inv_files', 'license_id', 'INT NULL'],
+        // Lebenszyklus (ab Version 24): Reparatur, Ausmusterung, Entsorgung mit Nachweis; Hinweistext der Übergabe; Scans der Protokolle
+        ['inv_devices', 'repair_reason', "VARCHAR(255) NOT NULL DEFAULT ''"],
+        ['inv_devices', 'repair_vendor', "VARCHAR(190) NOT NULL DEFAULT ''"],
+        ['inv_devices', 'repair_until', "VARCHAR(10) NOT NULL DEFAULT ''"],
+        ['inv_devices', 'retire_reason', "VARCHAR(255) NOT NULL DEFAULT ''"],
+        ['inv_devices', 'retired_at', "VARCHAR(10) NOT NULL DEFAULT ''"],
+        ['inv_devices', 'disposal_date', "VARCHAR(10) NOT NULL DEFAULT ''"],
+        ['inv_devices', 'disposal_vendor', "VARCHAR(190) NOT NULL DEFAULT ''"],
+        ['inv_devices', 'wipe_method', "VARCHAR(190) NOT NULL DEFAULT ''"],
+        ['inv_devices', 'wipe_by', "VARCHAR(190) NOT NULL DEFAULT ''"],
+        ['inv_devices', 'wipe_confirmed', 'INT NOT NULL DEFAULT 0'],
+        ['inv_files', 'handover_id', 'INT NULL'],
+        ['companies', 'inv_handover_text', 'TEXT NULL'],
         ['tickets', 'provider_internal', 'INT NOT NULL DEFAULT 0'],
         ['tickets', 'provider_since', "VARCHAR(19) NOT NULL DEFAULT ''"],
         ['ticket_messages', 'author_name', "VARCHAR(190) NOT NULL DEFAULT ''"],
@@ -845,6 +888,9 @@ function ensure_schema(): void
         db()->query('SELECT id FROM inv_licenses LIMIT 1');
         db()->query('SELECT license_id FROM inv_log LIMIT 1');
         db()->query('SELECT license_id FROM inv_files LIMIT 1');
+        db()->query('SELECT id FROM inv_handovers LIMIT 1');
+        db()->query('SELECT wipe_confirmed, repair_until FROM inv_devices LIMIT 1');
+        db()->query('SELECT handover_id FROM inv_files LIMIT 1');
         db()->query('SELECT id FROM ticket_mail_rules LIMIT 1');
         db()->query('SELECT id FROM ticket_inbox LIMIT 1');
     } catch (PDOException $ex) {

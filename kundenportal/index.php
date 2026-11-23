@@ -47,6 +47,7 @@ require APP_DIR . '/pages/tickets.php';
 require APP_DIR . '/pages/ticket_stats.php';
 require APP_DIR . '/pages/inventory.php';
 require APP_DIR . '/pages/inv_licenses.php';
+require APP_DIR . '/pages/inv_lifecycle.php';
 require APP_DIR . '/ticket_mail.php';
 
 $routes = [
@@ -127,6 +128,12 @@ $routes = [
     'inv_licenses'    => 'page_inv_licenses',
     'inv_license'     => 'page_inv_license',
     'inv_lic_action'  => 'page_inv_lic_action',
+    'inv_handovers'   => 'page_inv_handovers',
+    'inv_handover'    => 'page_inv_handover',
+    'inv_handover_new'=> 'page_inv_handover_new',
+    'inv_ho_action'   => 'page_inv_ho_action',
+    'inv_life'        => 'page_inv_life',
+    'inv_labels'      => 'page_inv_labels',
 ];
 
 /**
@@ -160,6 +167,8 @@ const ROUTE_AREAS = [
     'inventory' => ['inventory', PERM_VIEW], 'inv_device' => ['inventory', PERM_VIEW], 'inv_file' => ['inventory', PERM_VIEW],
     'inv_action' => ['inventory', PERM_EDIT], 'inv_settings' => ['inventory', PERM_VIEW],
     'inv_licenses' => ['inventory', PERM_VIEW], 'inv_license' => ['inventory', PERM_VIEW], 'inv_lic_action' => ['inventory', PERM_EDIT],
+    'inv_handovers' => ['inventory', PERM_VIEW], 'inv_handover' => ['inventory', PERM_VIEW], 'inv_handover_new' => ['inventory', PERM_EDIT],
+    'inv_ho_action' => ['inventory', PERM_EDIT], 'inv_life' => ['inventory', PERM_EDIT], 'inv_labels' => ['inventory', PERM_VIEW],
 ];
 
 /**

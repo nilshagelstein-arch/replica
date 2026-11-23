@@ -23,6 +23,27 @@
   var go = document.getElementById('oauth-go');
   if (go) window.location.href = go.href;
 
+  // Drucken per Knopf (data-print)
+  document.addEventListener('click', function (ev) {
+    if (ev.target.closest('[data-print]')) window.print();
+  });
+
+  // Unterschriftenfeld (canvas[data-sign]): zeichnen mit Maus, Finger oder Stift; beim Absenden als PNG ins Formular
+  Array.prototype.forEach.call(document.querySelectorAll('canvas[data-sign]'), function (cv) {
+    var ctx = cv.getContext('2d'), drawing = false, drawn = false, form = cv.closest('form');
+    ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#111';
+    function pos(ev) { var r = cv.getBoundingClientRect(); return [(ev.clientX - r.left) * cv.width / r.width, (ev.clientY - r.top) * cv.height / r.height]; }
+    cv.addEventListener('pointerdown', function (ev) { drawing = true; cv.setPointerCapture(ev.pointerId); var p = pos(ev); ctx.beginPath(); ctx.moveTo(p[0], p[1]); ev.preventDefault(); });
+    cv.addEventListener('pointermove', function (ev) { if (!drawing) return; var p = pos(ev); ctx.lineTo(p[0], p[1]); ctx.stroke(); drawn = true; ev.preventDefault(); });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { cv.addEventListener(n, function () { drawing = false; }); });
+    var clr = form && form.querySelector('[data-sign-clear]');
+    if (clr) clr.addEventListener('click', function () { ctx.clearRect(0, 0, cv.width, cv.height); drawn = false; });
+    if (form) form.addEventListener('submit', function (ev) {
+      if (!drawn) { ev.preventDefault(); window.alert(T('Bitte im Feld unterschreiben.')); return; }
+      form.querySelector('input[name="signature"]').value = cv.toDataURL('image/png');
+    });
+  });
+
   // Druckansicht automatisch drucken
   if (document.body.classList.contains('print')) {
     window.addEventListener('load', function () { window.print(); });
