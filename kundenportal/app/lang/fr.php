@@ -3350,4 +3350,50 @@ Vous trouverez toutes les échéances dans le calendrier de l’application « C
 {link}' => 'Aucune confirmation n’a été reçue depuis {n} jours pour la résiliation du contrat « {title} » ({partner}). Veuillez relancer le fournisseur et téléverser la confirmation dans le portail.
 
 {link}',
+    // Verträge & Laufzeiten (Stufe 5)
+    'Vertriebsübersicht' => 'Vue commerciale',
+    '… und in seiner Vertriebsübersicht auch Verträge sehen, die andere Dienstleister oder wir selbst betreuen' => '… et voir aussi dans sa vue commerciale les contrats gérés par d’autres prestataires ou par nous-mêmes',
+    '„{x}“ verlängert sich zum {e}, Kündigung bis {b}. Bitte vergleichen und ein Angebot machen.' => '« {x} » se renouvelle au {e}, résiliation avant le {b}. Merci de comparer et de faire une offre.',
+    '„{x}“ läuft am {e} aus. Bitte vergleichen und ein Angebot machen.' => '« {x} » expire le {e}. Merci de comparer et de faire une offre.',
+    'Bitte für „{x}“ vergleichen und ein Angebot machen.' => 'Merci de comparer et de faire une offre pour « {x} ».',
+    'Angebot anfragen' => 'Demander une offre',
+    'an {x}' => 'à {x}',
+    'Ticket #{n}' => 'Ticket n° {n}',
+    'Der Vertrag läuft bald aus – jetzt ist ein guter Zeitpunkt für ein Vergleichsangebot.' => 'Le contrat arrive bientôt à échéance – c’est le bon moment pour une offre comparative.',
+    'Aktuelle Kosten mitsenden' => 'Inclure les coûts actuels',
+    'Es entsteht ein Ticket, das direkt an den Dienstleister übergeben wird. Antworten sehen Sie im Ticket.' => 'Un ticket est créé et transmis directement au prestataire. Vous verrez les réponses dans le ticket.',
+    'Die Anfrage geht per E-Mail an den Dienstleister; Antworten kommen an Sie.' => 'La demande est envoyée par e-mail au prestataire ; les réponses vous parviennent.',
+    'Aktuelle Kosten' => 'Coûts actuels',
+    'Bitte wählen, an wen die Anfrage geht.' => 'Veuillez choisir le destinataire de la demande.',
+    'Angebot: {x} – Kündigung bis {b}' => 'Offre : {x} – résiliation avant le {b}',
+    'Angebot: {x} läuft am {e} aus' => 'Offre : {x} expire le {e}',
+    'Angebot: {x}' => 'Offre : {x}',
+    'Für {x} ist keine E-Mail-Adresse hinterlegt.' => 'Aucune adresse e-mail n’est enregistrée pour {x}.',
+    'Die Anfrage ist als Ticket an {x} übergeben.' => 'La demande a été transmise à {x} sous forme de ticket.',
+    'Die Anfrage wurde per E-Mail an {x} gesendet.' => 'La demande a été envoyée par e-mail à {x}.',
+    'Angebot angefragt' => 'Offre demandée',
+    'Angebot angefragt bei' => 'Offre demandée à',
+    'Verträge Ihrer Kunden, deren Kündigungsfrist oder Ende in den nächsten Monaten liegt – nur Firmen, die Ihnen Einsicht geben. Verträge anderer Dienstleister erscheinen nur, wenn die Firma das freigibt.' => 'Les contrats de vos clients dont le délai de résiliation ou la fin tombe dans les prochains mois – uniquement les entreprises qui vous donnent accès. Les contrats d’autres prestataires n’apparaissent que si l’entreprise l’autorise.',
+    'von uns betreut' => 'gérés par nous',
+    'alle freigegebenen' => 'tous ceux partagés',
+    'In diesem Zeitraum laufen keine passenden Verträge aus.' => 'Aucun contrat correspondant n’arrive à échéance sur cette période.',
+    'Fällig' => 'Échéance',
+    'Angebot' => 'Offre',
+    'Vertragsende' => 'Fin du contrat',
+    'nicht freigegeben' => 'non partagé',
+    '{n} Firma(en) mit der App haben die Einsicht für Sie nicht eingeschaltet und erscheinen hier nicht.' => '{n} entreprise(s) disposant de l’application ne vous ont pas donné accès et n’apparaissent pas ici.',
+    '{company} bittet um ein Angebot.
+Von: {name}
+
+' => '{company} demande une offre.
+De : {name}
+
+',
+    '{company} bittet um ein Angebot.
+Von: {name} ({email})
+
+' => '{company} demande une offre.
+De : {name} ({email})
+
+',
 ];

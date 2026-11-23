@@ -79,7 +79,7 @@ function ct_seed(int $cid): void
 function ct_company(int $cid): array
 {
     static $cache = [];
-    return $cache[$cid] ??= (row('SELECT id, name, ct_provider_access, ct_provider_costs, ct_inv_licenses, ct_lead_days, ct_pdf_interval, ct_pdf_recipients, ct_pdf_costs FROM companies WHERE id = ?', [$cid]) ?? []);
+    return $cache[$cid] ??= (row('SELECT id, name, ct_provider_access, ct_provider_costs, ct_provider_all, ct_inv_licenses, ct_lead_days, ct_pdf_interval, ct_pdf_recipients, ct_pdf_costs FROM companies WHERE id = ?', [$cid]) ?? []);
 }
 
 function ct_staff_blocked(int $cid): bool
@@ -331,7 +331,8 @@ function ct_tabs(string $active): void
 {
     $cid = (int)($GLOBALS['ct_cid'] ?? 0);
     $tabs = ['contracts' => t('Verträge'), 'contract_deadlines' => t('Fristenkalender')];
-    if ($cid && ct_can_manage($cid)) $tabs['contract_settings'] = t('Einstellungen'); ?>
+    if ($cid && ct_can_manage($cid)) $tabs['contract_settings'] = t('Einstellungen');
+    if (is_staff_role(current_user()['role']) && admin_can('contracts')) $tabs['contract_sales'] = t('Vertriebsübersicht'); ?>
     <nav class="type-tabs">
         <?php foreach ($tabs as $route => $label): ?><a class="<?= $route === $active ? 'active' : '' ?>" href="<?= e(cturl($route)) ?>"><?= e($label) ?></a><?php endforeach; ?>
     </nav>
@@ -586,6 +587,7 @@ function page_contract(): void
                 <?php if (in_array($c['status'], CT_RUNNING, true)): ?><p class="muted small"><?= e(t('An Fristen erinnert das Portal per E-Mail.')) ?></p><?php endif; ?>
             </div>
             <?php ct_cancel_card($cid, $c, $edit); ?>
+            <?php ct_offer_card($cid, $c, $edit, $costs); ?>
             <?php if ($costs) ct_prices_card($c, $prices, $edit); ?>
             <?php ct_links_card($cid, $c, $edit); ?>
             <div class="card">
@@ -737,6 +739,7 @@ function page_contract_action(): void
     if (!$c) abort(400);
     if (ct_links_action($cid, $c, $action)) $back();
     if (ct_cancel_action($cid, $c, $action)) $back();
+    if (ct_offer_action($cid, $c, $action)) $back();
     switch ($action) {
         case 'price_add':
             if (!$costs) abort(403);
@@ -804,6 +807,7 @@ function page_contract_action(): void
             q('DELETE FROM ct_prices WHERE contract_id = ? AND company_id = ?', [$c['id'], $cid]);
             q('DELETE FROM ct_links WHERE contract_id = ? AND company_id = ?', [$c['id'], $cid]);
             q('DELETE FROM ct_cancellations WHERE contract_id = ? AND company_id = ?', [$c['id'], $cid]);
+            q('DELETE FROM ct_offers WHERE contract_id = ? AND company_id = ?', [$c['id'], $cid]);
             q('DELETE FROM contracts WHERE id = ? AND company_id = ?', [$c['id'], $cid]);
             audit('contract.delete', $c['title'], $cid);
             flash('success', t('Der Vertrag „{x}“ wurde gelöscht.', ['x' => $c['title']]));
@@ -850,6 +854,7 @@ function page_contract_settings(): void
                 if ($staff) abort(403);
                 $data = ['ct_provider_access' => post('provider_access') === '1' ? 1 : 0];
                 $data['ct_provider_costs'] = $data['ct_provider_access'] && post('provider_costs') === '1' ? 1 : 0;
+                $data['ct_provider_all'] = $data['ct_provider_access'] && post('provider_all') === '1' ? 1 : 0;
                 update('companies', $cid, $data);
                 audit('contract.settings', json_encode($data), $cid);
                 flash('success', t('Die Einstellungen wurden gespeichert.'));
@@ -931,6 +936,8 @@ function page_contract_settings(): void
                 <?= e(t('Unser IT-Dienstleister darf unsere Verträge sehen und pflegen')) ?></label>
             <label class="check"><input type="checkbox" name="provider_costs" value="1" <?= (int)($co['ct_provider_costs'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
                 <?= e(t('… und dabei auch die Kosten sehen')) ?></label>
+            <label class="check"><input type="checkbox" name="provider_all" value="1" <?= (int)($co['ct_provider_all'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
+                <?= e(t('… und in seiner Vertriebsübersicht auch Verträge sehen, die andere Dienstleister oder wir selbst betreuen')) ?></label>
             <p class="muted small"><?= e(t('Ohne diese Einsicht sieht der IT-Dienstleister keine Verträge. Ihre eigenen Rechte über Gruppen gelten unabhängig davon.')) ?></p>
             <?php if ($staff): ?><p class="muted small"><?= e(t('Diese Einsicht kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p>
             <?php else: ?><button class="btn primary"><?= e(t('Speichern')) ?></button><?php endif; ?>
