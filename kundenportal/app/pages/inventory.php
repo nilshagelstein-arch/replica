@@ -57,7 +57,7 @@ function inv_seed(int $cid): void
 function inv_company(int $cid): array
 {
     static $cache = [];
-    return $cache[$cid] ??= (row('SELECT id, name, inv_provider_access, inv_number_mode FROM companies WHERE id = ?', [$cid]) ?? []);
+    return $cache[$cid] ??= (row('SELECT id, name, inv_provider_access, inv_number_mode, inv_handover_text FROM companies WHERE id = ?', [$cid]) ?? []);
 }
 
 /** Recht des angemeldeten Benutzers im Inventar der Firma: 0 kein, 1 ansehen, 2 bearbeiten */
@@ -206,6 +206,8 @@ function page_inventory(): void
         inv_tabs('inventory'); ?>
         <div class="toolbar">
             <?php if ($perm >= INV_PERM_EDIT): ?><a class="btn primary" href="<?= e(iurl('inv_device', ['id' => 'new'])) ?>"><?= e(t('+ Gerät erfassen')) ?></a><?php endif; ?>
+            <?php if ($perm >= INV_PERM_EDIT): ?><a class="btn" href="<?= e(iurl('inv_handover_new', ['kind' => 'ausgabe'])) ?>"><?= e(t('Geräte ausgeben')) ?></a><?php endif; ?>
+            <a class="btn" href="<?= e(iurl('inv_labels', array_filter(['status' => $status, 'type' => $type ?: null, 'location' => $loc ?: null]))) ?>" target="_blank" rel="noopener"><?= e(t('Etiketten drucken')) ?></a>
             <?php if (inv_can_manage($cid)): ?><a class="btn" href="<?= e(iurl('inv_settings')) ?>"><?= e(t('Einstellungen')) ?></a><?php endif; ?>
         </div>
         <div class="tiles">
@@ -360,6 +362,7 @@ function page_inv_device(): void
         </div>
         <div>
         <?php if (!$isNew): ?>
+            <?php inv_lifecycle_card($cid, $d, $edit); ?>
             <?php if ($edit && !empty($d['bitlocker_enc'])): ?>
             <div class="card">
                 <h3><?= e(t('BitLocker-Schlüssel')) ?></h3>
@@ -586,7 +589,8 @@ function page_inv_settings(): void
         $action = (string)post('action');
         switch ($action) {
             case 'general':
-                $data = ['inv_number_mode' => post('number_mode') === 'free' ? 'free' : 'auto'];
+                $data = ['inv_number_mode' => post('number_mode') === 'free' ? 'free' : 'auto',
+                    'inv_handover_text' => mb_substr(trim(str_replace("\r", '', (string)post('handover_text'))), 0, 3000)];
                 // Die Einsicht für den Dienstleister schaltet nur die Firma selbst
                 if (!$staff) $data['inv_provider_access'] = post('provider_access') === '1' ? 1 : 0;
                 update('companies', $cid, $data);
@@ -652,6 +656,8 @@ function page_inv_settings(): void
                 <option value="free" <?= ($co['inv_number_mode'] ?? 'auto') === 'free' ? 'selected' : '' ?>><?= e(t('frei vergeben (eigene Nummern)')) ?></option>
             </select></label>
             <p class="muted small"><?= e(t('Auch bei automatischen Nummern kann eine eigene Nummer eingetragen werden; bestehende Nummern bleiben erhalten.')) ?></p>
+            <label><?= e(t('Hinweistext im Übergabeprotokoll')) ?> <textarea name="handover_text" rows="4" placeholder="<?= e(t(INV_HO_TEXT_DEFAULT)) ?>"><?= e((string)($co['inv_handover_text'] ?? '')) ?></textarea></label>
+            <p class="muted small"><?= e(t('Leer lassen für den Standardtext. Der Text wird beim Erstellen eines Protokolls übernommen.')) ?></p>
             <label class="check"><input type="checkbox" name="provider_access" value="1" <?= (int)($co['inv_provider_access'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
                 <?= e(t('Einsicht für den IT-Dienstleister: Unser IT-Dienstleister darf unser Inventar sehen und pflegen')) ?></label>
             <?php if ($staff): ?><p class="muted small"><?= e(t('Diese Einsicht kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p><?php endif; ?>

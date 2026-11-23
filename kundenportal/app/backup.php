@@ -645,11 +645,13 @@ function cbackup_data(int $cid): array
         'inv_locations'  => rows('SELECT * FROM inv_locations WHERE company_id = ?', [$cid]),
         'inv_group_perms'=> rows('SELECT * FROM inv_group_perms WHERE company_id = ?', [$cid]),
         // BitLocker-Schlüssel bleiben nur verschlüsselt in der Datenbank
-        'inv_devices'    => rows('SELECT id, company_id, inv_no, type_id, manufacturer, model, serial, status, location_id, room, employee_id, purchase_date, price_cents, supplier, warranty_until, os, ip, mac, phone_no, sim_no, mobile_contract, notes, created_by, created_at, updated_at FROM inv_devices WHERE company_id = ?', [$cid]),
+        'inv_devices'    => rows('SELECT id, company_id, inv_no, type_id, manufacturer, model, serial, status, location_id, room, employee_id, purchase_date, price_cents, supplier, warranty_until, os, ip, mac, phone_no, sim_no, mobile_contract, notes, repair_reason, repair_vendor, repair_until, retire_reason, retired_at, disposal_date, disposal_vendor, wipe_method, wipe_by, wipe_confirmed, created_by, created_at, updated_at FROM inv_devices WHERE company_id = ?', [$cid]),
         'inv_log'        => rows('SELECT * FROM inv_log WHERE company_id = ?', [$cid]),
         // Lizenzschlüssel bleiben nur verschlüsselt in der Datenbank
         'inv_licenses'   => rows('SELECT id, company_id, product, manufacturer, kind, seats, contract_no, supplier, start_date, end_date, notice_value, notice_unit, auto_renew, renew_months, cost_cents, cost_interval, device_id, status, cancelled_at, notes, created_by, created_at, updated_at FROM inv_licenses WHERE company_id = ?', [$cid]),
         'inv_license_assign' => rows('SELECT * FROM inv_license_assign WHERE company_id = ?', [$cid]),
+        'inv_handovers'  => rows('SELECT * FROM inv_handovers WHERE company_id = ?', [$cid]),
+        'inv_handover_items' => rows('SELECT i.* FROM inv_handover_items i JOIN inv_handovers h ON h.id = i.handover_id WHERE h.company_id = ?', [$cid]),
         'inv_files'      => rows('SELECT * FROM inv_files WHERE company_id = ?', [$cid]),
     ];
 }

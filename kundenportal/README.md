@@ -72,7 +72,9 @@ Eingebaute Apps sind **On- & Offboarding**, **Formulare**, **Datensicherung** un
 - **BitLocker-Schlüssel** liegen verschlüsselt in der Datenbank, werden nur mit Recht „bearbeiten“ über „Anzeigen“ sichtbar und jedes Anzeigen steht im Verlauf und im Protokoll. Sie sind nicht Teil der Firmensicherung.
 - **Rechte:** Firmen-Administratoren dürfen alles; weitere Rechte (ansehen oder bearbeiten) je Gruppe (Abteilung). Der Dienstleister sieht das Inventar nur, wenn die Firma die Einsicht in den Einstellungen einschaltet, und dann nach seinem Bereichsrecht „Geräte & Lizenzen“.
 - **Lizenzen** (Reiter „Lizenzen“): Abo, Kauflizenz oder Wartung/Support mit Plätzen (0 = unbegrenzt), Vergabe an Mitarbeiter oder Geräte (Warnung bei Überbelegung), Laufzeit mit Kündigungsfrist („Kündigen bis“ wird berechnet), automatischer Verlängerung (rückt nach Ablauf selbst weiter), Kosten je Monat/Jahr/einmalig, Kündigen und Beenden, Verlauf und Anhänge. Lizenzschlüssel verschlüsselt mit „Anzeigen“ wie BitLocker. „Läuft bald ab“: Ende oder letzter Kündigungstag in den nächsten 60 Tagen.
-- Übergabeprotokolle, „Meine Geräte“, Erinnerungen und Import folgen in den nächsten Stufen.
+- **Lebenszyklus:** Ausgabe aus dem Lager und Rücknahme (mit Zustand je Gerät und Ziel-Lager) erzeugen ein **Übergabe- bzw. Rückgabeprotokoll** (Reiter „Übergaben“) mit Logo, Geräteliste, Zubehör und Hinweistext (je Firma einstellbar). Unterschrift am Bildschirm (Maus, Finger, Stift; gespeichert als PNG) oder Ausdruck und Upload des unterschriebenen Scans. Reparatur mit Grund, Dienstleister und geplanter Rückgabe; Ausmustern (gibt Zuordnung und Lizenzplätze frei); Entsorgen mit Nachweis (Datum, Entsorger, bestätigte Datenlöschung mit Verfahren, Nachweis als Anhang).
+- **QR-Code-Etiketten** (einzeln oder für die gefilterte Liste) für A4-Bögen 70 × 37 mm; der Code öffnet die Geräteseite.
+- „Meine Geräte“, Erinnerungen und Import folgen in den nächsten Stufen.
 
 ### API der Kundendatenbank
 
