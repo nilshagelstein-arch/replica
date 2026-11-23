@@ -7,6 +7,7 @@
  * - Rechte über Gruppen (Abteilungen) wie im Inventar: „ansehen“ oder „bearbeiten“, dazu je Gruppe die Zusatzrechte
  *   „Kosten sehen“ und „Freigabe Kündigung“ (die Freigabe selbst folgt mit Stufe 4).
  * - Wer keine Kosten sehen darf, sieht in Liste, Detail und Verlauf keine Beträge und kann sie auch nicht ändern.
+ * - Stufe 2: Preishistorie (ct_prices, neuer Preis mit „gültig ab“); Verbindung zum Inventar in ct_inventory.php.
  * - Der Dienstleister (Superadmin, Verwaltungsadmins) sieht die Verträge nur mit Freigabe der Firma
  *   (companies.ct_provider_access) und dann nach seinem Bereichsrecht „contracts“; Kosten nur mit companies.ct_provider_costs.
  */
@@ -72,7 +73,7 @@ function ct_seed(int $cid): void
 function ct_company(int $cid): array
 {
     static $cache = [];
-    return $cache[$cid] ??= (row('SELECT id, name, ct_provider_access, ct_provider_costs FROM companies WHERE id = ?', [$cid]) ?? []);
+    return $cache[$cid] ??= (row('SELECT id, name, ct_provider_access, ct_provider_costs, ct_inv_licenses FROM companies WHERE id = ?', [$cid]) ?? []);
 }
 
 function ct_staff_blocked(int $cid): bool
@@ -234,13 +235,46 @@ function ct_cancel_by_end(array $c, string $end): string
     };
 }
 
-/** Kosten je Monat in Cent (einmalige Kosten = 0); nur laufende Verträge */
-function ct_monthly(array $c): int
+/** Preishistorie je Vertrag: contract_id => Einträge aufsteigend nach „gültig ab“ */
+function ct_prices_for(int $cid, ?array $ids = null): array
 {
-    if ($c['cost_cents'] === null || !in_array($c['status'], array_merge(CT_RUNNING, ['gekuendigt']), true)) return 0;
+    $sql = 'SELECT * FROM ct_prices WHERE company_id = ?';
+    if ($ids !== null) {
+        if (!$ids) return [];
+        $sql .= ' AND contract_id IN (' . implode(',', array_map('intval', $ids)) . ')';
+    }
+    $out = [];
+    foreach (rows($sql . ' ORDER BY valid_from, id', [$cid]) as $r) $out[(int)$r['contract_id']][] = $r;
+    return $out;
+}
+
+/** Gültiger Preis an einem Tag: letzter Eintrag mit „gültig ab“ <= Tag, sonst der Grundpreis aus dem Vertrag */
+function ct_price_at(array $c, array $prices, ?string $date = null): array
+{
+    $date ??= date('Y-m-d');
+    $cur = ['cents' => $c['cost_cents'] === null ? null : (int)$c['cost_cents'], 'interval' => (string)$c['cost_interval'], 'from' => '', 'id' => 0];
+    foreach ($prices as $p) {
+        if ($p['valid_from'] <= $date) $cur = ['cents' => $p['cost_cents'] === null ? null : (int)$p['cost_cents'], 'interval' => (string)$p['cost_interval'], 'from' => (string)$p['valid_from'], 'id' => (int)$p['id']];
+    }
+    return $cur;
+}
+
+/** Nächste künftige Preisänderung oder null */
+function ct_next_price(array $prices, ?string $date = null): ?array
+{
+    $date ??= date('Y-m-d');
+    foreach ($prices as $p) if ($p['valid_from'] > $date) return $p;
+    return null;
+}
+
+/** Kosten je Monat in Cent (einmalige Kosten = 0); nur laufende Verträge; $price = gültiger Preis aus ct_price_at() */
+function ct_monthly(array $c, ?array $price = null): int
+{
+    $cents = $price ? $price['cents'] : ($c['cost_cents'] === null ? null : (int)$c['cost_cents']);
+    $interval = $price ? $price['interval'] : (string)$c['cost_interval'];
+    if ($cents === null || !in_array($c['status'], array_merge(CT_RUNNING, ['gekuendigt']), true)) return 0;
     if ($c['status'] === 'gekuendigt' && ($c['cancelled_to'] ?? '') !== '' && $c['cancelled_to'] < date('Y-m-d')) return 0;
-    $cents = (int)$c['cost_cents'];
-    return match ($c['cost_interval']) {
+    return match ($interval) {
         'monat' => $cents,
         'quartal' => (int)round($cents / 3),
         'jahr' => (int)round($cents / 12),
@@ -334,6 +368,21 @@ function page_contracts(): void
     $list = rows('SELECT c.*, t.name AS type_name, p.name AS provider_name FROM contracts c LEFT JOIN ct_types t ON t.id = c.type_id
         LEFT JOIN ticket_providers p ON p.id = c.provider_id WHERE ' . implode(' AND ', $where) . ' LIMIT 2000', $p);
     $today = date('Y-m-d');
+    $prices = $costs ? ct_prices_for($cid) : [];
+    foreach ($list as &$c) {
+        $c['_price'] = ct_price_at($c, $prices[(int)$c['id']] ?? [], $today);
+        $c['_next'] = ct_next_price($prices[(int)$c['id']] ?? [], $today);
+    }
+    unset($c);
+    // Abo- und Wartungslizenzen aus dem Inventar (nur ohne Filter nach Art/Betreuung)
+    $invAll = ct_inv_license_rows($cid);
+    if (!$type && $managed === '') {
+        foreach ($search === '' ? $invAll : ct_inv_license_rows($cid, $search) as $l) {
+            if ($status === 'alle' || ($status === 'laufend' && $l['status'] !== 'beendet') || $l['status'] === $status) {
+                $list[] = $l + ['_price' => ct_price_at($l, [], $today), '_next' => null];
+            }
+        }
+    }
     foreach ($list as &$c) { $dl = ct_deadlines($c, $today); $c['_end'] = $dl['possible']; $c['_by'] = $dl['by']; }
     unset($c);
     // nach nächster Frist sortieren, ohne Frist ans Ende
@@ -342,7 +391,10 @@ function page_contracts(): void
     $counts = array_fill_keys(array_keys(CT_STATUSES), 0);
     foreach (rows('SELECT status, COUNT(*) AS n FROM contracts WHERE company_id = ? GROUP BY status', [$cid]) as $r) $counts[$r['status']] = (int)$r['n'];
     $monthly = 0;
-    if ($costs) foreach (rows('SELECT * FROM contracts WHERE company_id = ?', [$cid]) as $c) $monthly += ct_monthly($c);
+    if ($costs) {
+        foreach (rows('SELECT * FROM contracts WHERE company_id = ?', [$cid]) as $c) $monthly += ct_monthly($c, ct_price_at($c, $prices[(int)$c['id']] ?? [], $today));
+        foreach ($invAll as $l) $monthly += ct_monthly($l);
+    }
     $soon = date('Y-m-d', strtotime('+90 days'));
 
     render_page(t('Verträge & Laufzeiten'), function () use ($cid, $perm, $costs, $types, $status, $type, $managed, $search, $list, $counts, $monthly, $soon, $today) {
@@ -383,14 +435,16 @@ function page_contracts(): void
                     <th><?= e(t('Ende')) ?></th><?php if ($costs): ?><th class="num"><?= e(t('Kosten')) ?></th><?php endif; ?><th><?= e(t('Betreuung')) ?></th><th><?= e(t('Status')) ?></th></tr></thead>
                 <tbody>
                 <?php foreach ($list as $c): ?>
-                    <tr><td><a href="<?= e(cturl('contract', ['id' => $c['id']])) ?>"><strong><?= e($c['title']) ?></strong></a>
+                    <tr><td><?php if (!empty($c['_inv'])): ?><a href="<?= e(ct_app_url($cid, 'inv_license', ['id' => $c['id']])) ?>"><strong><?= e($c['title']) ?></strong></a> <span class="tag"><?= e(t('aus dem Inventar')) ?></span>
+                            <?php else: ?><a href="<?= e(cturl('contract', ['id' => $c['id']])) ?>"><strong><?= e($c['title']) ?></strong></a><?php endif; ?>
                             <?php if ($c['contract_no'] !== ''): ?><br><span class="muted small"><?= e($c['contract_no']) ?></span><?php endif; ?></td>
                         <td><?= e($c['type_name'] !== null ? t($c['type_name']) : '–') ?></td>
                         <td><?= e($c['partner'] ?: '–') ?></td>
                         <td><?php if ($c['_by'] !== ''): ?><span class="<?= $c['_by'] <= $soon ? 'tag warn' : '' ?>"><?= fmt_date($c['_by']) ?></span><?php elseif ($c['_end'] !== '' && in_array($c['status'], CT_RUNNING, true)): ?><span class="muted small"><?= e(t('endet ohne Kündigung')) ?></span><?php else: ?>–<?php endif; ?></td>
                         <td><?php if ($c['_end'] !== ''): ?><?= fmt_date($c['_end']) ?><?php if ((int)$c['auto_renew'] && in_array($c['status'], CT_RUNNING, true)): ?> <span class="muted small" title="<?= e(t('verlängert sich automatisch')) ?>">↻</span><?php endif; ?><?php else: ?><span class="muted"><?= e(t('unbefristet')) ?></span><?php endif; ?></td>
-                        <?php if ($costs): ?><td class="num nowrap"><?= $c['cost_cents'] !== null ? e(ct_fmt_price((int)$c['cost_cents'])) . '<br><span class="muted small">' . e(t(CT_INTERVALS[$c['cost_interval']] ?? '')) . '</span>' : '–' ?></td><?php endif; ?>
-                        <td><?= e(ct_managed_label($c)) ?></td>
+                        <?php if ($costs): $pr = $c['_price']; ?><td class="num nowrap"><?= $pr['cents'] !== null ? e(ct_fmt_price($pr['cents'])) . '<br><span class="muted small">' . e(t(CT_INTERVALS[$pr['interval']] ?? INV_LIC_INTERVALS[$pr['interval']] ?? '')) . '</span>' : '–' ?>
+                            <?php if ($c['_next']): ?><br><span class="tag warn"><?= e(t('ab {d}: {x}', ['d' => fmt_date($c['_next']['valid_from']), 'x' => ct_fmt_price($c['_next']['cost_cents'] === null ? null : (int)$c['_next']['cost_cents'])])) ?></span><?php endif; ?></td><?php endif; ?>
+                        <td><?= !empty($c['_inv']) ? '–' : e(ct_managed_label($c)) ?></td>
                         <td><?= ct_status_badge($c) ?></td></tr>
                 <?php endforeach; ?>
                 <?php if (!$list): ?><tr><td colspan="<?= $costs ? 8 : 7 ?>" class="muted"><?= e(t('Keine Verträge gefunden.')) ?></td></tr><?php endif; ?>
@@ -420,9 +474,10 @@ function page_contract(): void
     $log = $c ? rows('SELECT l.*, u.name AS user_name FROM ct_log l LEFT JOIN users u ON u.id = l.user_id WHERE l.contract_id = ? AND l.company_id = ?'
         . ($costs ? '' : " AND l.kind <> 'cost'") . ' ORDER BY l.id DESC LIMIT 300', [$c['id'], $cid]) : [];
     $files = $c ? rows('SELECT * FROM ct_files WHERE contract_id = ? AND company_id = ? ORDER BY id', [$c['id'], $cid]) : [];
+    $prices = $c && $costs ? (ct_prices_for($cid, [(int)$c['id']])[(int)$c['id']] ?? []) : [];
     $title = $isNew ? t('Vertrag erfassen') : $c['title'];
 
-    render_page($title, function () use ($cid, $perm, $costs, $c, $isNew, $types, $providers, $users, $log, $files) {
+    render_page($title, function () use ($cid, $perm, $costs, $c, $isNew, $types, $providers, $users, $log, $files, $prices) {
         $edit = $perm >= CT_PERM_EDIT;
         $v = fn(string $k) => (string)($c[$k] ?? '');
         $status = $c['status'] ?? 'aktiv'; ?>
@@ -467,7 +522,7 @@ function page_contract(): void
                 <label><?= e(t('Zeitraum')) ?> <select name="cost_interval"><?php foreach (CT_INTERVALS as $k => $l): ?><option value="<?= e($k) ?>" <?= ($c['cost_interval'] ?? 'monat') === $k ? 'selected' : '' ?>><?= e(t($l)) ?></option><?php endforeach; ?></select></label>
                 <label><?= e(t('Zahlungsart')) ?> <select name="payment_method"><?php foreach (CT_PAYMENTS as $k => $l): ?><option value="<?= e($k) ?>" <?= ($c['payment_method'] ?? '') === $k ? 'selected' : '' ?>><?= e(t($l)) ?></option><?php endforeach; ?></select></label>
             </div>
-            <p class="muted small"><?= e(t('Beträge wie auf der Rechnung, z. B. netto. Die Preishistorie mit „gültig ab“ folgt in der nächsten Stufe.')) ?></p>
+            <p class="muted small"><?= e(t('Grundpreis ab Vertragsbeginn, wie auf der Rechnung (z. B. netto). Spätere Preisänderungen tragen Sie in der Preishistorie mit „gültig ab“ ein.')) ?></p>
             <?php endif; ?>
             <h3><?= e(t('Betreuung')) ?></h3>
             <?php $mb = ($c['managed_by'] ?? 'it') === 'provider' ? 'p' . (int)$c['provider_id'] : ($c['managed_by'] ?? 'it'); ?>
@@ -490,7 +545,7 @@ function page_contract(): void
                     if ($val === '') continue; ?>
                     <dt><?= e($k) ?></dt><dd><?= e($val) ?></dd>
                 <?php endforeach; ?>
-                <?php if ($costs && $c['cost_cents'] !== null): ?><dt><?= e(t('Kosten')) ?></dt><dd><?= e(ct_fmt_price((int)$c['cost_cents']) . ' ' . t(CT_INTERVALS[$c['cost_interval']] ?? '')) ?><?= $c['payment_method'] !== '' ? ' · ' . e(t(CT_PAYMENTS[$c['payment_method']] ?? $c['payment_method'])) : '' ?></dd><?php endif; ?>
+                <?php $pr = $costs ? ct_price_at($c, $prices) : null; if ($pr && $pr['cents'] !== null): ?><dt><?= e(t('Kosten')) ?></dt><dd><?= e(ct_fmt_price($pr['cents']) . ' ' . t(CT_INTERVALS[$pr['interval']] ?? '')) ?><?= $c['payment_method'] !== '' ? ' · ' . e(t(CT_PAYMENTS[$c['payment_method']] ?? $c['payment_method'])) : '' ?></dd><?php endif; ?>
             </dl>
             <?php if ($v('notes') !== ''): ?><p class="pre"><?= e($v('notes')) ?></p><?php endif; ?>
         </div>
@@ -514,6 +569,8 @@ function page_contract(): void
                 </dl>
                 <?php if ($edit && in_array($c['status'], CT_RUNNING, true)): ?><p class="muted small"><?= e(t('Kündigung mit Freigabe und Erinnerungen an Fristen folgen in den nächsten Stufen.')) ?></p><?php endif; ?>
             </div>
+            <?php if ($costs) ct_prices_card($c, $prices, $edit); ?>
+            <?php ct_links_card($cid, $c, $edit); ?>
             <div class="card">
                 <h3><?= e(t('Dokumente')) ?></h3>
                 <?php if ($files): ?><ul class="file-list">
@@ -656,7 +713,33 @@ function page_contract_action(): void
         $back();
     }
     if (!$c) abort(400);
+    if (ct_links_action($cid, $c, $action)) $back();
     switch ($action) {
+        case 'price_add':
+            if (!$costs) abort(403);
+            $from = ct_date((string)post('valid_from'));
+            $raw = trim((string)post('cost'));
+            $cents = ct_parse_price($raw);
+            $interval = (string)post('cost_interval');
+            if (!isset(CT_INTERVALS[$interval])) $interval = 'monat';
+            if ($from === '') { flash('error', t('Bitte angeben, ab wann der neue Preis gilt.')); $back(); }
+            if ($cents === null) { flash('error', t('Der Betrag „{x}“ ist keine gültige Zahl.', ['x' => $raw])); $back(); }
+            if ($c['start_date'] !== '' && $from <= $c['start_date']) { flash('error', t('Der neue Preis muss nach dem Vertragsbeginn gelten. Den Preis ab Beginn ändern Sie oben im Vertrag.')); $back(); }
+            if (row('SELECT id FROM ct_prices WHERE contract_id = ? AND valid_from = ?', [$c['id'], $from])) { flash('error', t('Für den {d} ist schon ein Preis eingetragen.', ['d' => fmt_date($from)])); $back(); }
+            insert('ct_prices', ['company_id' => $cid, 'contract_id' => $c['id'], 'valid_from' => $from, 'cost_cents' => $cents, 'cost_interval' => $interval,
+                'note' => mb_substr(trim((string)post('note')), 0, 255), 'user_id' => current_user()['id'], 'created_at' => now()]);
+            ct_log($cid, (int)$c['id'], 'Neuer Preis ab ' . fmt_date($from) . ': ' . ct_fmt_price($cents) . ' ' . CT_INTERVALS[$interval], 'cost');
+            audit('contract.price', $c['title'] . ': ' . $from, $cid);
+            flash('success', t('Der neue Preis ab {d} wurde eingetragen.', ['d' => fmt_date($from)]));
+            $back();
+        case 'price_delete':
+            if (!$costs) abort(403);
+            $pr = row('SELECT * FROM ct_prices WHERE id = ? AND contract_id = ? AND company_id = ?', [(int)post('price_id', 0), $c['id'], $cid]);
+            if ($pr) {
+                q('DELETE FROM ct_prices WHERE id = ?', [$pr['id']]);
+                ct_log($cid, (int)$c['id'], 'Preis ab ' . fmt_date($pr['valid_from']) . ' gelöscht', 'cost');
+            }
+            $back();
         case 'note':
             $body = mb_substr(trim((string)post('body')), 0, 2000);
             if ($body !== '') ct_log($cid, (int)$c['id'], $body, 'note');
@@ -695,6 +778,8 @@ function page_contract_action(): void
             foreach (rows('SELECT stored_name FROM ct_files WHERE contract_id = ? AND company_id = ?', [$c['id'], $cid]) as $fl) @unlink(ct_files_dir($cid) . '/' . basename((string)$fl['stored_name']));
             q('DELETE FROM ct_files WHERE contract_id = ? AND company_id = ?', [$c['id'], $cid]);
             q('DELETE FROM ct_log WHERE contract_id = ? AND company_id = ?', [$c['id'], $cid]);
+            q('DELETE FROM ct_prices WHERE contract_id = ? AND company_id = ?', [$c['id'], $cid]);
+            q('DELETE FROM ct_links WHERE contract_id = ? AND company_id = ?', [$c['id'], $cid]);
             q('DELETE FROM contracts WHERE id = ? AND company_id = ?', [$c['id'], $cid]);
             audit('contract.delete', $c['title'], $cid);
             flash('success', t('Der Vertrag „{x}“ wurde gelöscht.', ['x' => $c['title']]));
@@ -743,6 +828,11 @@ function page_contract_settings(): void
                 $data['ct_provider_costs'] = $data['ct_provider_access'] && post('provider_costs') === '1' ? 1 : 0;
                 update('companies', $cid, $data);
                 audit('contract.settings', json_encode($data), $cid);
+                flash('success', t('Die Einstellungen wurden gespeichert.'));
+                break;
+            case 'view':
+                update('companies', $cid, ['ct_inv_licenses' => post('inv_licenses') === '1' ? 1 : 0]);
+                audit('contract.settings', 'ct_inv_licenses=' . (post('inv_licenses') === '1' ? 1 : 0), $cid);
                 flash('success', t('Die Einstellungen wurden gespeichert.'));
                 break;
             case 'type_save':
@@ -802,6 +892,17 @@ function page_contract_settings(): void
             <?php else: ?><button class="btn primary"><?= e(t('Speichern')) ?></button><?php endif; ?>
         </form>
 
+        <?php if (company_has_app($cid, 'inventar')): ?>
+        <form method="post" class="form card">
+            <?= csrf_field() ?><input type="hidden" name="action" value="view">
+            <h2><?= e(t('Lizenzen aus dem Inventar')) ?></h2>
+            <label class="check"><input type="checkbox" name="inv_licenses" value="1" <?= (int)($co['ct_inv_licenses'] ?? 1) ? 'checked' : '' ?>>
+                <?= e(t('Abo- und Wartungslizenzen aus „Geräte & Lizenzen“ in der Vertragsliste und den Kosten zeigen')) ?></label>
+            <p class="muted small"><?= e(t('Gepflegt werden sie weiter im Inventar. Ist eine Lizenz mit einem Vertrag verknüpft, erscheint nur der Vertrag. Die Lizenzen sieht nur, wer im Inventar Leserecht hat.')) ?></p>
+            <button class="btn primary"><?= e(t('Speichern')) ?></button>
+        </form>
+        <?php endif; ?>
+
         <div class="card">
             <h2><?= e(t('Rechte je Gruppe')) ?></h2>
             <p class="muted"><?= e(t('Firmen-Administratoren dürfen immer alles. Weitere Rechte vergeben Sie je Gruppe (Abteilung); wer mehreren Gruppen angehört, bekommt das höchste Recht. Preise sieht nur, wer „Kosten sehen“ hat.')) ?></p>
@@ -837,3 +938,36 @@ function page_contract_settings(): void
         </div>
     <?php });
 }
+
+/** Karte „Preishistorie“ (nur mit „Kosten sehen“) */
+function ct_prices_card(array $c, array $prices, bool $edit): void
+{
+    $cur = ct_price_at($c, $prices); ?>
+    <div class="card">
+        <h3><?= e(t('Preishistorie')) ?></h3>
+        <div class="table-scroll"><table class="table"><thead><tr><th><?= e(t('Gültig ab')) ?></th><th class="num"><?= e(t('Betrag')) ?></th><th></th></tr></thead><tbody>
+            <tr><td><?= $c['start_date'] !== '' ? fmt_date($c['start_date']) : e(t('Beginn')) ?></td>
+                <td class="num nowrap"><?= $c['cost_cents'] !== null ? e(ct_fmt_price((int)$c['cost_cents']) . ' ' . t(CT_INTERVALS[$c['cost_interval']] ?? '')) : '–' ?></td>
+                <td><?= $cur['id'] === 0 ? '<span class="tag">' . e(t('gilt jetzt')) . '</span>' : '' ?></td></tr>
+            <?php foreach ($prices as $p): $future = $p['valid_from'] > date('Y-m-d'); ?>
+            <tr><td><?= fmt_date($p['valid_from']) ?><?php if ($p['note'] !== ''): ?><br><span class="muted small"><?= e($p['note']) ?></span><?php endif; ?></td>
+                <td class="num nowrap"><?= e(ct_fmt_price($p['cost_cents'] === null ? null : (int)$p['cost_cents']) . ' ' . t(CT_INTERVALS[$p['cost_interval']] ?? '')) ?></td>
+                <td class="nowrap"><?= $cur['id'] === (int)$p['id'] ? '<span class="tag">' . e(t('gilt jetzt')) . '</span>' : ($future ? '<span class="tag warn">' . e(t('künftig')) . '</span>' : '') ?>
+                    <?php if ($edit): ?><form method="post" action="<?= e(cturl('contract_action', ['id' => $c['id']])) ?>" class="inline-form inline-mini"><?= csrf_field() ?><input type="hidden" name="action" value="price_delete"><input type="hidden" name="price_id" value="<?= (int)$p['id'] ?>">
+                        <button class="btn small danger" data-confirm="<?= e(t('Preis ab {d} löschen?', ['d' => fmt_date($p['valid_from'])])) ?>" aria-label="<?= e(t('Preis löschen')) ?>">✕</button></form><?php endif; ?></td></tr>
+            <?php endforeach; ?>
+        </tbody></table></div>
+        <?php if ($edit): ?>
+        <form method="post" action="<?= e(cturl('contract_action', ['id' => $c['id']])) ?>" class="form"><?= csrf_field() ?><input type="hidden" name="action" value="price_add">
+            <div class="grid2">
+                <label><?= e(t('Gültig ab')) ?> <input type="date" name="valid_from" required></label>
+                <label><?= e(t('Neuer Betrag (€)')) ?> <input name="cost" inputmode="decimal" maxlength="20" required></label>
+                <label><?= e(t('Zeitraum')) ?> <select name="cost_interval"><?php foreach (CT_INTERVALS as $k => $l): ?><option value="<?= e($k) ?>" <?= $cur['interval'] === $k ? 'selected' : '' ?>><?= e(t($l)) ?></option><?php endforeach; ?></select></label>
+                <label><?= e(t('Anlass')) ?> <input name="note" maxlength="255" placeholder="<?= e(t('z. B. Preiserhöhung laut Schreiben')) ?>"></label>
+            </div>
+            <button class="btn small"><?= e(t('Neuen Preis eintragen')) ?></button>
+        </form>
+        <p class="muted small"><?= e(t('Liste und Summen rechnen immer mit dem am jeweiligen Tag gültigen Preis.')) ?></p>
+        <?php endif; ?>
+    </div>
+<?php }

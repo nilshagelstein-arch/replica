@@ -52,6 +52,7 @@ require APP_DIR . '/pages/inv_links.php';
 require APP_DIR . '/pages/inv_reminders.php';
 require APP_DIR . '/pages/inv_integrations.php';
 require APP_DIR . '/pages/contracts.php';
+require APP_DIR . '/pages/ct_inventory.php';
 require APP_DIR . '/ticket_mail.php';
 
 $routes = [

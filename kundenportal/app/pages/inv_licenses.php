@@ -337,6 +337,7 @@ function page_inv_license(): void
                 <?php endif; ?>
             </div>
             <?php endif; ?>
+            <?php if (function_exists('ct_inventory_card')) ct_inventory_card($cid, 'license', (int)$l['id']); ?>
             <div class="card">
                 <h3><?= e(t('Anhänge')) ?></h3>
                 <?php if ($files): ?><ul class="file-list">
@@ -518,6 +519,7 @@ function page_inv_lic_action(): void
             q('DELETE FROM inv_files WHERE license_id = ?', [$l['id']]);
             q('DELETE FROM inv_log WHERE license_id = ?', [$l['id']]);
             q('DELETE FROM inv_license_assign WHERE license_id = ?', [$l['id']]);
+            q('DELETE FROM ct_links WHERE license_id = ? AND company_id = ?', [$l['id'], $cid]);
             q('DELETE FROM inv_licenses WHERE id = ?', [$l['id']]);
             audit('inventory.license_delete', $l['product'], $cid);
             flash('success', t('Die Lizenz „{x}“ wurde gelöscht.', ['x' => $l['product']]));
