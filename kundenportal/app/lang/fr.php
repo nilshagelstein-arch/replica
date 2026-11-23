@@ -3532,4 +3532,5 @@ De : {name} ({email})
     'Aus PDF erfasst' => 'Saisi depuis un PDF',
     'Tag' => 'jour',
     'Woche' => 'semaine',
+    'API-Schlüssel erzeugen und löschen können nur die Firmen-Admins der Firma selbst.' => 'Seuls les administrateurs de l’entreprise elle-même peuvent créer et supprimer des clés API.',
 ];

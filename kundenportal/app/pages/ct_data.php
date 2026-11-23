@@ -650,8 +650,16 @@ function ct_cost_table(array $rows, int $total): void
 // ---------------------------------------------------------------------------
 
 /** POST-Aktionen der Schlüsselverwaltung; true = erledigt */
+/** API-Schlüssel verwalten nur Firmen-Admins der Firma selbst (ein Schlüssel wirkt auch nach Entzug der Einsicht weiter) */
+function ct_api_can_manage(int $cid): bool
+{
+    $u = current_user();
+    return $u['role'] === 'firma_admin' && (int)$u['company_id'] === $cid;
+}
+
 function ct_api_settings_post(int $cid, string $action): bool
 {
+    if (in_array($action, ['api_create', 'api_revoke'], true) && !ct_api_can_manage($cid)) abort(403);
     if ($action === 'api_create') {
         $name = mb_substr(trim((string)post('name')), 0, 120) ?: t('API-Zugang');
         [$plain, $prefix, $hash] = api_token_generate();
@@ -676,6 +684,7 @@ function ct_api_settings_post(int $cid, string $action): bool
 function ct_api_settings_card(int $cid): void
 {
     $tokens = rows("SELECT t.*, u.name AS creator FROM api_tokens t LEFT JOIN users u ON u.id = t.created_by WHERE t.company_id = ? AND t.scope = 'vertraege' ORDER BY t.created_at DESC", [$cid]);
+    $manage = ct_api_can_manage($cid);
     $new = $_SESSION['ct_new_api_token'] ?? null;
     unset($_SESSION['ct_new_api_token']);
     $base = rtrim((string)cfg('base_url', ''), '/') . '/api.php'; ?>
@@ -687,15 +696,16 @@ function ct_api_settings_card(int $cid): void
             <?php foreach ($tokens as $tk): ?><tr><td><?= e($tk['name']) ?> <code class="muted"><?= e($tk['prefix']) ?>…</code></td>
                 <td><?= e((int)$tk['can_write'] ? t('lesen und schreiben') : t('nur lesen')) ?><?= (int)$tk['see_costs'] ? ' · ' . e(t('mit Kosten')) : '' ?></td>
                 <td><?= $tk['last_used_at'] ? fmt_dt($tk['last_used_at']) : '–' ?></td>
-                <td><form method="post" class="inline-form inline-mini"><?= csrf_field() ?><input type="hidden" name="action" value="api_revoke"><input type="hidden" name="id" value="<?= (int)$tk['id'] ?>">
-                    <button class="btn small danger" data-confirm="<?= e(t('API-Schlüssel „{x}“ löschen? Programme, die ihn nutzen, verlieren sofort den Zugriff.', ['x' => $tk['name']])) ?>"><?= e(t('Löschen')) ?></button></form></td></tr><?php endforeach; ?>
+                <td><?php if ($manage): ?><form method="post" class="inline-form inline-mini"><?= csrf_field() ?><input type="hidden" name="action" value="api_revoke"><input type="hidden" name="id" value="<?= (int)$tk['id'] ?>">
+                    <button class="btn small danger" data-confirm="<?= e(t('API-Schlüssel „{x}“ löschen? Programme, die ihn nutzen, verlieren sofort den Zugriff.', ['x' => $tk['name']])) ?>"><?= e(t('Löschen')) ?></button></form><?php endif; ?></td></tr><?php endforeach; ?>
         </tbody></table><?php endif; ?>
+        <?php if (!$manage): ?><p class="muted small"><?= e(t('API-Schlüssel erzeugen und löschen können nur die Firmen-Admins der Firma selbst.')) ?></p><?php else: ?>
         <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="action" value="api_create">
             <label><?= e(t('Bezeichnung')) ?> <input name="name" maxlength="120" required placeholder="<?= e(t('z. B. Buchhaltung, CRM')) ?>"></label>
             <label class="check"><input type="checkbox" name="can_write" value="1"> <?= e(t('darf Verträge anlegen und ändern')) ?></label>
             <?php if (ct_can_costs($cid)): ?><label class="check"><input type="checkbox" name="see_costs" value="1"> <?= e(t('darf Kosten lesen und schreiben')) ?></label><?php endif; ?>
             <button class="btn primary"><?= e(t('Schlüssel erzeugen')) ?></button>
-        </form>
+        </form><?php endif; ?>
         <details class="api-doc"><summary><?= e(t('Kurzanleitung zur Schnittstelle')) ?></summary>
             <p><?= e(t('Adresse:')) ?> <code><?= e($base) ?></code> · <code>Authorization: Bearer kp_…</code></p>
             <table class="table compact">

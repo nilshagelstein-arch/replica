@@ -128,8 +128,9 @@ function ct_can_costs(int $cid): bool
 function ct_can_manage(int $cid): bool
 {
     $u = current_user();
-    if (is_staff_role($u['role'])) return admin_can('contracts', true);
-    return $u['role'] === 'firma_admin';
+    // Dienstleister nur mit Einsicht-Freigabe der Firma und Bearbeiten-Recht für genau diese Firma
+    if (is_staff_role($u['role'])) return ct_rights($cid)['perm'] === CT_PERM_EDIT;
+    return $u['role'] === 'firma_admin' && (int)$u['company_id'] === $cid;
 }
 
 // ---------------------------------------------------------------------------

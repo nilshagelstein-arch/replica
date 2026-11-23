@@ -18,6 +18,13 @@ final class PdfText
     /** Stream-Daten (entpackt): Nummer => Daten */
     private array $streams = [];
     private array $fontCache = [];
+    /** Obergrenzen gegen präparierte Dateien („Zip-Bomben“, riesige Tabellen) */
+    private const MAX_STREAM = 8 * 1024 * 1024;   // je entpacktem Stream
+    private const MAX_TOTAL = 24 * 1024 * 1024;    // alle Streams zusammen
+    private const MAX_TEXT = 2 * 1024 * 1024;      // gelesener Text
+    private const MAX_SECONDS = 15;
+    private int $total = 0;
+    private float $deadline = 0.0;
 
     public function __construct(string $raw)
     {
@@ -48,12 +55,22 @@ final class PdfText
         $tmp = tempnam(sys_get_temp_dir(), 'kpdf');
         if ($tmp === false) return null;
         file_put_contents($tmp, $pdf);
-        $p = proc_open([$bin, '-enc', 'UTF-8', $tmp, '-'], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        $p = proc_open([$bin, '-enc', 'UTF-8', $tmp, '-'], [1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
         $out = null;
         if (is_resource($p)) {
-            $out = stream_get_contents($pipes[1]);
-            fclose($pipes[1]); fclose($pipes[2]);
+            // höchstens 15 Sekunden und 2 MB Text, danach abbrechen
+            stream_set_blocking($pipes[1], false);
+            $out = '';
+            $end = microtime(true) + self::MAX_SECONDS;
+            while (!feof($pipes[1]) && microtime(true) < $end && strlen($out) <= self::MAX_TEXT) {
+                $r = [$pipes[1]]; $w = $e = null;
+                if (@stream_select($r, $w, $e, 1) > 0) $out .= (string)fread($pipes[1], 65536);
+            }
+            $done = feof($pipes[1]);
+            fclose($pipes[1]);
+            if (!$done) proc_terminate($p, 9);
             proc_close($p);
+            $out = substr($out, 0, self::MAX_TEXT);
         }
         @unlink($tmp);
         return is_string($out) ? $out : null;
@@ -74,6 +91,7 @@ final class PdfText
 
     private function run(): string
     {
+        $this->deadline = microtime(true) + self::MAX_SECONDS;
         preg_match_all('/(\d+)\s+(\d+)\s+obj\b(.*?)\bendobj/s', $this->raw, $m, PREG_SET_ORDER);
         foreach ($m as $o) {
             $num = (int)$o[1];
@@ -102,7 +120,13 @@ final class PdfText
             }
         }
         $out = [];
-        foreach ($this->pages() as $page) $out[] = $this->pageText($page);
+        $len = 0;
+        foreach ($this->pages() as $page) {
+            if ($len > self::MAX_TEXT || microtime(true) > $this->deadline) break;
+            $t = $this->pageText($page);
+            $len += strlen($t);
+            $out[] = $t;
+        }
         if (!array_filter($out)) {
             // Notlösung: alle Inhalts-Streams in Dateireihenfolge
             foreach ($this->streams as $num => $data) {
@@ -118,11 +142,8 @@ final class PdfText
         $filters = preg_match_all('#/(\w+)#', $f[1], $fm) ? $fm[1] : [];
         foreach ($filters as $flt) {
             if ($flt === 'FlateDecode' || $flt === 'Fl') {
-                $d = @gzuncompress($data);
-                if ($d === false) $d = @gzinflate(substr($data, 2));
-                if ($d === false) $d = @gzinflate($data);
-                if ($d === false) return '';
-                $data = $d;
+                $data = $this->inflate($data);
+                if ($data === '') return '';
             } elseif ($flt === 'ASCIIHexDecode' || $flt === 'AHx') {
                 $data = (string)@hex2bin(preg_replace('/[^0-9A-Fa-f]/', '', rtrim($data, '>')) ?? '');
             } else {
@@ -130,6 +151,30 @@ final class PdfText
             }
         }
         return $data;
+    }
+
+    /** Entpacken mit Obergrenze: liest stückweise und bricht beim Limit ab */
+    private function inflate(string $data): string
+    {
+        $room = min(self::MAX_STREAM, self::MAX_TOTAL - $this->total);
+        if ($room <= 0 || microtime(true) > $this->deadline) return '';
+        $out = '';
+        // üblich ist das zlib-Format; manche Programme schreiben rohes Deflate
+        foreach ([ZLIB_ENCODING_DEFLATE, ZLIB_ENCODING_RAW] as $enc) {
+            $ctx = @inflate_init($enc);
+            if ($ctx === false) continue;
+            $out = '';
+            $ok = true;
+            foreach (str_split($data, 65536) ?: [] as $chunk) {
+                $part = @inflate_add($ctx, $chunk, ZLIB_SYNC_FLUSH);
+                if ($part === false) { $ok = false; break; }
+                $out .= $part;
+                if (strlen($out) >= $room) { $out = substr($out, 0, $room); break; }
+            }
+            if ($ok || $out !== '') break;
+        }
+        $this->total += strlen($out);
+        return $out;
     }
 
     private function dictInt(string $dict, string $key): ?int
@@ -240,6 +285,7 @@ final class PdfText
                         foreach ($arr[1] as $i => $h) $font['map'][$lo + $i] = self::utf16hex($h);
                     } else {
                         $start = hexdec(trim($r[3], '<>'));
+                        if (count($font['map']) > 200000) break;
                         for ($c = $lo; $c <= $hi; $c++) { $ch = mb_chr($start + ($c - $lo), 'UTF-8'); $font['map'][$c] = $ch === false ? '' : $ch; }
                     }
                 }
@@ -292,7 +338,9 @@ final class PdfText
         $len = strlen($data);
         $i = 0;
         $newline = function () use (&$out) { if ($out !== '' && !str_ends_with($out, "\n")) $out .= "\n"; };
+        $ops = 0;
         while ($i < $len) {
+            if ((++$ops & 0xFFFF) === 0 && (microtime(true) > $this->deadline || strlen($out) > self::MAX_TEXT)) break;
             $c = $data[$i];
             if (ctype_space($c)) { $i++; continue; }
             if ($c === '%') { while ($i < $len && $data[$i] !== "\n" && $data[$i] !== "\r") $i++; continue; }

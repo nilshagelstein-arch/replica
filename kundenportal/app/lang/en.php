@@ -3532,4 +3532,5 @@ From: {name} ({email})
     'Aus PDF erfasst' => 'Captured from PDF',
     'Tag' => 'day',
     'Woche' => 'week',
+    'API-Schlüssel erzeugen und löschen können nur die Firmen-Admins der Firma selbst.' => 'Only the company’s own company admins can create and delete API keys.',
 ];

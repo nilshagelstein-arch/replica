@@ -256,6 +256,15 @@ const INV_LICENSE_COLS = ['product' => 'Produkt', 'manufacturer' => 'Hersteller'
 
 function inv_csv_out(string $name, array $head, array $rowsOut): never
 {
+    // ohne Kostenrecht: Spalten Preis/Kosten/Zeitraum weglassen (ein Re-Import ändert sie dann nicht)
+    if (!empty($GLOBALS['inv_cid']) && !inv_can_see_costs((int)$GLOBALS['inv_cid'])) {
+        $drop = array_keys(array_intersect($head, [t('Preis'), t('Kosten'), t('Zeitraum')]));
+        foreach ($drop as $i) unset($head[$i]);
+        foreach ($rowsOut as &$r) foreach ($drop as $i) unset($r[$i]);
+        unset($r);
+        $head = array_values($head);
+        $rowsOut = array_map('array_values', $rowsOut);
+    }
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $name . '-' . date('Y-m-d') . '.csv"');
     $out = fopen('php://output', 'w');
@@ -448,7 +457,7 @@ function inv_import_devices(int $cid, array $rowsIn): array
         }
         if (isset($data['mac'])) $data['mac'] = strtoupper($data['mac']);
         foreach (['purchase_date', 'warranty_until'] as $k) if (array_key_exists($k, $r)) $data[$k] = inv_csv_date($r[$k]);
-        if (array_key_exists('price', $r)) $data['price_cents'] = inv_parse_price($r['price']);
+        if (array_key_exists('price', $r) && inv_can_see_costs($cid)) $data['price_cents'] = inv_parse_price($r['price']);
         $invNo = mb_substr(trim($r['inv_no'] ?? ''), 0, 60);
         $existing = $invNo !== '' ? row('SELECT id FROM inv_devices WHERE company_id = ? AND LOWER(inv_no) = LOWER(?)', [$cid, $invNo]) : null;
         if ($existing) {
@@ -488,8 +497,8 @@ function inv_import_licenses(int $cid, array $rowsIn): array
         if (array_key_exists('notice_months', $r)) { $data['notice_value'] = max(0, min(999, (int)$r['notice_months'])); $data['notice_unit'] = 'months'; }
         if (array_key_exists('auto_renew', $r)) $data['auto_renew'] = $yes($r['auto_renew']) ? 1 : 0;
         if (array_key_exists('renew_months', $r) && (int)$r['renew_months'] > 0) $data['renew_months'] = min(120, (int)$r['renew_months']);
-        if (array_key_exists('cost', $r)) $data['cost_cents'] = inv_parse_price($r['cost']);
-        if (array_key_exists('cost_interval', $r)) $data['cost_interval'] = $intMap[mb_strtolower(trim($r['cost_interval']))] ?? 'monat';
+        if (array_key_exists('cost', $r) && inv_can_see_costs($cid)) $data['cost_cents'] = inv_parse_price($r['cost']);
+        if (array_key_exists('cost_interval', $r) && inv_can_see_costs($cid)) $data['cost_interval'] = $intMap[mb_strtolower(trim($r['cost_interval']))] ?? 'monat';
         $contract = trim($r['contract_no'] ?? '');
         $existing = $contract !== '' ? row('SELECT id FROM inv_licenses WHERE company_id = ? AND product = ? AND contract_no = ?', [$cid, $product, $contract]) : null;
         if ($existing) {
