@@ -197,9 +197,20 @@ function page_inventory(): void
     $counts = array_fill_keys(array_keys(INV_STATUSES), 0);
     foreach (rows('SELECT status, COUNT(*) AS n FROM inv_devices WHERE company_id = ? GROUP BY status', [$cid]) as $c) $counts[$c['status']] = (int)$c['n'];
     // Bestand an Lager je Standort und Typ
-    $stock = rows("SELECT l.name AS location_name, t.name AS type_name, COUNT(*) AS n FROM inv_devices d
+    $stock = [];
+    foreach (rows("SELECT d.location_id, d.type_id, l.name AS location_name, t.name AS type_name, COUNT(*) AS n FROM inv_devices d
         JOIN inv_locations l ON l.id = d.location_id LEFT JOIN inv_types t ON t.id = d.type_id
-        WHERE d.company_id = ? AND d.status = 'lager' GROUP BY l.name, t.name ORDER BY l.name, t.name", [$cid]);
+        WHERE d.company_id = ? AND d.status = 'lager' GROUP BY d.location_id, d.type_id, l.name, t.name", [$cid]) as $s) {
+        $stock[$s['location_id'] . ':' . (int)$s['type_id']] = $s + ['min' => 0];
+    }
+    // Mindestbestand: auch Kombinationen ohne Gerät an Lager zeigen
+    foreach (rows('SELECT m.location_id, m.type_id, m.min_qty, l.name AS location_name, t.name AS type_name FROM inv_min_stock m
+        JOIN inv_locations l ON l.id = m.location_id JOIN inv_types t ON t.id = m.type_id WHERE m.company_id = ? AND m.min_qty > 0', [$cid]) as $m) {
+        $k = $m['location_id'] . ':' . (int)$m['type_id'];
+        $stock[$k] = ($stock[$k] ?? ['location_name' => $m['location_name'], 'type_name' => $m['type_name'], 'n' => 0]) + ['min' => 0];
+        $stock[$k]['min'] = (int)$m['min_qty'];
+    }
+    uasort($stock, fn($a, $b) => [$a['location_name'], (string)$a['type_name']] <=> [$b['location_name'], (string)$b['type_name']]);
     $soon = date('Y-m-d', strtotime('+60 days'));
 
     render_page(t('Geräte & Lizenzen'), function () use ($cid, $perm, $types, $locations, $status, $type, $loc, $search, $list, $counts, $stock, $soon) {
@@ -209,8 +220,12 @@ function page_inventory(): void
             <?php if ($perm >= INV_PERM_EDIT): ?><a class="btn primary" href="<?= e(iurl('inv_device', ['id' => 'new'])) ?>"><?= e(t('+ Gerät erfassen')) ?></a><?php endif; ?>
             <?php if ($perm >= INV_PERM_EDIT): ?><a class="btn" href="<?= e(iurl('inv_handover_new', ['kind' => 'ausgabe'])) ?>"><?= e(t('Geräte ausgeben')) ?></a><?php endif; ?>
             <a class="btn" href="<?= e(iurl('inv_labels', array_filter(['status' => $status, 'type' => $type ?: null, 'location' => $loc ?: null]))) ?>" target="_blank" rel="noopener"><?= e(t('Etiketten drucken')) ?></a>
+            <?php if (inv_can_see_costs($cid)): ?><a class="btn" href="<?= e(iurl('inv_costs')) ?>"><?= e(t('Kostenübersicht')) ?></a><?php endif; ?>
+            <a class="btn" href="<?= e(iurl('inv_export', ['what' => 'devices'])) ?>"><?= e(t('CSV-Export')) ?></a>
+            <?php if ($perm >= INV_PERM_EDIT): ?><a class="btn" href="<?= e(iurl('inv_import', ['what' => 'devices'])) ?>"><?= e(t('CSV-Import')) ?></a><?php endif; ?>
             <?php if (inv_can_manage($cid)): ?><a class="btn" href="<?= e(iurl('inv_settings')) ?>"><?= e(t('Einstellungen')) ?></a><?php endif; ?>
         </div>
+        <?php inv_due_box($cid); ?>
         <div class="tiles">
             <?php foreach (['aktiv' => t('Alle aktiven')] + array_map('t', INV_STATUSES) as $k => $label):
                 $n = $k === 'aktiv' ? $counts['lager'] + $counts['einsatz'] + $counts['reparatur'] : $counts[$k]; ?>
@@ -255,8 +270,9 @@ function page_inventory(): void
         <div class="card">
             <h2><?= e(t('Bestand an Lager')) ?></h2>
             <?php if (!$stock): ?><p class="muted"><?= e(t('Derzeit liegt kein Gerät an einem Lager.')) ?></p><?php else: ?>
-            <table class="table"><thead><tr><th><?= e(t('Standort')) ?></th><th><?= e(t('Typ')) ?></th><th class="num"><?= e(t('Anzahl')) ?></th></tr></thead><tbody>
-            <?php foreach ($stock as $s): ?><tr><td><?= e($s['location_name']) ?></td><td><?= e($s['type_name'] !== null ? t($s['type_name']) : '–') ?></td><td class="num"><?= (int)$s['n'] ?></td></tr><?php endforeach; ?>
+            <table class="table"><thead><tr><th><?= e(t('Standort')) ?></th><th><?= e(t('Typ')) ?></th><th class="num"><?= e(t('Anzahl')) ?></th><th class="num"><?= e(t('Mindestbestand')) ?></th></tr></thead><tbody>
+            <?php foreach ($stock as $s): $low = $s['min'] > 0 && (int)$s['n'] < $s['min']; ?><tr><td><?= e($s['location_name']) ?></td><td><?= e($s['type_name'] !== null ? t($s['type_name']) : '–') ?></td>
+                <td class="num"><?php if ($low): ?><span class="tag danger"><?= (int)$s['n'] ?></span><?php else: ?><?= (int)$s['n'] ?><?php endif; ?></td><td class="num"><?= $s['min'] > 0 ? (int)$s['min'] : '–' ?></td></tr><?php endforeach; ?>
             </tbody></table>
             <?php endif; ?>
         </div>
@@ -592,7 +608,8 @@ function page_inv_settings(): void
         switch ($action) {
             case 'general':
                 $data = ['inv_number_mode' => post('number_mode') === 'free' ? 'free' : 'auto',
-                    'inv_handover_text' => mb_substr(trim(str_replace("\r", '', (string)post('handover_text'))), 0, 3000)];
+                    'inv_handover_text' => mb_substr(trim(str_replace("\r", '', (string)post('handover_text'))), 0, 3000),
+                    'inv_lead_days' => max(7, min(365, (int)post('lead_days', INV_LEAD_DEFAULT)))];
                 // Die Einsicht für den Dienstleister schaltet nur die Firma selbst
                 if (!$staff) $data['inv_provider_access'] = post('provider_access') === '1' ? 1 : 0;
                 update('companies', $cid, $data);
@@ -625,6 +642,20 @@ function page_inv_settings(): void
                 }
                 audit('inventory.location', $name, $cid);
                 flash('success', t('Der Standort wurde gespeichert.'));
+                break;
+            case 'min_stock':
+                q('DELETE FROM inv_min_stock WHERE company_id = ?', [$cid]);
+                $locIds = array_column(rows('SELECT id FROM inv_locations WHERE company_id = ? AND is_store = 1', [$cid]), 'id');
+                $typeIds = array_column(rows('SELECT id FROM inv_types WHERE company_id = ?', [$cid]), 'id');
+                foreach ((array)($_POST['min'] ?? []) as $lid => $byType) {
+                    if (!in_array((int)$lid, array_map('intval', $locIds), true) || !is_array($byType)) continue;
+                    foreach ($byType as $tid => $qty) {
+                        $qty = max(0, min(9999, (int)$qty));
+                        if ($qty > 0 && in_array((int)$tid, array_map('intval', $typeIds), true)) insert('inv_min_stock', ['company_id' => $cid, 'location_id' => (int)$lid, 'type_id' => (int)$tid, 'min_qty' => $qty]);
+                    }
+                }
+                audit('inventory.min_stock', '', $cid);
+                flash('success', t('Der Mindestbestand wurde gespeichert.'));
                 break;
             case 'perms':
                 $deps = rows('SELECT id FROM departments WHERE company_id = ?', [$cid]);
@@ -660,6 +691,8 @@ function page_inv_settings(): void
             <p class="muted small"><?= e(t('Auch bei automatischen Nummern kann eine eigene Nummer eingetragen werden; bestehende Nummern bleiben erhalten.')) ?></p>
             <label><?= e(t('Hinweistext im Übergabeprotokoll')) ?> <textarea name="handover_text" rows="4" placeholder="<?= e(t(INV_HO_TEXT_DEFAULT)) ?>"><?= e((string)($co['inv_handover_text'] ?? '')) ?></textarea></label>
             <p class="muted small"><?= e(t('Leer lassen für den Standardtext. Der Text wird beim Erstellen eines Protokolls übernommen.')) ?></p>
+            <label><?= e(t('Vorlauf für Erinnerungen (Tage)')) ?> <input type="number" name="lead_days" min="7" max="365" value="<?= (int)($co['inv_lead_days'] ?? INV_LEAD_DEFAULT) ?: INV_LEAD_DEFAULT ?>" class="narrow-input"></label>
+            <p class="muted small"><?= e(t('So viele Tage vor Lizenzende, Kündigungsfrist und Garantieende erscheint der Punkt unter „Demnächst fällig“ und die Firmen-Admins bekommen eine E-Mail – mit Einsicht auch der IT-Dienstleister.')) ?></p>
             <label class="check"><input type="checkbox" name="provider_access" value="1" <?= (int)($co['inv_provider_access'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
                 <?= e(t('Einsicht für den IT-Dienstleister: Unser IT-Dienstleister darf unser Inventar sehen und pflegen')) ?></label>
             <?php if ($staff): ?><p class="muted small"><?= e(t('Diese Einsicht kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p><?php endif; ?>
@@ -690,6 +723,22 @@ function page_inv_settings(): void
                     <?php inv_location_form($l); ?></details>
             <?php endforeach; ?>
             <details class="queue-box" <?= $locations ? '' : 'open' ?>><summary><strong><?= e(t('+ Standort hinzufügen')) ?></strong></summary><?php inv_location_form(null); ?></details>
+        </div>
+
+        <?php $stores = array_values(array_filter($locations, fn($l) => (int)$l['is_store'] && (int)$l['active'])); $activeTypes = array_values(array_filter($types, fn($tp) => (int)$tp['active']));
+        $mins = []; foreach (rows('SELECT location_id, type_id, min_qty FROM inv_min_stock WHERE company_id = ?', [$cid]) as $m) $mins[$m['location_id']][$m['type_id']] = (int)$m['min_qty']; ?>
+        <div class="card">
+            <h2><?= e(t('Mindestbestand')) ?></h2>
+            <p class="muted"><?= e(t('Liegen an einem Lager weniger Geräte eines Typs als hier angegeben, erscheint eine Bestandswarnung und die Firmen-Admins und Gruppen mit „bearbeiten“ bekommen eine E-Mail. Leer oder 0 = keine Warnung.')) ?></p>
+            <?php if (!$stores): ?><p class="muted"><?= e(t('Bitte zuerst einen Standort als Lager anlegen.')) ?></p><?php else: ?>
+            <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="action" value="min_stock">
+                <div class="table-scroll"><table class="table"><thead><tr><th><?= e(t('Typ')) ?></th><?php foreach ($stores as $l): ?><th class="num"><?= e($l['name']) ?></th><?php endforeach; ?></tr></thead><tbody>
+                <?php foreach ($activeTypes as $tp): ?><tr><td><?= e(t($tp['name'])) ?></td><?php foreach ($stores as $l): $v = $mins[$l['id']][$tp['id']] ?? 0; ?>
+                    <td class="num"><input type="number" min="0" max="9999" class="narrow-input" name="min[<?= (int)$l['id'] ?>][<?= (int)$tp['id'] ?>]" value="<?= $v ?: '' ?>" aria-label="<?= e(t($tp['name']) . ' · ' . $l['name']) ?>"></td><?php endforeach; ?></tr><?php endforeach; ?>
+                </tbody></table></div>
+                <button class="btn primary"><?= e(t('Mindestbestand speichern')) ?></button>
+            </form>
+            <?php endif; ?>
         </div>
 
         <div class="card">
