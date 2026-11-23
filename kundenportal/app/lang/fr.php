@@ -3533,4 +3533,5 @@ De : {name} ({email})
     'Tag' => 'jour',
     'Woche' => 'semaine',
     'API-Schlüssel erzeugen und löschen können nur die Firmen-Admins der Firma selbst.' => 'Seuls les administrateurs de l’entreprise elle-même peuvent créer et supprimer des clés API.',
+    'Zeile {n}: „{x}“ passt zu mehreren Lizenzen ohne Vertragsnummer. Bitte Vertragsnummer oder Lieferant ergänzen.' => 'Ligne {n} : « {x} » correspond à plusieurs licences sans numéro de contrat. Veuillez ajouter le numéro de contrat ou le fournisseur.',
 ];

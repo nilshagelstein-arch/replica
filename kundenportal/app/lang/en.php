@@ -3533,4 +3533,5 @@ From: {name} ({email})
     'Tag' => 'day',
     'Woche' => 'week',
     'API-Schlüssel erzeugen und löschen können nur die Firmen-Admins der Firma selbst.' => 'Only the company’s own company admins can create and delete API keys.',
+    'Zeile {n}: „{x}“ passt zu mehreren Lizenzen ohne Vertragsnummer. Bitte Vertragsnummer oder Lieferant ergänzen.' => 'Row {n}: “{x}” matches several licences without a contract number. Please add the contract number or supplier.',
 ];
