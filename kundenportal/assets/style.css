@@ -691,3 +691,22 @@ fieldset.rights { margin-top: 1rem; }
 /* Tickets: Austausch mit dem Dienstleister */
 .chat-msg.provider { align-self: flex-end; background: #eef4fb; border: 1px dashed #7da3cf; }
 .tag.info { background: #e3eefa; color: #1f4f86; }
+
+/* Tickets: Auswertung */
+.stats-filters label { display: flex; flex-direction: column; align-items: flex-start; font-size: .85rem; gap: .15rem; }
+.stats-tiles .tile strong { font-size: 1.25rem; }
+.stats-chart { width: 100%; height: auto; display: block; margin: .25rem 0 .5rem; }
+.stats-chart .grid { stroke: #e8ecf1; stroke-width: 1; }
+.stats-chart .base { stroke: #b8c2cd; stroke-width: 1; }
+.stats-chart .axis { fill: var(--muted); font-size: 11px; }
+.stats-chart .bar.new { fill: #2a78d6; }
+.stats-chart .bar.solved { fill: #eb6834; }
+.stats-chart .hit { fill: transparent; }
+.stats-chart .bar-group:hover .hit { fill: rgba(31, 95, 168, .06); }
+.legend { font-size: .9rem; display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.legend .key { display: inline-block; width: 12px; height: 12px; border-radius: 3px; }
+.legend .key.new { background: #2a78d6; }
+.legend .key.solved { background: #eb6834; margin-left: .6rem; }
+.grid2 + .grid2 { margin-top: 1.25rem; }
+.stats-filters { align-items: flex-end; }
+.stats-filters label { text-align: left; }

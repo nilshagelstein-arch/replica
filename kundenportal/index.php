@@ -44,6 +44,7 @@ require APP_DIR . '/updates.php';
 require APP_DIR . '/pages/updates.php';
 require APP_DIR . '/pages/links.php';
 require APP_DIR . '/pages/tickets.php';
+require APP_DIR . '/pages/ticket_stats.php';
 require APP_DIR . '/ticket_mail.php';
 
 $routes = [
@@ -114,6 +115,7 @@ $routes = [
     'ticket_settings' => 'page_ticket_settings',
     'ticket_inbox'   => 'page_ticket_inbox',
     'ticket_mb_oauth' => 'page_ticket_mb_oauth',
+    'ticket_stats'    => 'page_ticket_stats',
 ];
 
 /**
@@ -143,7 +145,7 @@ const ROUTE_AREAS = [
     'link_edit' => ['links', PERM_EDIT], 'link_action' => ['links', PERM_EDIT], 'link_suggest' => ['links', PERM_EDIT],
     'tickets' => ['tickets', PERM_VIEW], 'ticket' => ['tickets', PERM_VIEW], 'ticket_file' => ['tickets', PERM_VIEW],
     'ticket_new' => ['tickets', PERM_EDIT], 'ticket_action' => ['tickets', PERM_EDIT], 'ticket_settings' => ['tickets', PERM_VIEW],
-    'ticket_inbox' => ['tickets', PERM_VIEW], 'ticket_mb_oauth' => ['tickets', PERM_EDIT],
+    'ticket_inbox' => ['tickets', PERM_VIEW], 'ticket_mb_oauth' => ['tickets', PERM_EDIT], 'ticket_stats' => ['tickets', PERM_VIEW],
 ];
 
 /**

@@ -64,7 +64,7 @@ function tickets_company_id(): int
 function tickets_company(int $cid): array
 {
     static $cache = [];
-    return $cache[$cid] ??= (row('SELECT id, name, ticket_autoclose_days, ticket_provider_access, ticket_categories, ticket_times FROM companies WHERE id = ?', [$cid]) ?? []);
+    return $cache[$cid] ??= (row('SELECT id, name, ticket_autoclose_days, ticket_provider_access, ticket_categories, ticket_times, ticket_staff_stats FROM companies WHERE id = ?', [$cid]) ?? []);
 }
 
 /** Dienstleister (Verwaltungsadmins) sehen Tickets nur mit Freigabe der Firma */
@@ -692,6 +692,7 @@ function page_tickets(): void
             <?php if (!$staff && !$extern && $queues): ?><a class="btn primary" href="<?= e(turl('ticket_new')) ?>"><?= e(t('+ Neues Ticket')) ?></a><?php endif; ?>
             <?php if ($staff && $queues && tickets_staff_may_see($cid)): ?><a class="btn primary" href="<?= e(turl('ticket_new')) ?>"><?= e(t('+ Ticket für einen Mitarbeiter')) ?></a><?php endif; ?>
             <?php if (tickets_can_manage()): ?><a class="btn" href="<?= e(turl('ticket_settings')) ?>"><?= e(t('Queues & Einstellungen')) ?></a><?php endif; ?>
+            <?php if (tickets_stats_allowed($cid)): ?><a class="btn" href="<?= e(turl('ticket_stats')) ?>">📊 <?= e(t('Auswertung')) ?></a><?php endif; ?>
             <?php if (tickets_can_manage() && (!$staff || tickets_staff_may_see($cid)) && ($rv = (int)row("SELECT COUNT(*) AS n FROM ticket_inbox WHERE company_id = ? AND status = 'review'", [$cid])['n'])): ?>
                 <a class="btn" href="<?= e(turl('ticket_inbox')) ?>">📥 <?= e(t('E-Mail-Prüfliste')) ?> <span class="count"><?= $rv ?></span></a><?php endif; ?>
         </div>
@@ -1463,6 +1464,8 @@ function page_ticket_settings(): void
             $data['ticket_times'] = json_encode(['on' => post('times_on') === '1', 'skip_weekend' => post('skip_weekend') === '1', 'times' => $times]);
             // Die Einsicht für den Dienstleister schaltet nur die Firma selbst
             if (!$staff) $data['ticket_provider_access'] = post('provider_access') === '1' ? 1 : 0;
+            // Mitarbeiter-Statistik (Mitbestimmung, Datenschutz): entscheidet ebenfalls nur die Firma
+            if (!$staff) $data['ticket_staff_stats'] = post('staff_stats') === '1' ? 1 : 0;
             update('companies', $cid, $data);
             audit('ticket.settings', json_encode($data, JSON_UNESCAPED_UNICODE), $cid);
             flash('success', t('Die Einstellungen wurden gespeichert.'));
@@ -1560,7 +1563,10 @@ function page_ticket_settings(): void
             <label><?= e(t('Kategorien (eine pro Zeile)')) ?> <textarea name="categories" rows="6"><?= e(implode("\n", $cats)) ?></textarea></label>
             <label class="check"><input type="checkbox" name="provider_access" value="1" <?= (int)($co['ticket_provider_access'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
                 <?= e(t('Einsicht für den IT-Dienstleister: Unser IT-Dienstleister darf unsere Tickets sehen und bearbeiten')) ?></label>
-            <?php if ($staff): ?><p class="muted small"><?= e(t('Diese Einsicht kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p><?php endif; ?>
+            <label class="check"><input type="checkbox" name="staff_stats" value="1" <?= (int)($co['ticket_staff_stats'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
+                <?= e(t('Mitarbeiter-Statistik in der Auswertung zeigen (Tickets und Zeiten je Bearbeiter)')) ?></label>
+            <p class="muted small"><?= e(t('Hinweis: Eine Auswertung, mit der sich Leistung oder Verhalten einzelner Mitarbeiter überwachen lässt, ist bei Firmen mit Betriebsrat mitbestimmungspflichtig und berührt den Datenschutz. Ausgeschaltet zeigt die Auswertung nur Zahlen je Queue, Dringlichkeit, Kategorie und Abteilung.')) ?></p>
+            <?php if ($staff): ?><p class="muted small"><?= e(t('Diese Einsicht und die Mitarbeiter-Statistik kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p><?php endif; ?>
             <button class="btn primary"><?= e(t('Speichern')) ?></button>
         </form>
     <?php });
