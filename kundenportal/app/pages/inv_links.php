@@ -57,13 +57,31 @@ function page_inv_my(): void
     $perm = inv_perm($cid);
     $devices = $emp ? rows("SELECT d.*, t.name AS type_name, l.name AS location_name FROM inv_devices d LEFT JOIN inv_types t ON t.id = d.type_id
         LEFT JOIN inv_locations l ON l.id = d.location_id WHERE d.company_id = ? AND d.employee_id = ? AND d.status IN ('einsatz', 'reparatur') ORDER BY d.inv_no", [$cid, $emp['id']]) : [];
-    $licenses = $emp ? rows("SELECT l.id, l.product, l.manufacturer, l.kind, l.end_date, l.status, l.notice_value, l.notice_unit, l.auto_renew, l.renew_months
+    $licenses = $emp ? rows("SELECT l.id, l.product, l.manufacturer, l.kind, l.end_date, l.status, l.notice_value, l.notice_unit, l.auto_renew, l.renew_months,
+            CASE WHEN l.license_key_enc IS NULL OR l.license_key_enc = '' THEN 0 ELSE 1 END AS has_key
         FROM inv_license_assign a JOIN inv_licenses l ON l.id = a.license_id WHERE a.employee_id = ? AND a.company_id = ? ORDER BY l.product", [$emp['id'], $cid]) : [];
     $open = $emp ? rows("SELECT * FROM inv_handovers WHERE company_id = ? AND employee_id = ? AND status = 'offen' ORDER BY id DESC", [$cid, $emp['id']]) : [];
     $done = $emp ? rows("SELECT * FROM inv_handovers WHERE company_id = ? AND employee_id = ? AND status = 'unterschrieben' ORDER BY id DESC LIMIT 20", [$cid, $emp['id']]) : [];
     $report = inv_can_report($cid);
+    $showKeys = (int)(inv_company($cid)['inv_my_keys'] ?? 0) === 1;
+    $revealed = [];
+    if (is_post()) {
+        require_post_csrf();
+        if (!$emp || !$showKeys || post('action') !== 'reveal_key') abort(403);
+        $lid = (int)post('license_id', 0);
+        $l = null;
+        foreach ($licenses as $x) if ((int)$x['id'] === $lid) $l = $x;
+        if (!$l) abort(404);
+        $plain = decrypt_secret(row('SELECT license_key_enc FROM inv_licenses WHERE id = ? AND company_id = ?', [$lid, $cid])['license_key_enc'] ?? null);
+        if ($plain !== '') {
+            inv_lic_log($cid, $lid, 'Lizenzschlüssel angezeigt (Meine Geräte: ' . trim($emp['first_name'] . ' ' . $emp['last_name']) . ')');
+            audit('inventory.reveal_license_key_own', $l['product'], $cid);
+            $revealed[$lid] = $plain;
+            header('Cache-Control: no-store');
+        }
+    }
 
-    render_page(t('Meine Geräte'), function () use ($cid, $emp, $perm, $devices, $licenses, $open, $done, $report) {
+    render_page(t('Meine Geräte'), function () use ($cid, $emp, $perm, $devices, $licenses, $open, $done, $report, $showKeys, $revealed) {
         if ($perm > INV_PERM_NONE) inv_tabs('inv_my');
         if (!$emp): ?>
             <div class="alert info"><?= e(t('Ihrem Konto ist kein Eintrag in der Mitarbeiterliste zugeordnet. Die Zuordnung erfolgt über die E-Mail-Adresse – bitte wenden Sie sich an die Administratoren Ihrer Firma.')) ?></div>
@@ -94,9 +112,14 @@ function page_inv_my(): void
             <?php if (!$licenses): ?><p class="muted"><?= e(t('Ihnen sind keine Lizenzen zugeordnet.')) ?></p><?php else: ?>
             <ul class="inv-log">
                 <?php foreach ($licenses as $l): ?><li><strong><?= e($l['product']) ?></strong> <span class="muted small"><?= e(trim($l['manufacturer'] . ' · ' . t(INV_LIC_KINDS[$l['kind']] ?? $l['kind']), ' ·')) ?></span>
-                    <?= inv_lic_state_badge(inv_lic_state($l)) ?></li><?php endforeach; ?>
+                    <?= inv_lic_state_badge(inv_lic_state($l)) ?>
+                    <?php if ($showKeys && (int)$l['has_key']): ?>
+                        <?php if (isset($revealed[(int)$l['id']])): ?><br><code class="secret"><?= e($revealed[(int)$l['id']]) ?></code>
+                        <?php else: ?><form method="post" action="<?= e(iurl('inv_my')) ?>" class="inline"><?= csrf_field() ?><input type="hidden" name="action" value="reveal_key"><input type="hidden" name="license_id" value="<?= (int)$l['id'] ?>">
+                            <button class="btn small"><?= e(t('Schlüssel anzeigen')) ?></button></form><?php endif; ?>
+                    <?php endif; ?></li><?php endforeach; ?>
             </ul>
-            <p class="muted small"><?= e(t('Lizenzschlüssel erhalten Sie bei Bedarf von Ihren Administratoren.')) ?></p>
+            <p class="muted small"><?= e($showKeys ? t('Das Anzeigen eines Schlüssels wird protokolliert. Bitte geben Sie Lizenzschlüssel nicht weiter.') : t('Lizenzschlüssel erhalten Sie bei Bedarf von Ihren Administratoren.')) ?></p>
             <?php endif; ?>
         </div>
         <?php if ($done): ?>

@@ -57,7 +57,7 @@ function inv_seed(int $cid): void
 function inv_company(int $cid): array
 {
     static $cache = [];
-    return $cache[$cid] ??= (row('SELECT id, name, inv_provider_access, inv_number_mode, inv_handover_text, inv_lead_days, inv_tools, inv_tools_other FROM companies WHERE id = ?', [$cid]) ?? []);
+    return $cache[$cid] ??= (row('SELECT id, name, inv_provider_access, inv_number_mode, inv_handover_text, inv_lead_days, inv_tools, inv_tools_other, inv_my_keys FROM companies WHERE id = ?', [$cid]) ?? []);
 }
 
 /** Recht des angemeldeten Benutzers im Inventar der Firma: 0 kein, 1 ansehen, 2 bearbeiten */
@@ -609,7 +609,8 @@ function page_inv_settings(): void
             case 'general':
                 $data = ['inv_number_mode' => post('number_mode') === 'free' ? 'free' : 'auto',
                     'inv_handover_text' => mb_substr(trim(str_replace("\r", '', (string)post('handover_text'))), 0, 3000),
-                    'inv_lead_days' => max(7, min(365, (int)post('lead_days', INV_LEAD_DEFAULT)))];
+                    'inv_lead_days' => max(7, min(365, (int)post('lead_days', INV_LEAD_DEFAULT))),
+                    'inv_my_keys' => post('my_keys') === '1' ? 1 : 0];
                 // Die Einsicht für den Dienstleister schaltet nur die Firma selbst
                 if (!$staff) $data['inv_provider_access'] = post('provider_access') === '1' ? 1 : 0;
                 update('companies', $cid, $data);
@@ -693,6 +694,9 @@ function page_inv_settings(): void
             <p class="muted small"><?= e(t('Leer lassen für den Standardtext. Der Text wird beim Erstellen eines Protokolls übernommen.')) ?></p>
             <label><?= e(t('Vorlauf für Erinnerungen (Tage)')) ?> <input type="number" name="lead_days" min="7" max="365" value="<?= (int)($co['inv_lead_days'] ?? INV_LEAD_DEFAULT) ?: INV_LEAD_DEFAULT ?>" class="narrow-input"></label>
             <p class="muted small"><?= e(t('So viele Tage vor Lizenzende, Kündigungsfrist und Garantieende erscheint der Punkt unter „Demnächst fällig“ und die Firmen-Admins bekommen eine E-Mail – mit Einsicht auch der IT-Dienstleister.')) ?></p>
+            <label class="check"><input type="checkbox" name="my_keys" value="1" <?= (int)($co['inv_my_keys'] ?? 0) ? 'checked' : '' ?>>
+                <?= e(t('Mitarbeiter dürfen die Schlüssel ihrer eigenen Lizenzen unter „Meine Geräte“ anzeigen')) ?></label>
+            <p class="muted small"><?= e(t('Jedes Anzeigen wird im Verlauf der Lizenz protokolliert.')) ?></p>
             <label class="check"><input type="checkbox" name="provider_access" value="1" <?= (int)($co['inv_provider_access'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
                 <?= e(t('Einsicht für den IT-Dienstleister: Unser IT-Dienstleister darf unser Inventar sehen und pflegen')) ?></label>
             <?php if ($staff): ?><p class="muted small"><?= e(t('Diese Einsicht kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p><?php endif; ?>

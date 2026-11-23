@@ -2993,4 +2993,8 @@ Lors de votre première connexion, vous configurez l\'authentification à deux f
     'Netzwerkgeräte (Switches, Firewalls, Access Points) mit IP und Status' => 'Équipements réseau (switchs, pare-feu, points d’accès) avec IP et statut',
     'Notebooks und Smartphones mit Benutzer, Compliance und BitLocker-Schlüssel; Microsoft-365-Lizenzen' => 'Ordinateurs portables et smartphones avec utilisateur, conformité et clé BitLocker ; licences Microsoft 365',
     'Geräte und Verträge aus TANSS; Tickets mit Gerätebezug' => 'Appareils et contrats depuis TANSS ; tickets liés aux appareils',
+    'Schlüssel anzeigen' => 'Afficher la clé',
+    'Das Anzeigen eines Schlüssels wird protokolliert. Bitte geben Sie Lizenzschlüssel nicht weiter.' => 'L’affichage d’une clé est journalisé. Veuillez ne pas transmettre les clés de licence.',
+    'Mitarbeiter dürfen die Schlüssel ihrer eigenen Lizenzen unter „Meine Geräte“ anzeigen' => 'Les collaborateurs peuvent afficher les clés de leurs propres licences sous « Mes appareils »',
+    'Jedes Anzeigen wird im Verlauf der Lizenz protokolliert.' => 'Chaque affichage est journalisé dans l’historique de la licence.',
 ];
