@@ -67,6 +67,7 @@ if ($user && company_pending($user)) {
             'audit'     => ['audit', t('Protokoll'), $route === 'audit'],
             'backups'   => ['backups', t('Datensicherung'), in_array($route, ['backups', 'company_backups'], true)],
             'updates'   => ['updates', t('Updates'), $route === 'updates'],
+            'contracts' => ['contract_sales', t('Vertriebsübersicht'), $route === 'contract_sales'],
         ];
         foreach ($adminNav as $area => $item) if (admin_can($area)) $nav[] = $item;
     } elseif ($user['role'] === 'firma_admin') {

@@ -599,6 +599,20 @@ function schema_statements(string $driver): array
         created_at $ts NOT NULL
     )$tail";
 
+    // Verträge, Stufe 5 (ab Version 33): Angebotsanfragen an den betreuenden Dienstleister
+    $tables[] = "CREATE TABLE IF NOT EXISTS ct_offers (
+        id $pk,
+        company_id $fk NOT NULL,
+        contract_id $fk NOT NULL,
+        target VARCHAR(20) NOT NULL DEFAULT 'it',
+        target_name VARCHAR(190) NOT NULL DEFAULT '',
+        ticket_id $fk NULL,
+        with_costs INT NOT NULL DEFAULT 0,
+        message TEXT,
+        user_id $fk NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
     // Dienstleister je Firma (Stufe 5): externe Partner mit Portal-Zugang (Rolle „dienstleister“) oder nur per Mail
     $tables[] = "CREATE TABLE IF NOT EXISTS ticket_providers (
         id $pk,
@@ -867,6 +881,7 @@ function schema_statements(string $driver): array
         'idx_ct_notice'       => 'ct_notices (company_id, kind, ref_id)',
         'idx_ct_feed'         => 'ct_feeds (token_hash)',
         'idx_ct_cancel'       => 'ct_cancellations (company_id, contract_id, status)',
+        'idx_ct_offers'       => 'ct_offers (company_id, contract_id)',
         'idx_tk_creator'      => 'tickets (company_id, created_by)',
         'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
         'idx_tkmsg_t'         => 'ticket_messages (ticket_id, id)',
@@ -880,7 +895,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 32;
+const SCHEMA_VERSION = 33;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -1018,6 +1033,8 @@ function run_migrations(): void
         ['contracts', 'partner_email', "VARCHAR(190) NOT NULL DEFAULT ''"],
         ['companies', 'ct_four_eyes', 'INT NOT NULL DEFAULT 1'],
         ['companies', 'ct_cancel_form_id', 'INT NULL'],
+        // Verträge, Stufe 5 (ab Version 33): Vertriebsübersicht auch mit Verträgen anderer Dienstleister
+        ['companies', 'ct_provider_all', 'INT NOT NULL DEFAULT 0'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -1109,6 +1126,8 @@ function ensure_schema(): void
         db()->query('SELECT partner_street, partner_zip, partner_city, partner_email FROM contracts LIMIT 1');
         db()->query('SELECT ct_four_eyes, ct_cancel_form_id FROM companies LIMIT 1');
         db()->query('SELECT id FROM ct_cancellations LIMIT 1');
+        db()->query('SELECT ct_provider_all FROM companies LIMIT 1');
+        db()->query('SELECT id FROM ct_offers LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

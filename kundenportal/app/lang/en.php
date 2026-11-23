@@ -3350,4 +3350,50 @@ You can find all deadlines in the deadline calendar of the “Contracts & terms�
 {link}' => 'There has been no confirmation for the cancellation of the contract “{title}” ({partner}) for {n} days. Please check with the provider and upload the confirmation to the portal.
 
 {link}',
+    // Verträge & Laufzeiten (Stufe 5)
+    'Vertriebsübersicht' => 'Sales overview',
+    '… und in seiner Vertriebsübersicht auch Verträge sehen, die andere Dienstleister oder wir selbst betreuen' => '… and also see contracts managed by other providers or by us in their sales overview',
+    '„{x}“ verlängert sich zum {e}, Kündigung bis {b}. Bitte vergleichen und ein Angebot machen.' => '“{x}” renews on {e}, notice by {b}. Please compare and make an offer.',
+    '„{x}“ läuft am {e} aus. Bitte vergleichen und ein Angebot machen.' => '“{x}” expires on {e}. Please compare and make an offer.',
+    'Bitte für „{x}“ vergleichen und ein Angebot machen.' => 'Please compare and make an offer for “{x}”.',
+    'Angebot anfragen' => 'Request a quote',
+    'an {x}' => 'to {x}',
+    'Ticket #{n}' => 'Ticket #{n}',
+    'Der Vertrag läuft bald aus – jetzt ist ein guter Zeitpunkt für ein Vergleichsangebot.' => 'The contract expires soon – now is a good time for a comparison offer.',
+    'Aktuelle Kosten mitsenden' => 'Include current costs',
+    'Es entsteht ein Ticket, das direkt an den Dienstleister übergeben wird. Antworten sehen Sie im Ticket.' => 'A ticket is created and handed directly to the service provider. You will see replies in the ticket.',
+    'Die Anfrage geht per E-Mail an den Dienstleister; Antworten kommen an Sie.' => 'The request is emailed to the service provider; replies come to you.',
+    'Aktuelle Kosten' => 'Current costs',
+    'Bitte wählen, an wen die Anfrage geht.' => 'Please choose who receives the request.',
+    'Angebot: {x} – Kündigung bis {b}' => 'Quote: {x} – notice by {b}',
+    'Angebot: {x} läuft am {e} aus' => 'Quote: {x} expires on {e}',
+    'Angebot: {x}' => 'Quote: {x}',
+    'Für {x} ist keine E-Mail-Adresse hinterlegt.' => 'No email address is stored for {x}.',
+    'Die Anfrage ist als Ticket an {x} übergeben.' => 'The request was handed to {x} as a ticket.',
+    'Die Anfrage wurde per E-Mail an {x} gesendet.' => 'The request was emailed to {x}.',
+    'Angebot angefragt' => 'Quote requested',
+    'Angebot angefragt bei' => 'Quote requested from',
+    'Verträge Ihrer Kunden, deren Kündigungsfrist oder Ende in den nächsten Monaten liegt – nur Firmen, die Ihnen Einsicht geben. Verträge anderer Dienstleister erscheinen nur, wenn die Firma das freigibt.' => 'Your customers’ contracts whose notice deadline or end falls in the coming months – only companies that grant you access. Contracts of other providers only appear if the company allows it.',
+    'von uns betreut' => 'managed by us',
+    'alle freigegebenen' => 'all shared',
+    'In diesem Zeitraum laufen keine passenden Verträge aus.' => 'No matching contracts expire in this period.',
+    'Fällig' => 'Due',
+    'Angebot' => 'Quote',
+    'Vertragsende' => 'Contract end',
+    'nicht freigegeben' => 'not shared',
+    '{n} Firma(en) mit der App haben die Einsicht für Sie nicht eingeschaltet und erscheinen hier nicht.' => '{n} company(ies) with the app have not granted you access and do not appear here.',
+    '{company} bittet um ein Angebot.
+Von: {name}
+
+' => '{company} requests a quote.
+From: {name}
+
+',
+    '{company} bittet um ein Angebot.
+Von: {name} ({email})
+
+' => '{company} requests a quote.
+From: {name} ({email})
+
+',
 ];
