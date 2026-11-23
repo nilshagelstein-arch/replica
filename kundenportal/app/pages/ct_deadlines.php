@@ -369,7 +369,7 @@ function ct_send_pdf(int $cid, array $to, array $f, bool $costs, bool $invCheck,
 
 function ct_ics_text(string $s): string
 {
-    return str_replace(["\\", ";", ",", "\r\n", "\n"], ["\\\\", "\\;", "\\,", "\\n", "\\n"], $s);
+    return str_replace(["\\", ";", ",", "\r\n", "\n", "\r"], ["\\\\", "\\;", "\\,", "\\n", "\\n", "\\n"], $s);
 }
 
 /** Zeilen auf 75 Oktette falten (RFC 5545) */

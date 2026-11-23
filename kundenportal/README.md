@@ -243,6 +243,8 @@ Sichern Sie regelmäßig die Datenbank (Backup-Funktion des Hosters) und die Dat
 - **Webserver:** `.htaccess` sperrt `config.php`, `config.sample.php`, `README.md`, `*.sqlite`, `*.log` und `*.lock`, erzwingt HTTPS und reicht `Authorization` an PHP weiter. `app/.htaccess` und `app/data/.htaccess` enthalten `Require all denied`.
 - Ein Datenbankfehler (`PDOException`) im Handler wird protokolliert und mit einer allgemeinen 500-Seite beantwortet `[index.php]`.
 - **Verträge, PDF auslesen:** Standard ist die Auswertung auf dem Server ohne Übertragung. Die Texterkennung über Mistral OCR (`cfg('mistral_ocr_url')`, Standard `https://api.mistral.ai/v1/ocr`) läuft nur, wenn ein Firmen-Admin der Firma sie mit eigenem API-Schlüssel und beiden Bestätigungen eingeschaltet hat, und nur nach Zustimmung je Dokument. Der Schlüssel liegt verschlüsselt in `companies.ct_ocr_key` und fehlt in der Firmen-Sicherung `[ct_extract.php:ct_ocr_text]`.
+- **Dienstleister und Firmendaten (Verträge, Inventar):** Einstellungen ändern Verwaltungsadmins nur mit Einsicht-Freigabe der Firma und Bearbeiten-Recht für genau diese Firma `[contracts.php:ct_can_manage]`, `[inventory.php:inv_can_manage]`. API-Schlüssel für Verträge erzeugen und löschen nur Firmen-Admins der Firma selbst, weil ein Schlüssel auch nach Entzug der Einsicht weiter gilt `[ct_data.php:ct_api_can_manage]`.
+- **PDF-Leser:** Obergrenzen gegen präparierte Dateien – 8 MB je entpacktem Stream, 24 MB insgesamt, 2 MB Text, 15 Sekunden; `pdftotext` wird nach 15 Sekunden abgebrochen `[pdftext.php:PdfText]`.
 - Weitere Regeln zu Rechten, Mandantentrennung und Workflow: siehe [app/README.md](./app/README.md) und [app/pages/README.md](./app/pages/README.md).
 
 ## Side Effects

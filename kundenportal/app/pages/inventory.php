@@ -70,6 +70,9 @@ function inv_perm(int $cid): int
     if (isset($cache[$key])) return $cache[$key];
     if (is_staff_role($u['role'])) {
         $p = (int)(inv_company($cid)['inv_provider_access'] ?? 0) === 1 ? admin_perm('inventory') : PERM_NONE;
+        // eingeschränkte Verwaltungsadmins nur für ihre Firmen
+        $ids = admin_company_ids($u);
+        if ($ids !== null && !in_array($cid, $ids, true)) $p = PERM_NONE;
         return $cache[$key] = $p >= PERM_EDIT ? INV_PERM_EDIT : ($p >= PERM_VIEW ? INV_PERM_VIEW : INV_PERM_NONE);
     }
     if ((int)($u['company_id'] ?? 0) !== $cid) return $cache[$key] = INV_PERM_NONE;
@@ -83,8 +86,9 @@ function inv_perm(int $cid): int
 function inv_can_manage(int $cid): bool
 {
     $u = current_user();
-    if (is_staff_role($u['role'])) return admin_can('inventory', true);
-    return $u['role'] === 'firma_admin';
+    // Dienstleister nur mit Einsicht-Freigabe der Firma und Bearbeiten-Recht für genau diese Firma
+    if (is_staff_role($u['role'])) return inv_perm($cid) === INV_PERM_EDIT;
+    return $u['role'] === 'firma_admin' && (int)$u['company_id'] === $cid;
 }
 
 function inv_staff_blocked(int $cid): bool
