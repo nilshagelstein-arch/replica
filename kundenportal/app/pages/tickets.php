@@ -309,13 +309,14 @@ function ticket_mail_users(array $users, array $tk, callable $text): void
 {
     $to = array_values(array_filter(array_map(fn($p) => (string)$p['email'], $users)));
     if (!$to) return;
-    send_mail_t($to, fn() => [ticket_mail_subject($tk), $text() . t("\n\nZum Ticket: ") . ticket_link((int)$tk['id'])], (int)$tk['company_id']);
+    ticket_send($to, $tk, $text);
 }
 
 /** Erinnerungen, Eskalationen und Fälligkeiten aller Firmen prüfen. Gibt Textzeilen fürs Protokoll zurück. */
 function tickets_timers_run(): array
 {
-    $out = [];
+    // zuerst neue Mails holen (E-Mail-Eingang), dann Fristen prüfen
+    $out = function_exists('tickets_mail_fetch_all') ? tickets_mail_fetch_all() : [];
     $companies = array_map('intval', array_column(rows("SELECT DISTINCT company_id FROM tickets WHERE status <> 'geschlossen'"), 'company_id'));
     foreach ($companies as $cid) {
         tickets_housekeeping($cid, true);
@@ -452,6 +453,38 @@ function ticket_store_uploads(array $files, int $ticketId, int $messageId, int $
 // Benachrichtigungen
 // ---------------------------------------------------------------------------
 
+/** Wer gerade handelt (für „nicht an sich selbst mailen“); beim E-Mail-Eingang der Absender statt des angemeldeten Benutzers */
+function ticket_actor(): ?array
+{
+    return array_key_exists('ticket_actor', $GLOBALS) ? $GLOBALS['ticket_actor'] : current_user();
+}
+
+/** Ticket-Mail senden: Betreff mit Nummer, Link, und – wenn ein Eingangspostfach besteht – Antwortadresse und Hinweis */
+function ticket_send(array $to, array $tk, callable $text): void
+{
+    $to = array_values(array_filter($to));
+    if (!$to) return;
+    $reply = ticket_reply_address($tk);
+    $GLOBALS['mail_reply_to'] = $reply;
+    try {
+        send_mail_t($to, fn() => [ticket_mail_subject($tk), $text() . t("\n\nZum Ticket: ") . ticket_link((int)$tk['id'])
+            . ($reply !== '' ? "\n" . t('Sie können auch direkt auf diese E-Mail antworten.') : '')], (int)$tk['company_id']);
+    } finally {
+        unset($GLOBALS['mail_reply_to']);
+    }
+}
+
+/** Eingangsadresse für Antworten: Postfach der Queue, sonst das firmenweite Postfach */
+function ticket_reply_address(array $tk): string
+{
+    static $cache = [];
+    $key = $tk['company_id'] . ':' . $tk['queue_id'];
+    if (isset($cache[$key])) return $cache[$key];
+    $mb = row("SELECT address FROM ticket_mailboxes WHERE company_id = ? AND active = 1 AND address <> '' AND (queue_id = ? OR queue_id IS NULL)
+        ORDER BY CASE WHEN queue_id IS NULL THEN 1 ELSE 0 END, id LIMIT 1", [$tk['company_id'], $tk['queue_id']]);
+    return $cache[$key] = (string)($mb['address'] ?? '');
+}
+
 function ticket_mail_subject(array $tk, string $prefix = ''): string
 {
     return '[#' . $tk['number'] . '] ' . ($prefix !== '' ? $prefix . ' ' : '') . $tk['subject'];
@@ -460,17 +493,17 @@ function ticket_mail_subject(array $tk, string $prefix = ''): string
 /** Mail an den Ersteller (nicht, wenn er die Änderung selbst gemacht hat) */
 function ticket_notify_creator(array $tk, callable $text): void
 {
-    $u = current_user();
+    $u = ticket_actor();
     if (!$tk['created_by'] || ($u && (int)$u['id'] === (int)$tk['created_by'])) return;
     $c = row('SELECT email, active FROM users WHERE id = ?', [$tk['created_by']]);
     if (!$c || !(int)$c['active'] || $c['email'] === '') return;
-    send_mail_t([$c['email']], fn() => [ticket_mail_subject($tk), $text() . t("\n\nZum Ticket: ") . ticket_link((int)$tk['id'])], (int)$tk['company_id']);
+    ticket_send([$c['email']], $tk, $text);
 }
 
 /** Mail an Bearbeiter: der gebuchte, sonst alle Bearbeiter der Queue (ohne den Handelnden) */
 function ticket_notify_processors(array $tk, callable $text, bool $wholeQueue = false, array $exclude = []): void
 {
-    $u = current_user();
+    $u = ticket_actor();
     if (!$wholeQueue && $tk['assigned_to']) {
         $list = rows('SELECT id, email FROM users WHERE id = ? AND active = 1', [$tk['assigned_to']]);
     } else {
@@ -479,7 +512,7 @@ function ticket_notify_processors(array $tk, callable $text, bool $wholeQueue = 
     $to = [];
     foreach ($list as $p) if ($p['email'] !== '' && (!$u || (int)$p['id'] !== (int)$u['id']) && !in_array((int)$p['id'], $exclude, true)) $to[] = $p['email'];
     if (!$to) return;
-    send_mail_t($to, fn() => [ticket_mail_subject($tk), $text() . t("\n\nZum Ticket: ") . ticket_link((int)$tk['id'])], (int)$tk['company_id']);
+    ticket_send($to, $tk, $text);
 }
 
 // ---------------------------------------------------------------------------
@@ -554,6 +587,8 @@ function page_tickets(): void
             <?php if (!$staff && $queues): ?><a class="btn primary" href="<?= e(turl('ticket_new')) ?>"><?= e(t('+ Neues Ticket')) ?></a><?php endif; ?>
             <?php if ($staff && $queues && tickets_staff_may_see($cid)): ?><a class="btn primary" href="<?= e(turl('ticket_new')) ?>"><?= e(t('+ Ticket für einen Mitarbeiter')) ?></a><?php endif; ?>
             <?php if (tickets_can_manage()): ?><a class="btn" href="<?= e(turl('ticket_settings')) ?>"><?= e(t('Queues & Einstellungen')) ?></a><?php endif; ?>
+            <?php if (tickets_can_manage() && (!$staff || tickets_staff_may_see($cid)) && ($rv = (int)row("SELECT COUNT(*) AS n FROM ticket_inbox WHERE company_id = ? AND status = 'review'", [$cid])['n'])): ?>
+                <a class="btn" href="<?= e(turl('ticket_inbox')) ?>">📥 <?= e(t('E-Mail-Prüfliste')) ?> <span class="count"><?= $rv ?></span></a><?php endif; ?>
         </div>
         <?php if (count($views) > 1): ?>
         <nav class="type-tabs">
@@ -1003,8 +1038,7 @@ function page_ticket_action(): void
             else ticket_notify_creator($tk, fn() => t('{name} bearbeitet jetzt Ihr Ticket.', ['name' => $u['name']]));
             if ($prev !== null && $tk['assigned_to']) {
                 $other = row('SELECT email FROM users WHERE id = ? AND active = 1', [$tk['assigned_to']]);
-                if ($other) send_mail_t([$other['email']], fn() => [ticket_mail_subject($tk),
-                    t('{name} hat das Ticket von Ihnen übernommen.', ['name' => $u['name']]) . t("\n\nZum Ticket: ") . ticket_link($id)], $cid);
+                if ($other) ticket_send([$other['email']], $tk, fn() => t('{name} hat das Ticket von Ihnen übernommen.', ['name' => $u['name']]));
             }
             flash('success', t('Das Ticket ist jetzt Ihnen zugeordnet.'));
             $back();
@@ -1039,8 +1073,7 @@ function page_ticket_action(): void
                 ticket_notify_creator($t2, fn() => t('Ihr Ticket wird jetzt von {name} bearbeitet.', ['name' => $target['name']]));
             }
             if ($to !== (int)$u['id']) {
-                send_mail_t([$target['email']], fn() => [ticket_mail_subject($tk),
-                    t('{name} hat Ihnen das Ticket zugewiesen.', ['name' => $u['name']]) . t("\n\nZum Ticket: ") . ticket_link($id)], $cid);
+                ticket_send([$target['email']], $tk, fn() => t('{name} hat Ihnen das Ticket zugewiesen.', ['name' => $u['name']]));
             }
             flash('success', t('Das Ticket wurde {x} zugewiesen.', ['x' => $target['name']]));
             $back();
@@ -1203,6 +1236,7 @@ function page_ticket_settings(): void
             flash('success', t('Die Gruppe „{x}“ wurde gespeichert.', ['x' => $dname]));
             tredirect('ticket_settings');
         }
+        if (ticket_mail_settings_post($cid, $action)) return;
         if ($action === 'settings') {
             $data = ['ticket_autoclose_days' => max(1, min(90, (int)post('autoclose_days', 7))),
                 'ticket_categories' => mb_substr(implode("\n", array_slice(array_values(array_filter(array_map(fn($l) => mb_substr(trim($l), 0, 60),
@@ -1288,6 +1322,7 @@ function page_ticket_settings(): void
                 </details>
             <?php endforeach; ?>
         </div>
+        <?php ticket_mail_settings_section($cid, array_values(array_filter($queues, fn($q) => (int)$q['active']))); ?>
         <form method="post" class="form card">
             <?= csrf_field() ?><input type="hidden" name="action" value="settings">
             <h2><?= e(t('Einstellungen')) ?></h2>

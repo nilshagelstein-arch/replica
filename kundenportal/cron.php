@@ -21,6 +21,7 @@ require APP_DIR . '/schema.php';
 require APP_DIR . '/backup.php';
 require APP_DIR . '/pages/masterdata.php';
 require APP_DIR . '/pages/tickets.php';
+require APP_DIR . '/ticket_mail.php';
 
 if (!$cli) {
     header('Content-Type: text/plain; charset=utf-8');

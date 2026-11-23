@@ -280,6 +280,8 @@ function page_oauth_callback(): void
     if (!$o || !hash_equals($o['state'], (string)($_GET['state'] ?? '')) || $o['uid'] !== $u['id'] || time() - $o['at'] > 900) {
         abort(400, t('Die Anmeldung ist abgelaufen oder ungültig. Bitte erneut versuchen.'));
     }
+    // Eingangspostfach der Tickets (gleiche Weiterleitungsadresse, eigener Ablauf)
+    if (($o['purpose'] ?? '') === 'ticket_mailbox') { ticket_mb_oauth_finish($o); return; }
     $cid = $o['company_id'];
     if ($cid === null && !is_admin()) abort(403);
     if ($cid !== null) require_company_access((int)$cid);

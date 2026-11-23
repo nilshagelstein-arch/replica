@@ -215,6 +215,59 @@ function schema_statements(string $driver): array
         department_id $fk NOT NULL
     )$tail";
 
+    // E-Mail-Eingang der Tickets: Postfächer (je Queue oder firmenweit), Zuordnungsregeln, Eingangsprotokoll/Prüfliste
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_mailboxes (
+        id $pk,
+        company_id $fk NOT NULL,
+        queue_id $fk NULL,
+        address VARCHAR(190) NOT NULL DEFAULT '',
+        provider VARCHAR(20) NOT NULL DEFAULT 'imap',
+        imap_host VARCHAR(190) NOT NULL DEFAULT '',
+        imap_port INT NOT NULL DEFAULT 993,
+        imap_security VARCHAR(10) NOT NULL DEFAULT 'ssl',
+        imap_user VARCHAR(190) NOT NULL DEFAULT '',
+        imap_folder VARCHAR(190) NOT NULL DEFAULT 'INBOX',
+        secret_enc TEXT NULL,
+        oauth_refresh_enc TEXT NULL,
+        oauth_access_enc TEXT NULL,
+        oauth_expires INT NOT NULL DEFAULT 0,
+        active INT NOT NULL DEFAULT 1,
+        last_check_at VARCHAR(19) NOT NULL DEFAULT '',
+        last_ok_at VARCHAR(19) NOT NULL DEFAULT '',
+        last_error VARCHAR(500) NOT NULL DEFAULT '',
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_mail_rules (
+        id $pk,
+        company_id $fk NOT NULL,
+        field VARCHAR(10) NOT NULL DEFAULT 'subject',
+        pattern VARCHAR(190) NOT NULL,
+        queue_id $fk NOT NULL,
+        sort INT NOT NULL DEFAULT 0
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ticket_inbox (
+        id $pk,
+        company_id $fk NOT NULL,
+        mailbox_id $fk NULL,
+        message_id VARCHAR(250) NOT NULL DEFAULT '',
+        from_email VARCHAR(190) NOT NULL DEFAULT '',
+        from_name VARCHAR(190) NOT NULL DEFAULT '',
+        to_email VARCHAR(500) NOT NULL DEFAULT '',
+        subject VARCHAR(250) NOT NULL DEFAULT '',
+        body TEXT,
+        content_hash VARCHAR(64) NOT NULL DEFAULT '',
+        attachment_count INT NOT NULL DEFAULT 0,
+        stored_name VARCHAR(80) NOT NULL DEFAULT '',
+        status VARCHAR(12) NOT NULL DEFAULT 'review',
+        reason VARCHAR(190) NOT NULL DEFAULT '',
+        ticket_id $fk NULL,
+        handled_by $fk NULL,
+        handled_at VARCHAR(19) NOT NULL DEFAULT '',
+        created_at $ts NOT NULL
+    )$tail";
+
     $tables[] = "CREATE TABLE IF NOT EXISTS tickets (
         id $pk,
         company_id $fk NOT NULL,
@@ -472,6 +525,11 @@ function schema_statements(string $driver): array
         'idx_tkq_co'          => 'ticket_queues (company_id, sort)',
         'idx_tkqm_q'          => 'ticket_queue_members (queue_id, user_id)',
         'idx_tkqg_q'          => 'ticket_queue_groups (queue_id, department_id)',
+        'idx_tkmb_co'         => 'ticket_mailboxes (company_id)',
+        'idx_tkrule_co'       => 'ticket_mail_rules (company_id, sort)',
+        'idx_tkin_co'         => 'ticket_inbox (company_id, status, created_at)',
+        'idx_tkin_msg'        => 'ticket_inbox (company_id, message_id)',
+        'idx_tkin_hash'       => 'ticket_inbox (company_id, from_email, content_hash)',
         'idx_udep_u'          => 'user_departments (user_id, department_id)',
         'idx_udep_d'          => 'user_departments (department_id)',
         'idx_tk_queue'        => 'tickets (company_id, queue_id, status)',
@@ -488,7 +546,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 18;
+const SCHEMA_VERSION = 19;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -566,6 +624,8 @@ function run_migrations(): void
         ['tickets', 'due_at', "VARCHAR(10) NOT NULL DEFAULT ''"],
         ['tickets', 'due_notified', 'INT NOT NULL DEFAULT 0'],
         ['companies', 'ticket_times', 'TEXT NULL'],
+        ['companies', 'ticket_default_queue_id', 'INT NULL'],
+        ['companies', 'ticket_blocklist', 'TEXT NULL'],
         ['companies', 'ticket_provider_access', 'INT NOT NULL DEFAULT 0'],
         ['companies', 'ticket_categories', 'TEXT NULL'],
     ];
@@ -626,7 +686,10 @@ function ensure_schema(): void
         db()->query('SELECT id FROM user_departments LIMIT 1');
         db()->query('SELECT id FROM ticket_queue_groups LIMIT 1');
         db()->query('SELECT waiting_since, reminder_level, due_at, due_notified FROM tickets LIMIT 1');
-        db()->query('SELECT ticket_times FROM companies LIMIT 1');
+        db()->query('SELECT ticket_times, ticket_default_queue_id, ticket_blocklist FROM companies LIMIT 1');
+        db()->query('SELECT id FROM ticket_mailboxes LIMIT 1');
+        db()->query('SELECT id FROM ticket_mail_rules LIMIT 1');
+        db()->query('SELECT id FROM ticket_inbox LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

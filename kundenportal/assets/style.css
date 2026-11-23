@@ -683,3 +683,7 @@ fieldset.rights { margin-top: 1rem; }
 .due.today { color: #7a4b00; font-weight: 600; }
 .due.over { color: #a1201b; font-weight: 600; }
 .times-table input[type=number] { width: 6rem; }
+
+/* Tickets: E-Mail-Eingang */
+.inbox-item .meta { margin-bottom: .3rem; }
+.inbox-body { background: #f7f8fa; border-radius: 6px; padding: .5rem .7rem; max-height: 14rem; overflow: auto; margin: .4rem 0 .6rem; }

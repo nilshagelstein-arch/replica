@@ -44,6 +44,7 @@ require APP_DIR . '/updates.php';
 require APP_DIR . '/pages/updates.php';
 require APP_DIR . '/pages/links.php';
 require APP_DIR . '/pages/tickets.php';
+require APP_DIR . '/ticket_mail.php';
 
 $routes = [
     'login'          => 'page_login',
@@ -111,6 +112,8 @@ $routes = [
     'ticket_action'   => 'page_ticket_action',
     'ticket_file'     => 'page_ticket_file',
     'ticket_settings' => 'page_ticket_settings',
+    'ticket_inbox'   => 'page_ticket_inbox',
+    'ticket_mb_oauth' => 'page_ticket_mb_oauth',
 ];
 
 /**
@@ -140,6 +143,7 @@ const ROUTE_AREAS = [
     'link_edit' => ['links', PERM_EDIT], 'link_action' => ['links', PERM_EDIT], 'link_suggest' => ['links', PERM_EDIT],
     'tickets' => ['tickets', PERM_VIEW], 'ticket' => ['tickets', PERM_VIEW], 'ticket_file' => ['tickets', PERM_VIEW],
     'ticket_new' => ['tickets', PERM_EDIT], 'ticket_action' => ['tickets', PERM_EDIT], 'ticket_settings' => ['tickets', PERM_VIEW],
+    'ticket_inbox' => ['tickets', PERM_VIEW], 'ticket_mb_oauth' => ['tickets', PERM_EDIT],
 ];
 
 /**
@@ -166,8 +170,12 @@ if (is_admin()) {
     }
 }
 
-// Zeitsteuerung der Tickets, falls kein (stündlicher) Cronjob läuft: höchstens alle 5 Minuten
-if (current_user()) tickets_timers_tick();
+// Zeitsteuerung und E-Mail-Abruf der Tickets, falls kein (stündlicher) Cronjob läuft: höchstens alle 5 Minuten,
+// nach der Antwort an den Browser (die Seite wartet also nicht auf den Mailserver)
+if (current_user()) register_shutdown_function(function () {
+    if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request();
+    tickets_timers_tick();
+});
 
 try {
     $routes[$r]();
