@@ -2328,4 +2328,128 @@ Urgency: {prio}
     'Anhänge nicht übernommen' => 'Attachments not taken over',
     'Per E-Mail eingegangen' => 'Received by email',
     'Aus der Prüfliste übernommen' => 'Taken over from the review list',
+    // Tickets: Dienstleister (Stufe 5)
+    'Für Ihren Zugang ist derzeit keine Firma freigegeben.' => 'No company is currently enabled for your access.',
+    'IT-Dienstleister' => 'IT service provider',
+    '{name} ({company}) schreibt zum übergebenen Ticket:
+
+' => '{name} ({company}) writes about the handed-over ticket:
+
+',
+    'Der Dienstleister {name} hat geantwortet:
+
+' => 'The service provider {name} has replied:
+
+',
+    'IT-Dienstleister (Portal-Betreiber)' => 'IT service provider (portal operator)',
+    'An uns übergeben' => 'Handed over to us',
+    'Alle Tickets der Firma' => 'All tickets of the company',
+    'Die Tickets dieser Firma sind nur intern sichtbar. Die Firma kann die Einsicht für den IT-Dienstleister in den Ticket-Einstellungen einschalten. Tickets, die die Firma an Sie übergibt, sehen Sie unter „An uns übergeben“. Queues und Einstellungen können Sie trotzdem pflegen.' => 'This company\'s tickets are only visible internally. The company can enable access for the IT service provider in the ticket settings. Tickets the company hands over to you can be found under “Handed over to us”. You can still maintain queues and settings.',
+    'Firma: {x}' => 'Company: {x}',
+    'Dienstleister' => 'Service provider',
+    'Austausch mit dem Dienstleister' => 'Exchange with the service provider',
+    'Nachricht an die Firma' => 'Message to the company',
+    'Nachricht an' => 'Message to',
+    'den Ersteller (sichtbar im Ticket)' => 'the creator (visible in the ticket)',
+    'niemanden – interne Notiz' => 'nobody – internal note',
+    'den Dienstleister: {x}' => 'the service provider: {x}',
+    'übergeben' => 'handed over',
+    'Das Ticket liegt bei {x}.' => 'The ticket is with {x}.',
+    'Zurückholen' => 'Take back',
+    'Übergeben an' => 'Hand over to',
+    'per E-Mail' => 'by email',
+    'Auftrag an den Dienstleister' => 'Instructions for the service provider',
+    'Was soll der Dienstleister tun? (für den Ersteller nicht sichtbar)' => 'What should the service provider do? (not visible to the creator)',
+    'Übergeben' => 'Hand over',
+    'Externe Dienstleister eintragen' => 'Add external service providers',
+    'Als Dienstleister' => 'As service provider',
+    'Die Firma hat Ihnen dieses Ticket übergeben. Interne Notizen der Firma sehen Sie nicht.' => 'The company has handed this ticket over to you. You cannot see the company\'s internal notes.',
+    'Ergebnis (optional)' => 'Result (optional)',
+    'Erledigt – zurück an die Firma' => 'Done – back to the company',
+    'Bitte einen Dienstleister wählen.' => 'Please choose a service provider.',
+    '{company} hat Ihnen ein Ticket übergeben.
+Von: {name}
+Queue: {queue}
+Dringlichkeit: {prio}
+
+' => '{company} has handed a ticket over to you.
+From: {name}
+Queue: {queue}
+Urgency: {prio}
+
+',
+    'Auftrag:
+' => 'Instructions:
+',
+    'Beschreibung:
+' => 'Description:
+',
+    'Das Ticket wurde an {x} übergeben.' => 'The ticket has been handed over to {x}.',
+    'Der Dienstleister {name} hat das Ticket erledigt und an Sie zurückgegeben.' => 'The service provider {name} has completed the ticket and handed it back to you.',
+    'Das Ticket ist zurück bei der Firma. Vielen Dank!' => 'The ticket is back with the company. Thank you!',
+    '{name} hat das Ticket zurückgeholt. Sie müssen nichts mehr tun.' => '{name} has taken the ticket back. You don\'t need to do anything else.',
+    'Das Ticket ist zurück in der Bearbeitung.' => 'The ticket is back in processing.',
+    'Zugang zum Kundenportal' => 'Access to the customer portal',
+    ',
+
+{company} hat Sie im Kundenportal als Dienstleister eingetragen. Dort sehen Sie die Tickets, die Ihnen übergeben werden, und können direkt antworten.
+
+Über diesen Link vergeben Sie Ihr Passwort (7 Tage gültig, nur einmal verwendbar):
+
+' => ',
+
+{company} has registered you as a service provider in the customer portal. There you can see the tickets handed over to you and reply directly.
+
+Use this link to set your password (valid for 7 days, single use):
+
+',
+    '
+
+Bei der ersten Anmeldung richten Sie die Zwei-Faktor-Anmeldung mit einer Authenticator-App ein.' => '
+
+When you sign in for the first time, you set up two-factor authentication with an authenticator app.',
+    'Der Dienstleister wurde deaktiviert. Er ist an Tickets beteiligt und bleibt deshalb im Verlauf erhalten.' => 'The service provider has been deactivated. It is involved in tickets and therefore remains in the history.',
+    'Der Dienstleister wurde entfernt.' => 'The service provider has been removed.',
+    'Eine Einladung kann nur für einen Zugang verschickt werden, der noch nicht genutzt wurde.' => 'An invitation can only be sent for an access that has not been used yet.',
+    'Die Einladung wurde erneut an {x} geschickt.' => 'The invitation has been sent to {x} again.',
+    'Bitte Name und eine gültige E-Mail-Adresse angeben.' => 'Please enter a name and a valid email address.',
+    'Die Adresse {x} gehört bereits zu einem anderen Konto im Portal. Bitte verwenden Sie für den Dienstleister-Zugang eine eigene Adresse.' => 'The address {x} already belongs to another account in the portal. Please use a separate address for the service provider access.',
+    'Der Zugang {x} ist gesperrt. Bitte wenden Sie sich an Ihren IT-Dienstleister.' => 'The access {x} is locked. Please contact your IT service provider.',
+    'Dieser Zugang ist bereits bei einem anderen Dienstleister dieser Firma eingetragen.' => 'This access is already registered for another service provider of this company.',
+    'Der Dienstleister wurde gespeichert. Er bekommt eine Einladung an {x}, um sein Passwort zu vergeben.' => 'The service provider has been saved. An invitation is being sent to {x} to set a password.',
+    'Neue Firma im Kundenportal' => 'New company in the customer portal',
+    ',
+
+{company} hat Sie im Kundenportal als Dienstleister eingetragen. Sie finden die Firma nach der Anmeldung in der App „Tickets“.
+
+' => ',
+
+{company} has registered you as a service provider in the customer portal. After signing in, you will find the company in the “Tickets” app.
+
+',
+    'Der Dienstleister wurde gespeichert. Er hat schon einen Zugang und findet Ihre Firma ab sofort in seiner Ticket-Übersicht.' => 'The service provider has been saved. It already has an access and will now find your company in its ticket overview.',
+    'Der Dienstleister wurde gespeichert.' => 'The service provider has been saved.',
+    'Externe Dienstleister' => 'External service providers',
+    'Bearbeiter können ein Ticket an einen Dienstleister übergeben, z. B. an den Kopierer-Service. Das Ticket bleibt in Ihrer Queue mit dem Status „Beim Dienstleister“. Der Dienstleister sieht die Beschreibung, die öffentlichen Nachrichten und den Austausch mit Ihnen, aber nie interne Notizen. Mit Portal-Zugang arbeitet er im Portal (auch für mehrere Firmen mit einem Zugang), sonst nur per E-Mail. Ihren IT-Dienstleister (Portal-Betreiber) können Sie immer auswählen.' => 'Processors can hand a ticket over to a service provider, e.g. the copier service. The ticket stays in your queue with the status “With service provider”. The service provider sees the description, the public messages and the exchange with you, but never internal notes. With portal access, it works in the portal (also for several companies with one access), otherwise only by email. Your IT service provider (portal operator) can always be selected.',
+    'Ohne Ticket-Postfach (E-Mail-Eingang) landen Antworten von Dienstleistern ohne Portal-Zugang nicht im Ticket.' => 'Without a ticket mailbox (email intake), replies from service providers without portal access do not reach the ticket.',
+    'Portal-Zugang' => 'Portal access',
+    'noch nicht angemeldet' => 'not signed in yet',
+    'nur per E-Mail' => 'email only',
+    'sieht alle Tickets' => 'sees all tickets',
+    'sieht übergebene Tickets' => 'sees handed-over tickets',
+    '{n} Tickets offen' => '{n} tickets open',
+    'Einladung erneut senden' => 'Resend invitation',
+    'Dienstleister „{x}“ entfernen?' => 'Remove service provider “{x}”?',
+    '+ Dienstleister hinzufügen' => '+ Add service provider',
+    'z. B. Kopierer-Service Müller' => 'e.g. Copier Service Miller',
+    'Portal-Zugang (der Dienstleister bekommt eine Einladung mit Zwei-Faktor-Anmeldung)' => 'Portal access (the service provider receives an invitation with two-factor authentication)',
+    'Darf alle Tickets der Firma sehen (sonst nur die übergebenen)' => 'May see all tickets of the company (otherwise only handed-over ones)',
+    'z. B. Vertragsnummer, Telefon' => 'e.g. contract number, phone',
+    'Aktiv (bei der Übergabe auswählbar)' => 'Active (selectable for handover)',
+    'Dienstleister speichern' => 'Save service provider',
+    'Weist Tickets zu und ist Bearbeiter der Queue. Bei zu langer Wartezeit wird an sie eskaliert.' => 'Assigns tickets and is a processor of the queue. Tickets waiting too long are escalated to the team lead.',
+    'Externer Dienstleister' => 'External service provider',
+    'Vom Dienstleister erledigt' => 'Completed by the service provider',
+    'Vom Dienstleister zurückgeholt' => 'Taken back from the service provider',
+    'Antwort des Dienstleisters auf ein geschlossenes Ticket' => 'Reply from the service provider to a closed ticket',
 ];

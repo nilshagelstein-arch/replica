@@ -111,7 +111,7 @@ if ($user && $user['company_id']) {
     <?php if ($user): ?>
     <div class="who">
         <span><?= e($user['name']) ?></span>
-        <span class="muted"><?= $companyName ? e($companyName) : t('Administration') ?></span>
+        <span class="muted"><?= $companyName ? e($companyName) : e(($user['role'] ?? '') === 'dienstleister' ? t('Externer Dienstleister') : t('Administration')) ?></span>
         <a href="<?= e(url('account')) ?>"><?= e(t('Mein Konto')) ?></a>
         <form method="post" action="<?= e(url('logout')) ?>" class="inline"><?= csrf_field() ?><button class="linklike"><?= e(t('Abmelden')) ?></button></form>
     </div>

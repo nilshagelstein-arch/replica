@@ -687,3 +687,7 @@ fieldset.rights { margin-top: 1rem; }
 /* Tickets: E-Mail-Eingang */
 .inbox-item .meta { margin-bottom: .3rem; }
 .inbox-body { background: #f7f8fa; border-radius: 6px; padding: .5rem .7rem; max-height: 14rem; overflow: auto; margin: .4rem 0 .6rem; }
+
+/* Tickets: Austausch mit dem Dienstleister */
+.chat-msg.provider { align-self: flex-end; background: #eef4fb; border: 1px dashed #7da3cf; }
+.tag.info { background: #e3eefa; color: #1f4f86; }

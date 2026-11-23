@@ -677,8 +677,21 @@ function ticket_mail_process(array $mb, string $raw): string
             $tk = row('SELECT id FROM tickets WHERE company_id = ? AND number = ?', [$cid, $mm[1]]);
             $tk = $tk ? load_ticket((int)$tk['id']) : null;
             if ($tk) {
+                // Dienstleister des Tickets (auch ohne Konto in der Firma)
+                $prov = ticket_mail_provider_sender($tk, $from);
+                $role = $user ? ticket_mail_role($tk, $user) : null;
+                if ($prov && $role === null) {
+                    if ($tk['status'] === 'geschlossen') return $log('review', 'Antwort des Dienstleisters auf ein geschlossenes Ticket: #' . $tk['number'], (int)$tk['id'], true);
+                    $GLOBALS['ticket_actor'] = $prov['user'];
+                    ticket_mail_provider_reply($tk, $prov, $m, false);
+                    return $log('reply', '', (int)$tk['id']);
+                }
+                // Bearbeiter antworten auf eine Dienstleister-Mail: bleibt im Austausch mit dem Dienstleister
+                if ($role === 'processor' && str_contains($subject, TICKET_PROVIDER_TAG) && ticket_provider_name($tk) !== '' && $tk['status'] !== 'geschlossen') {
+                    ticket_mail_provider_reply($tk, ['user' => $user, 'name' => $user['name']], $m, true);
+                    return $log('reply', '', (int)$tk['id']);
+                }
                 if (!$user) return $log('review', 'Antwort von unbekanntem Absender: #' . $tk['number'], (int)$tk['id'], true);
-                $role = ticket_mail_role($tk, $user);
                 if ($role === null) return $log('review', 'Absender ist am Ticket nicht beteiligt: #' . $tk['number'], (int)$tk['id'], true);
                 if ($tk['status'] === 'geschlossen') {
                     $refClosed = $tk;
@@ -715,6 +728,43 @@ function ticket_mail_role(array $tk, array $user): ?string
     foreach (ticket_queue_processors((int)$tk['queue_id'], (int)$tk['company_id']) as $p) if ((int)$p['id'] === $uid) return 'processor';
     if (($tk['visibility'] ?? 'me') === 'group' && $tk['group_id'] && isset(user_groups($uid)[(int)$tk['group_id']])) return 'requester';
     return null;
+}
+
+/** Absender ist der Dienstleister, an den das Ticket übergeben ist: ['user' => Konto oder null, 'name' => Anzeigename] */
+function ticket_mail_provider_sender(array $tk, string $from): ?array
+{
+    if ((int)($tk['provider_internal'] ?? 0) === 1) {
+        $staff = row("SELECT * FROM users WHERE LOWER(email) = ? AND role IN ('superadmin', 'admin') AND active = 1", [$from]);
+        if ($staff && admin_perm('tickets', $staff) >= PERM_VIEW) return ['user' => $staff, 'name' => $staff['name']];
+        if (in_array($from, array_map('strtolower', (array)cfg('mail.admin_recipients', [])), true)) return ['user' => null, 'name' => t('IT-Dienstleister')];
+        return null;
+    }
+    if (empty($tk['provider_id'])) return null;
+    $p = row('SELECT p.*, u.email AS user_email FROM ticket_providers p LEFT JOIN users u ON u.id = p.user_id AND u.active = 1 WHERE p.id = ? AND p.active = 1', [$tk['provider_id']]);
+    if (!$p) return null;
+    if ($from !== strtolower((string)$p['email']) && $from !== strtolower((string)($p['user_email'] ?? ''))) return null;
+    $usr = $p['user_id'] && $p['user_email'] !== null ? row('SELECT * FROM users WHERE id = ?', [$p['user_id']]) : null;
+    return ['user' => $usr, 'name' => $p['name']];
+}
+
+/** Mail im Austausch mit dem Dienstleister übernehmen: vom Dienstleister ($fromFirm = false) oder von einem Bearbeiter an ihn */
+function ticket_mail_provider_reply(array $tk, array $sender, array $m, bool $fromFirm): void
+{
+    $id = (int)$tk['id'];
+    $cid = (int)$tk['company_id'];
+    $body = mailp_strip_quote($m['text']);
+    if ($body === '') $body = '–';
+    $uid = $sender['user'] ? (int)$sender['user']['id'] : null;
+    $msgId = insert('ticket_messages', ['ticket_id' => $id, 'company_id' => $cid, 'user_id' => $uid, 'kind' => 'provider', 'body' => $body,
+        'status_from' => '', 'status_to' => '', 'author_name' => $uid ? '' : mb_substr((string)$sender['name'], 0, 190), 'created_at' => now()]);
+    $skipped = ticket_store_mail_files($m['attachments'], $id, $msgId, $cid);
+    if ($skipped) ticket_log($id, $cid, null, 'event', 'Anhänge nicht übernommen: ' . implode(', ', $skipped));
+    update('tickets', $id, ['updated_at' => now(), 'last_activity_at' => now()]);
+    if ($fromFirm) {
+        ticket_notify_provider($tk, fn() => t("{name} ({company}) schreibt zum übergebenen Ticket:\n\n", ['name' => $sender['name'], 'company' => tickets_company($cid)['name'] ?? '']) . $body);
+    } else {
+        ticket_notify_processors($tk, fn() => t("Der Dienstleister {name} hat geantwortet:\n\n", ['name' => $sender['name']]) . $body, false, [], TICKET_PROVIDER_TAG);
+    }
 }
 
 /** Antwort per Mail ins Ticket übernehmen (wie eine Antwort im Portal) */

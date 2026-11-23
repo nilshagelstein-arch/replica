@@ -2328,4 +2328,128 @@ Urgence : {prio}
     'Anhänge nicht übernommen' => 'Pièces jointes non reprises',
     'Per E-Mail eingegangen' => 'Reçu par e-mail',
     'Aus der Prüfliste übernommen' => 'Repris de la liste de contrôle',
+    // Tickets: Dienstleister (Stufe 5)
+    'Für Ihren Zugang ist derzeit keine Firma freigegeben.' => 'Aucune entreprise n\'est actuellement autorisée pour votre accès.',
+    'IT-Dienstleister' => 'Prestataire informatique',
+    '{name} ({company}) schreibt zum übergebenen Ticket:
+
+' => '{name} ({company}) écrit à propos du ticket transmis :
+
+',
+    'Der Dienstleister {name} hat geantwortet:
+
+' => 'Le prestataire {name} a répondu :
+
+',
+    'IT-Dienstleister (Portal-Betreiber)' => 'Prestataire informatique (exploitant du portail)',
+    'An uns übergeben' => 'Transmis à nous',
+    'Alle Tickets der Firma' => 'Tous les tickets de l\'entreprise',
+    'Die Tickets dieser Firma sind nur intern sichtbar. Die Firma kann die Einsicht für den IT-Dienstleister in den Ticket-Einstellungen einschalten. Tickets, die die Firma an Sie übergibt, sehen Sie unter „An uns übergeben“. Queues und Einstellungen können Sie trotzdem pflegen.' => 'Les tickets de cette entreprise ne sont visibles qu\'en interne. L\'entreprise peut autoriser l\'accès du prestataire informatique dans les paramètres des tickets. Les tickets que l\'entreprise vous transmet se trouvent sous « Transmis à nous ». Vous pouvez néanmoins gérer les files et les paramètres.',
+    'Firma: {x}' => 'Entreprise : {x}',
+    'Dienstleister' => 'Prestataire',
+    'Austausch mit dem Dienstleister' => 'Échange avec le prestataire',
+    'Nachricht an die Firma' => 'Message à l\'entreprise',
+    'Nachricht an' => 'Message à',
+    'den Ersteller (sichtbar im Ticket)' => 'l\'auteur (visible dans le ticket)',
+    'niemanden – interne Notiz' => 'personne – note interne',
+    'den Dienstleister: {x}' => 'le prestataire : {x}',
+    'übergeben' => 'transmis',
+    'Das Ticket liegt bei {x}.' => 'Le ticket est chez {x}.',
+    'Zurückholen' => 'Reprendre',
+    'Übergeben an' => 'Transmettre à',
+    'per E-Mail' => 'par e-mail',
+    'Auftrag an den Dienstleister' => 'Mission pour le prestataire',
+    'Was soll der Dienstleister tun? (für den Ersteller nicht sichtbar)' => 'Que doit faire le prestataire ? (non visible pour l\'auteur)',
+    'Übergeben' => 'Transmettre',
+    'Externe Dienstleister eintragen' => 'Ajouter des prestataires externes',
+    'Als Dienstleister' => 'En tant que prestataire',
+    'Die Firma hat Ihnen dieses Ticket übergeben. Interne Notizen der Firma sehen Sie nicht.' => 'L\'entreprise vous a transmis ce ticket. Vous ne voyez pas les notes internes de l\'entreprise.',
+    'Ergebnis (optional)' => 'Résultat (facultatif)',
+    'Erledigt – zurück an die Firma' => 'Terminé – retour à l\'entreprise',
+    'Bitte einen Dienstleister wählen.' => 'Veuillez choisir un prestataire.',
+    '{company} hat Ihnen ein Ticket übergeben.
+Von: {name}
+Queue: {queue}
+Dringlichkeit: {prio}
+
+' => '{company} vous a transmis un ticket.
+De : {name}
+File : {queue}
+Urgence : {prio}
+
+',
+    'Auftrag:
+' => 'Mission :
+',
+    'Beschreibung:
+' => 'Description :
+',
+    'Das Ticket wurde an {x} übergeben.' => 'Le ticket a été transmis à {x}.',
+    'Der Dienstleister {name} hat das Ticket erledigt und an Sie zurückgegeben.' => 'Le prestataire {name} a traité le ticket et vous l\'a rendu.',
+    'Das Ticket ist zurück bei der Firma. Vielen Dank!' => 'Le ticket est de retour dans l\'entreprise. Merci !',
+    '{name} hat das Ticket zurückgeholt. Sie müssen nichts mehr tun.' => '{name} a repris le ticket. Vous n\'avez plus rien à faire.',
+    'Das Ticket ist zurück in der Bearbeitung.' => 'Le ticket est de nouveau en traitement.',
+    'Zugang zum Kundenportal' => 'Accès au portail client',
+    ',
+
+{company} hat Sie im Kundenportal als Dienstleister eingetragen. Dort sehen Sie die Tickets, die Ihnen übergeben werden, und können direkt antworten.
+
+Über diesen Link vergeben Sie Ihr Passwort (7 Tage gültig, nur einmal verwendbar):
+
+' => ',
+
+{company} vous a enregistré comme prestataire dans le portail client. Vous y voyez les tickets qui vous sont transmis et pouvez répondre directement.
+
+Ce lien vous permet de définir votre mot de passe (valable 7 jours, utilisable une seule fois) :
+
+',
+    '
+
+Bei der ersten Anmeldung richten Sie die Zwei-Faktor-Anmeldung mit einer Authenticator-App ein.' => '
+
+Lors de votre première connexion, vous configurez l\'authentification à deux facteurs avec une application d\'authentification.',
+    'Der Dienstleister wurde deaktiviert. Er ist an Tickets beteiligt und bleibt deshalb im Verlauf erhalten.' => 'Le prestataire a été désactivé. Il participe à des tickets et reste donc dans l\'historique.',
+    'Der Dienstleister wurde entfernt.' => 'Le prestataire a été supprimé.',
+    'Eine Einladung kann nur für einen Zugang verschickt werden, der noch nicht genutzt wurde.' => 'Une invitation ne peut être envoyée que pour un accès qui n\'a pas encore été utilisé.',
+    'Die Einladung wurde erneut an {x} geschickt.' => 'L\'invitation a été renvoyée à {x}.',
+    'Bitte Name und eine gültige E-Mail-Adresse angeben.' => 'Veuillez indiquer un nom et une adresse e-mail valide.',
+    'Die Adresse {x} gehört bereits zu einem anderen Konto im Portal. Bitte verwenden Sie für den Dienstleister-Zugang eine eigene Adresse.' => 'L\'adresse {x} appartient déjà à un autre compte du portail. Veuillez utiliser une adresse distincte pour l\'accès du prestataire.',
+    'Der Zugang {x} ist gesperrt. Bitte wenden Sie sich an Ihren IT-Dienstleister.' => 'L\'accès {x} est bloqué. Veuillez contacter votre prestataire informatique.',
+    'Dieser Zugang ist bereits bei einem anderen Dienstleister dieser Firma eingetragen.' => 'Cet accès est déjà enregistré pour un autre prestataire de cette entreprise.',
+    'Der Dienstleister wurde gespeichert. Er bekommt eine Einladung an {x}, um sein Passwort zu vergeben.' => 'Le prestataire a été enregistré. Une invitation est envoyée à {x} pour définir son mot de passe.',
+    'Neue Firma im Kundenportal' => 'Nouvelle entreprise dans le portail client',
+    ',
+
+{company} hat Sie im Kundenportal als Dienstleister eingetragen. Sie finden die Firma nach der Anmeldung in der App „Tickets“.
+
+' => ',
+
+{company} vous a enregistré comme prestataire dans le portail client. Après connexion, vous trouverez l\'entreprise dans l\'application « Tickets ».
+
+',
+    'Der Dienstleister wurde gespeichert. Er hat schon einen Zugang und findet Ihre Firma ab sofort in seiner Ticket-Übersicht.' => 'Le prestataire a été enregistré. Il dispose déjà d\'un accès et trouve désormais votre entreprise dans son aperçu des tickets.',
+    'Der Dienstleister wurde gespeichert.' => 'Le prestataire a été enregistré.',
+    'Externe Dienstleister' => 'Prestataires externes',
+    'Bearbeiter können ein Ticket an einen Dienstleister übergeben, z. B. an den Kopierer-Service. Das Ticket bleibt in Ihrer Queue mit dem Status „Beim Dienstleister“. Der Dienstleister sieht die Beschreibung, die öffentlichen Nachrichten und den Austausch mit Ihnen, aber nie interne Notizen. Mit Portal-Zugang arbeitet er im Portal (auch für mehrere Firmen mit einem Zugang), sonst nur per E-Mail. Ihren IT-Dienstleister (Portal-Betreiber) können Sie immer auswählen.' => 'Les personnes chargées du traitement peuvent transmettre un ticket à un prestataire, p. ex. le service des copieurs. Le ticket reste dans votre file avec le statut « Chez le prestataire ». Le prestataire voit la description, les messages publics et l\'échange avec vous, mais jamais les notes internes. Avec un accès au portail, il travaille dans le portail (aussi pour plusieurs entreprises avec un seul accès), sinon uniquement par e-mail. Votre prestataire informatique (exploitant du portail) peut toujours être choisi.',
+    'Ohne Ticket-Postfach (E-Mail-Eingang) landen Antworten von Dienstleistern ohne Portal-Zugang nicht im Ticket.' => 'Sans boîte de réception des tickets (réception par e-mail), les réponses des prestataires sans accès au portail n\'arrivent pas dans le ticket.',
+    'Portal-Zugang' => 'Accès au portail',
+    'noch nicht angemeldet' => 'pas encore connecté',
+    'nur per E-Mail' => 'e-mail uniquement',
+    'sieht alle Tickets' => 'voit tous les tickets',
+    'sieht übergebene Tickets' => 'voit les tickets transmis',
+    '{n} Tickets offen' => '{n} tickets ouverts',
+    'Einladung erneut senden' => 'Renvoyer l\'invitation',
+    'Dienstleister „{x}“ entfernen?' => 'Supprimer le prestataire « {x} » ?',
+    '+ Dienstleister hinzufügen' => '+ Ajouter un prestataire',
+    'z. B. Kopierer-Service Müller' => 'p. ex. Service copieurs Martin',
+    'Portal-Zugang (der Dienstleister bekommt eine Einladung mit Zwei-Faktor-Anmeldung)' => 'Accès au portail (le prestataire reçoit une invitation avec authentification à deux facteurs)',
+    'Darf alle Tickets der Firma sehen (sonst nur die übergebenen)' => 'Peut voir tous les tickets de l\'entreprise (sinon seulement ceux transmis)',
+    'z. B. Vertragsnummer, Telefon' => 'p. ex. numéro de contrat, téléphone',
+    'Aktiv (bei der Übergabe auswählbar)' => 'Actif (sélectionnable lors de la transmission)',
+    'Dienstleister speichern' => 'Enregistrer le prestataire',
+    'Weist Tickets zu und ist Bearbeiter der Queue. Bei zu langer Wartezeit wird an sie eskaliert.' => 'Attribue les tickets et traite la file. Les tickets qui attendent trop longtemps sont escaladés vers elle.',
+    'Externer Dienstleister' => 'Prestataire externe',
+    'Vom Dienstleister erledigt' => 'Traité par le prestataire',
+    'Vom Dienstleister zurückgeholt' => 'Repris au prestataire',
+    'Antwort des Dienstleisters auf ein geschlossenes Ticket' => 'Réponse du prestataire à un ticket fermé',
 ];

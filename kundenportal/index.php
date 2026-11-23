@@ -170,6 +170,14 @@ if (is_admin()) {
     }
 }
 
+// Externe Dienstleister: nur Anmeldung, eigenes Konto und die App „Tickets“ (Start leitet dorthin)
+const PROVIDER_ROUTES = ['login', 'login_2fa', 'setup_2fa', 'logout', 'forgot_password', 'reset_password', 'verify_email', 'account',
+    'home', 'app_css', 'i18n_js', 'tickets', 'ticket', 'ticket_action', 'ticket_file'];
+if (is_provider_user()) {
+    if (!in_array($r, PROVIDER_ROUTES, true)) abort(403);
+    if ($r === 'home' && !(int)current_user()['must_change_password']) redirect('tickets');
+}
+
 // Zeitsteuerung und E-Mail-Abruf der Tickets, falls kein (stündlicher) Cronjob läuft: höchstens alle 5 Minuten,
 // nach der Antwort an den Browser (die Seite wartet also nicht auf den Mailserver)
 if (current_user()) register_shutdown_function(function () {
