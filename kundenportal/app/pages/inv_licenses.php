@@ -150,7 +150,7 @@ function page_inv_licenses(): void
             <?php foreach (['laufend' => t('laufend'), 'bald' => t('läuft bald ab / Kündigung fällig'), 'over' => t('überbelegt'), 'ende' => t('abgelaufen / beendet')] as $k => $label): ?>
                 <a class="tile <?= $state === $k ? 'active' : '' ?>" href="<?= e(iurl('inv_licenses', ['state' => $k])) ?>"><strong><?= $counts[$k] ?></strong><span><?= e($label) ?></span></a>
             <?php endforeach; ?>
-            <div class="tile"><strong><?= e(inv_fmt_price($monthly)) ?></strong><span><?= e(t('laufende Kosten je Monat')) ?></span></div>
+            <?php if (inv_can_see_costs($cid)): ?><div class="tile"><strong><?= e(inv_fmt_price($monthly)) ?></strong><span><?= e(t('laufende Kosten je Monat')) ?></span></div><?php endif; ?>
         </div>
         <form method="get" class="toolbar">
             <input type="hidden" name="r" value="inv_licenses">
@@ -165,7 +165,7 @@ function page_inv_licenses(): void
         <div class="card">
             <table class="table">
                 <thead><tr><th><?= e(t('Produkt')) ?></th><th><?= e(t('Art')) ?></th><th class="num"><?= e(t('Plätze')) ?></th><th><?= e(t('Status')) ?></th>
-                    <th><?= e(t('Laufzeit bis')) ?></th><th><?= e(t('Kündigen bis')) ?></th><th class="num"><?= e(t('Kosten')) ?></th></tr></thead>
+                    <th><?= e(t('Laufzeit bis')) ?></th><th><?= e(t('Kündigen bis')) ?></th><?php if ($seeCosts = inv_can_see_costs($cid)): ?><th class="num"><?= e(t('Kosten')) ?></th><?php endif; ?></tr></thead>
                 <tbody>
                 <?php foreach ($list as $l): $over = (int)$l['seats'] > 0 && $l['used'] > (int)$l['seats']; ?>
                     <tr><td><a href="<?= e(iurl('inv_license', ['id' => $l['id']])) ?>"><strong><?= e($l['product']) ?></strong></a><?= $l['manufacturer'] !== '' ? '<br><span class="muted small">' . e($l['manufacturer']) . '</span>' : '' ?></td>
@@ -174,7 +174,7 @@ function page_inv_licenses(): void
                         <td><?= inv_lic_state_badge($l['state']) ?><?= (int)$l['auto_renew'] && $l['status'] === 'aktiv' ? ' <span class="muted small">↻</span>' : '' ?></td>
                         <td><?= $l['end_date'] !== '' ? fmt_date($l['end_date']) : '–' ?></td>
                         <td><?php if ($l['cancel_by'] !== '' && $l['status'] === 'aktiv'): ?><span class="<?= $l['cancel_by'] < date('Y-m-d') ? 'muted' : ($l['cancel_by'] <= date('Y-m-d', strtotime('+' . INV_LIC_SOON_DAYS . ' days')) ? 'warn-text' : '') ?>"><?= fmt_date($l['cancel_by']) ?></span><?php else: ?>–<?php endif; ?></td>
-                        <td class="num"><?= $l['cost_cents'] !== null ? e(inv_fmt_price((int)$l['cost_cents'])) . ' <span class="muted small">' . e(t(INV_LIC_INTERVALS[$l['cost_interval']] ?? '')) . '</span>' : '–' ?></td></tr>
+                        <?php if ($seeCosts): ?><td class="num"><?= $l['cost_cents'] !== null ? e(inv_fmt_price((int)$l['cost_cents'])) . ' <span class="muted small">' . e(t(INV_LIC_INTERVALS[$l['cost_interval']] ?? '')) . '</span>' : '–' ?></td><?php endif; ?></tr>
                 <?php endforeach; ?>
                 <?php if (!$list): ?><tr><td colspan="7" class="muted"><?= e(t('Keine Lizenzen gefunden.')) ?></td></tr><?php endif; ?>
                 </tbody>
@@ -204,7 +204,8 @@ function page_inv_license(): void
         WHERE a.license_id = ? ORDER BY e.last_name, e.first_name, d.inv_no', [$l['id']]) : [];
     $employees = $edit ? inv_employees($cid) : [];
     $devices = $edit ? rows("SELECT id, inv_no, manufacturer, model FROM inv_devices WHERE company_id = ? AND status IN ('lager', 'einsatz', 'reparatur') ORDER BY inv_no", [$cid]) : [];
-    $log = $l ? rows('SELECT g.*, u.name AS user_name FROM inv_log g LEFT JOIN users u ON u.id = g.user_id WHERE g.license_id = ? ORDER BY g.id DESC LIMIT 200', [$l['id']]) : [];
+    $log = $l ? rows('SELECT g.*, u.name AS user_name FROM inv_log g LEFT JOIN users u ON u.id = g.user_id WHERE g.license_id = ?'
+        . (inv_can_see_costs($cid) ? '' : INV_LOG_NO_COSTS) . ' ORDER BY g.id DESC LIMIT 200', [$l['id']]) : [];
     $files = $l ? rows('SELECT * FROM inv_files WHERE license_id = ? ORDER BY id', [$l['id']]) : [];
     $revealed = $GLOBALS['inv_lic_revealed'] ?? null;
     $title = $isNew ? t('Lizenz erfassen') : $l['product'];
@@ -251,6 +252,7 @@ function page_inv_license(): void
                 <label><?= e(t('Verlängert sich um (Monate)')) ?> <input type="number" name="renew_months" min="1" max="120" value="<?= (int)($l['renew_months'] ?? 12) ?>"></label>
             </div>
             <label class="check"><input type="checkbox" name="auto_renew" value="1" <?= (int)($l['auto_renew'] ?? 0) ? 'checked' : '' ?>> <?= e(t('Verlängert sich automatisch, wenn nicht gekündigt wird')) ?></label>
+            <?php if (inv_can_see_costs($cid)): ?>
             <h3><?= e(t('Kosten')) ?></h3>
             <div class="grid2">
                 <label><?= e(t('Betrag (€)')) ?> <input name="cost" inputmode="decimal" maxlength="20" value="<?= e(isset($l['cost_cents']) && $l['cost_cents'] !== null ? number_format((int)$l['cost_cents'] / 100, 2, ',', '.') : '') ?>"></label>
@@ -258,6 +260,7 @@ function page_inv_license(): void
                     <?php foreach (INV_LIC_INTERVALS as $k => $lb): ?><option value="<?= e($k) ?>" <?= ($l['cost_interval'] ?? 'monat') === $k ? 'selected' : '' ?>><?= e(t($lb)) ?></option><?php endforeach; ?></select></label>
             </div>
             <p class="muted small"><?= e(t('Gesamtbetrag der Lizenz, nicht je Platz.')) ?></p>
+            <?php endif; ?>
             <label><?= e(t('Gehört zu Gerät (z. B. Firewall-Lizenz, Herstellersupport)')) ?> <select name="device_id"><option value=""><?= e(t('– kein Gerät –')) ?></option>
                 <?php foreach ($devices as $d): ?><option value="<?= (int)$d['id'] ?>" <?= (int)($l['device_id'] ?? 0) === (int)$d['id'] ? 'selected' : '' ?>><?= e($d['inv_no'] . ' · ' . trim($d['manufacturer'] . ' ' . $d['model'])) ?></option><?php endforeach; ?></select></label>
             <label><?= e(t('Notiz')) ?> <textarea name="notes" rows="3"><?= e($v('notes')) ?></textarea></label>
@@ -271,7 +274,7 @@ function page_inv_license(): void
                     t('Vertrags- / Kundennummer') => $v('contract_no'), t('Lieferant') => $v('supplier'), t('Beginn') => $l['start_date'] !== '' ? fmt_date($l['start_date']) : '',
                     t('Kündigungsfrist') => (int)$l['notice_value'] ? (int)$l['notice_value'] . ' ' . t(INV_NOTICE_UNITS[$l['notice_unit']] ?? '') : '',
                     t('Automatische Verlängerung') => (int)$l['auto_renew'] ? t('ja, um {n} Monate', ['n' => (int)$l['renew_months']]) : '',
-                    t('Kosten') => $l['cost_cents'] !== null ? inv_fmt_price((int)$l['cost_cents']) . ' ' . t(INV_LIC_INTERVALS[$l['cost_interval']] ?? '') : '',
+                    t('Kosten') => $l['cost_cents'] !== null && inv_can_see_costs($cid) ? inv_fmt_price((int)$l['cost_cents']) . ' ' . t(INV_LIC_INTERVALS[$l['cost_interval']] ?? '') : '',
                     t('Gerät') => (string)($l['device_inv_no'] ?? '')] as $k => $val): if ($val === '') continue; ?>
                     <dt><?= e($k) ?></dt><dd><?= e($val) ?></dd>
                 <?php endforeach; ?>
@@ -399,7 +402,9 @@ function page_inv_lic_action(): void
             'end_date' => inv_date((string)post('end_date')), 'notice_value' => max(0, min(999, (int)post('notice_value', 0))),
             'notice_unit' => isset(INV_NOTICE_UNITS[post('notice_unit')]) ? (string)post('notice_unit') : 'months',
             'auto_renew' => post('auto_renew') === '1' ? 1 : 0, 'renew_months' => max(1, min(120, (int)post('renew_months', 12))),
-            'cost_cents' => inv_parse_price((string)post('cost')), 'cost_interval' => isset(INV_LIC_INTERVALS[post('cost_interval')]) ? (string)post('cost_interval') : 'monat',
+            // ohne Kostenrecht bleiben die Kosten unverändert (neu: leer)
+            'cost_cents' => inv_can_see_costs($cid) ? inv_parse_price((string)post('cost')) : ($l['cost_cents'] ?? null),
+            'cost_interval' => inv_can_see_costs($cid) ? (isset(INV_LIC_INTERVALS[post('cost_interval')]) ? (string)post('cost_interval') : 'monat') : ($l['cost_interval'] ?? 'monat'),
             'device_id' => $dev['id'] ?? null, 'notes' => $f('notes', 5000), 'updated_at' => now()];
         $key = trim((string)post('license_key'));
         if ($key !== '') $data['license_key_enc'] = encrypt_secret(mb_substr($key, 0, 1000));
@@ -427,7 +432,7 @@ function page_inv_lic_action(): void
         if (array_key_exists('license_key_enc', $data)) $changes[] = $data['license_key_enc'] === null ? 'Lizenzschlüssel gelöscht' : 'Lizenzschlüssel geändert';
         if ((string)$l['notes'] !== $data['notes']) $changes[] = 'Notiz geändert';
         update('inv_licenses', (int)$l['id'], $data);
-        foreach ($changes as $c) inv_lic_log($cid, (int)$l['id'], $c);
+        foreach ($changes as $c) inv_lic_log($cid, (int)$l['id'], $c, str_starts_with($c, 'Kosten: ') ? 'cost' : 'event');
         if ($changes) audit('inventory.license_update', $product . ': ' . implode('; ', array_map(fn($c) => mb_substr($c, 0, 60), $changes)), $cid);
         flash('success', $changes ? t('Gespeichert.') : t('Keine Änderungen.'));
         $back();

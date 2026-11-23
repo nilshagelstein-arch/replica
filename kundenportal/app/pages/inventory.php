@@ -103,8 +103,12 @@ function inv_files_dir(int $cid): string
     return $dir;
 }
 
+/** SQL-Zusatz: Kosten-Einträge im Verlauf ausblenden (auch ältere Einträge ohne Art „cost“) */
+const INV_LOG_NO_COSTS = " AND kind <> 'cost' AND body NOT LIKE 'Kosten: %' AND body NOT LIKE 'Preis: %'";
+
 function inv_log(int $cid, int $deviceId, string $body, string $kind = 'event'): void
 {
+    if ($kind === 'event' && (str_starts_with($body, 'Preis: ') || str_starts_with($body, 'Kosten: '))) $kind = 'cost';
     insert('inv_log', ['company_id' => $cid, 'device_id' => $deviceId, 'user_id' => current_user()['id'] ?? null, 'kind' => $kind, 'body' => $body, 'created_at' => now()]);
 }
 
@@ -300,7 +304,8 @@ function page_inv_device(): void
     $types = rows('SELECT * FROM inv_types WHERE company_id = ? AND (active = 1 OR id = ?) ORDER BY sort, name', [$cid, (int)($d['type_id'] ?? 0)]);
     $locations = rows('SELECT * FROM inv_locations WHERE company_id = ? AND (active = 1 OR id = ?) ORDER BY sort, name', [$cid, (int)($d['location_id'] ?? 0)]);
     $employees = $perm >= INV_PERM_EDIT ? inv_employees($cid, $d ? (int)$d['employee_id'] : null) : [];
-    $log = $d ? rows('SELECT l.*, u.name AS user_name FROM inv_log l LEFT JOIN users u ON u.id = l.user_id WHERE l.device_id = ? ORDER BY l.id DESC LIMIT 200', [$d['id']]) : [];
+    $log = $d ? rows('SELECT l.*, u.name AS user_name FROM inv_log l LEFT JOIN users u ON u.id = l.user_id WHERE l.device_id = ?'
+        . (inv_can_see_costs($cid) ? '' : INV_LOG_NO_COSTS) . ' ORDER BY l.id DESC LIMIT 200', [$d['id']]) : [];
     $files = $d ? rows('SELECT * FROM inv_files WHERE device_id = ? ORDER BY id', [$d['id']]) : [];
     $licenses = $d ? rows('SELECT DISTINCT l.id, l.product, l.kind, l.status, l.end_date, l.notice_value, l.notice_unit, l.auto_renew, l.renew_months
         FROM inv_licenses l LEFT JOIN inv_license_assign a ON a.license_id = l.id
@@ -342,7 +347,7 @@ function page_inv_device(): void
             <h3><?= e(t('Kauf')) ?></h3>
             <div class="grid2">
                 <label><?= e(t('Kaufdatum')) ?> <input type="date" name="purchase_date" value="<?= e($v('purchase_date')) ?>"></label>
-                <label><?= e(t('Preis (€)')) ?> <input name="price" inputmode="decimal" maxlength="20" value="<?= e(isset($d['price_cents']) && $d['price_cents'] !== null ? number_format((int)$d['price_cents'] / 100, 2, ',', '.') : '') ?>"></label>
+                <?php if (inv_can_see_costs($cid)): ?><label><?= e(t('Preis (€)')) ?> <input name="price" inputmode="decimal" maxlength="20" value="<?= e(isset($d['price_cents']) && $d['price_cents'] !== null ? number_format((int)$d['price_cents'] / 100, 2, ',', '.') : '') ?>"></label><?php endif; ?>
                 <label><?= e(t('Lieferant')) ?> <input name="supplier" maxlength="190" value="<?= e($v('supplier')) ?>"></label>
                 <label><?= e(t('Garantie bis')) ?> <input type="date" name="warranty_until" value="<?= e($v('warranty_until')) ?>"></label>
             </div>
@@ -370,7 +375,7 @@ function page_inv_device(): void
             <dl class="facts">
                 <?php foreach ([t('Inventarnummer') => $v('inv_no'), t('Typ') => $d['type_name'] !== null ? t($d['type_name']) : '', t('Hersteller') => $v('manufacturer'), t('Modell') => $v('model'),
                     t('Seriennummer') => $v('serial'), t('Status') => t(INV_STATUSES[$d['status']] ?? $d['status']), t('Standort') => trim(($d['location_name'] ?? '') . ($d['room'] !== '' ? ' · ' . $d['room'] : '')),
-                    t('Zugeordnet an') => (string)$d['employee_name'], t('Kaufdatum') => $d['purchase_date'] !== '' ? fmt_date($d['purchase_date']) : '', t('Preis') => inv_fmt_price($d['price_cents'] !== null ? (int)$d['price_cents'] : null),
+                    t('Zugeordnet an') => (string)$d['employee_name'], t('Kaufdatum') => $d['purchase_date'] !== '' ? fmt_date($d['purchase_date']) : '', t('Preis') => inv_can_see_costs($cid) ? inv_fmt_price($d['price_cents'] !== null ? (int)$d['price_cents'] : null) : '',
                     t('Lieferant') => $v('supplier'), t('Garantie bis') => $d['warranty_until'] !== '' ? fmt_date($d['warranty_until']) : '', t('Betriebssystem') => $v('os'),
                     t('IP-Adresse') => $v('ip'), t('MAC-Adresse') => $v('mac'), t('Telefonnummer') => $v('phone_no'), t('SIM-/eSIM-Nummer') => $v('sim_no'), t('Mobilfunkvertrag') => $v('mobile_contract')] as $k => $val):
                     if ($val === '') continue; ?>
@@ -476,7 +481,7 @@ function page_inv_action(): void
         $f = fn(string $k, int $max) => mb_substr(trim((string)post($k)), 0, $max);
         $data = ['type_id' => $type['id'] ?? null, 'manufacturer' => $f('manufacturer', 120), 'model' => $f('model', 190), 'serial' => $f('serial', 120),
             'status' => $status, 'location_id' => $loc['id'] ?? null, 'room' => $f('room', 120), 'employee_id' => $emp['id'] ?? null,
-            'purchase_date' => inv_date((string)post('purchase_date')), 'price_cents' => inv_parse_price((string)post('price')), 'supplier' => $f('supplier', 190),
+            'purchase_date' => inv_date((string)post('purchase_date')), 'price_cents' => inv_can_see_costs($cid) ? inv_parse_price((string)post('price')) : ($d['price_cents'] ?? null), 'supplier' => $f('supplier', 190),
             'warranty_until' => inv_date((string)post('warranty_until')), 'os' => $f('os', 120), 'ip' => $f('ip', 64), 'mac' => strtoupper($f('mac', 64)),
             'phone_no' => $f('phone_no', 60), 'sim_no' => $f('sim_no', 60), 'mobile_contract' => $f('mobile_contract', 190), 'notes' => $f('notes', 5000), 'updated_at' => now()];
         $invNo = $f('inv_no', 60);
