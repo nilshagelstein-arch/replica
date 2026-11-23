@@ -342,6 +342,10 @@ function placeholder_catalog(int $companyId): array
         'Eigene Firma' => $firma,
         'Allgemein' => ['logo' => t('Logo'), 'datum' => t('Datum (20.11.2026)'), 'datum.lang' => t('Datum ausgeschrieben'),
             'benutzer.name' => t('Name des Erstellers'), 'benutzer.email' => t('E-Mail des Erstellers')],
+        // Nur im Kündigungsschreiben der App „Verträge & Laufzeiten“ gefüllt
+        'Vertrag (Kündigung)' => ['vertrag.bezeichnung' => t('Vertragsbezeichnung'), 'vertrag.partner' => t('Vertragspartner'),
+            'vertrag.nummer' => t('Vertragsnummer'), 'vertrag.kundennummer' => t('Kundennummer'), 'vertrag.referenz' => t('Vertrags- und Kundennummer (eine Zeile)'),
+            'vertrag.termin' => t('Kündigungstermin'), 'vertrag.beginn' => t('Vertragsbeginn')],
     ];
 }
 

@@ -662,6 +662,7 @@ function cbackup_data(int $cid): array
         'ct_prices'      => rows('SELECT * FROM ct_prices WHERE company_id = ?', [$cid]),
         'ct_links'       => rows('SELECT * FROM ct_links WHERE company_id = ?', [$cid]),
         'ct_notices'     => rows('SELECT * FROM ct_notices WHERE company_id = ?', [$cid]),
+        'ct_cancellations' => rows('SELECT * FROM ct_cancellations WHERE company_id = ?', [$cid]),
     ];
 }
 

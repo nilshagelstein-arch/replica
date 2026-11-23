@@ -48,7 +48,7 @@ function ct_events(int $cid, string $from, string $to, array $opts = []): array
     $partner = (string)($opts['partner'] ?? '');
     $list = [];
     if ($type !== 'inv') {
-        $w = "c.company_id = ? AND c.status IN ('aktiv', 'kuendigung_freigabe', 'verlaengert', 'gekuendigt')";
+        $w = 'c.company_id = ? AND c.status IN ' . CT_OPEN_SQL;
         $p = [$cid];
         if ($type) { $w .= ' AND c.type_id = ?'; $p[] = (int)$type; }
         if ($partner !== '') { $w .= ' AND c.partner = ?'; $p[] = $partner; }
@@ -116,10 +116,20 @@ function ct_due_items(int $cid, bool $costs): array
 function ct_due_box(int $cid, bool $costs): void
 {
     $items = ct_due_items($cid, $costs);
-    if (!$items) return; ?>
+    $pending = [];
+    if (function_exists('ct_can_approve') && ct_rights($cid)['approve']) {
+        foreach (rows("SELECT k.*, c.title FROM ct_cancellations k JOIN contracts c ON c.id = k.contract_id WHERE k.company_id = ? AND k.status = 'freigabe' ORDER BY k.prepared_at", [$cid]) as $k) {
+            if (ct_can_approve($cid, $k)) $pending[] = $k;
+        }
+    }
+    if (!$items && !$pending) return; ?>
     <div class="card due-box">
-        <h2><?= e(t('Demnächst fällig')) ?> <span class="count"><?= count($items) ?></span></h2>
+        <h2><?= e(t('Demnächst fällig')) ?> <span class="count"><?= count($items) + count($pending) ?></span></h2>
         <ul class="inv-log">
+        <?php foreach ($pending as $k): ?>
+            <li><span class="tag danger"><?= e(t('Kündigung wartet auf Freigabe')) ?></span>
+                <a href="<?= e(cturl('contract', ['id' => $k['contract_id']])) ?>"><?= e($k['title']) ?></a> <span class="muted small">· <?= e(t('zum {d}', ['d' => fmt_date($k['effective_date'])])) ?></span></li>
+        <?php endforeach; ?>
         <?php foreach (array_slice($items, 0, 15) as $ev): ?>
             <li><span class="tag <?= $ev['kind'] === 'cancel' ? 'danger' : 'warn' ?>"><?= e(t(CT_EVENT_LABELS[$ev['kind']])) ?></span>
                 <a href="<?= e(ct_event_url($cid, $ev)) ?>"><?= e($ev['title']) ?></a> <span class="muted small">· <?= fmt_date($ev['date']) ?><?= $ev['hint'] !== '' ? ' · ' . e($ev['hint']) : '' ?></span></li>
@@ -460,7 +470,7 @@ function ct_reminders_run(): array
             $lead = date('Y-m-d', strtotime('+' . ((int)$co['ct_lead_days'] ?: CT_LEAD_DEFAULT) . ' days'));
             $priceLead = date('Y-m-d', strtotime('+' . CT_PRICE_LEAD_DAYS . ' days'));
             $byMail = [];
-            $contracts = rows("SELECT * FROM contracts WHERE company_id = ? AND status IN ('aktiv', 'kuendigung_freigabe', 'verlaengert', 'gekuendigt')", [$cid]);
+            $contracts = rows('SELECT * FROM contracts WHERE company_id = ? AND status IN ' . CT_OPEN_SQL, [$cid]);
             $prices = ct_prices_for($cid);
             foreach ($contracts as $c) {
                 $dl = ct_deadlines($c, $today);
@@ -516,6 +526,8 @@ function ct_reminders_run(): array
                 }, $cid);
             }
             if ($byMail) $lines[] = $co['name'] . ': Vertragsfristen an ' . count($byMail) . ' Empfänger';
+            // Kündigungen: Freigabe und Bestätigung nachhalten
+            if (function_exists('ct_cancel_reminders') && ($nk = ct_cancel_reminders($cid, $co))) $lines[] = $co['name'] . ': ' . $nk . ' Kündigungs-Erinnerungen';
             // Fristenübersicht automatisch per Mail
             $interval = (string)$co['ct_pdf_interval'];
             $to = ct_parse_recipients((string)$co['ct_pdf_recipients']);

@@ -220,7 +220,10 @@ function render_word_editor(int $cid, array $regions, array $page, string $mode,
             <!-- Felder -->
             <div class="rb-panel" data-panel="fields">
                 <div class="rb-group"><div class="rb-items">
-                    <?php foreach (['Kunde' => ['person', t('Kunde')], 'Eigene Firma' => ['building', t('Eigene Firma')], 'Allgemein' => ['ph', t('Allgemein')]] as $group => [$icon, $label]): $pid = 'pop-ph-' . md5($group); ?>
+                    <?php $phGroups = ['Kunde' => ['person', t('Kunde')], 'Eigene Firma' => ['building', t('Eigene Firma')], 'Allgemein' => ['ph', t('Allgemein')]];
+                    // Platzhalter des Kündigungsschreibens nur, wenn die Firma „Verträge & Laufzeiten“ nutzt
+                    if (!empty($GLOBALS['forms_cid']) && company_has_app((int)$GLOBALS['forms_cid'], 'vertraege')) $phGroups['Vertrag (Kündigung)'] = ['ph', t('Vertrag')];
+                    foreach ($phGroups as $group => [$icon, $label]): $pid = 'pop-ph-' . md5($group); ?>
                         <span class="rb-split"><button type="button" class="rb rb-big" data-pop="<?= $pid ?>"><?= ic($icon) ?><span><?= e($label) ?> ▾</span></button>
                             <div class="pop menu ph-menu" id="<?= $pid ?>">
                                 <?php foreach ($catalog[$group] as $k => $l): ?><button type="button" data-ph="<?= e($k) ?>"><?= e($l) ?> <code>{{<?= e($k) ?>}}</code></button><?php endforeach; ?>
@@ -480,7 +483,7 @@ function sample_customer(int $cid): array
 }
 
 /** A4-Blätter eines Formulars, je Kunde ein Blatt */
-function render_sheets(int $cid, array $form, array $customers, bool $interactive): void
+function render_sheets(int $cid, array $form, array $customers, bool $interactive, array $extra = []): void
 {
     $u = current_user();
     $header = layout_for($cid, 'header', (int)$form['header_id']);
@@ -492,7 +495,7 @@ function render_sheets(int $cid, array $form, array $customers, bool $interactiv
         'benutzer.name' => (string)$u['name'], 'benutzer.email' => (string)$u['email'],
     ];
     foreach ($customers as $i => $c) {
-        $values = $base + customer_values($c, $cid); ?>
+        $values = $extra + $base + customer_values($c, $cid); ?>
         <section class="sheet" style="<?= e(page_style($page)) ?>" data-sheet="<?= $i ?>">
             <?php if ($header !== ''): ?><header class="doc-header doc-content"><?= fill_placeholders($header, $values, $logo, $interactive) ?></header><?php endif; ?>
             <div class="doc-body doc-content"><?= fill_placeholders((string)$form['body'], $values, $logo, $interactive) ?></div>

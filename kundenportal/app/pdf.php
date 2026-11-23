@@ -22,6 +22,8 @@ final class SimplePdf
         "\xC4" => 667, "\xD6" => 778, "\xDC" => 722, "\xDF" => 611, "\x84" => 333, "\x93" => 333, "\x94" => 333, "\x96" => 556, "\x85" => 1000, "\xB7" => 278];
 
     private array $pages = [];
+    /** Eingebettete JPEG-Bilder: [Daten, Breite px, Höhe px] */
+    private array $images = [];
     private string $cur = '';
     public float $y = 0;
     public readonly float $w;
@@ -107,6 +109,53 @@ final class SimplePdf
         $this->cur .= sprintf("%.3F %.3F %.3F rg %.2F %.2F %.2F %.2F re f\n", $rgb[0] / 255, $rgb[1] / 255, $rgb[2] / 255, $x, $y, $w, $h);
     }
 
+    /** JPEG-Bild an Position (x, y = Unterkante) mit Breite/Höhe in Punkt */
+    public function imageJpeg(string $jpeg, float $x, float $y, float $w, float $h): bool
+    {
+        $info = @getimagesizefromstring($jpeg);
+        if (!$info || ($info[2] ?? 0) !== IMAGETYPE_JPEG) return false;
+        $this->images[] = [$jpeg, (int)$info[0], (int)$info[1], ($info['channels'] ?? 3) === 4 ? 'DeviceCMYK' : (($info['channels'] ?? 3) === 1 ? 'DeviceGray' : 'DeviceRGB')];
+        $this->cur .= sprintf("q %.2F 0 0 %.2F %.2F %.2F cm /Im%d Do Q\n", $w, $h, $x, $y, count($this->images));
+        return true;
+    }
+
+    /**
+     * Logo (PNG, JPEG, GIF, WebP) über GD in JPEG mit weißem Hintergrund umwandeln.
+     * Gibt [JPEG, Breite, Höhe] zurück oder null, wenn GD fehlt oder das Bild nicht lesbar ist.
+     */
+    public static function toJpeg(string $data): ?array
+    {
+        if (!function_exists('imagecreatefromstring')) return null;
+        $im = @imagecreatefromstring($data);
+        if (!$im) return null;
+        $w = imagesx($im); $h = imagesy($im);
+        $bg = imagecreatetruecolor($w, $h);
+        imagefill($bg, 0, 0, imagecolorallocate($bg, 255, 255, 255));
+        imagecopy($bg, $im, 0, 0, 0, 0, $w, $h);
+        ob_start();
+        imagejpeg($bg, null, 90);
+        $jpg = (string)ob_get_clean();
+        imagedestroy($im); imagedestroy($bg);
+        return $jpg !== '' ? [$jpg, $w, $h] : null;
+    }
+
+    /** Fließtext mit Umbruch ab der aktuellen Höhe; neue Seite bei Bedarf */
+    public function paragraph(string $utf8, float $size = 10.5, bool $bold = false, float $after = 6, float $indent = 0, string $prefix = ''): void
+    {
+        $lh = $size * 1.4;
+        $maxW = $this->w - 2 * $this->margin - $indent;
+        foreach (explode("\n", $utf8) as $k => $part) {
+            $lines = self::wrap($part, $maxW, $size, $bold);
+            foreach ($lines as $i => $ln) {
+                $this->ensure($lh);
+                if ($i === 0 && $k === 0 && $prefix !== '') $this->text($this->margin + $indent - 10, $this->y - $size, $prefix, $size, $bold);
+                $this->text($this->margin + $indent, $this->y - $size, $ln, $size, $bold);
+                $this->y -= $lh;
+            }
+        }
+        $this->y -= $after;
+    }
+
     /** Platz für $need Punkte prüfen, sonst neue Seite */
     public function ensure(float $need): void
     {
@@ -189,10 +238,18 @@ final class SimplePdf
         $objs[4] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
         $kids = [];
         $next = 5;
+        $xobj = '';
+        foreach ($this->images as $i => [$jpg, $iw, $ih, $cs]) {
+            $objs[$next] = '<< /Type /XObject /Subtype /Image /Width ' . $iw . ' /Height ' . $ih . ' /ColorSpace /' . $cs
+                . ($cs === 'DeviceCMYK' ? ' /Decode [1 0 1 0 1 0 1 0]' : '') . ' /BitsPerComponent 8 /Filter /DCTDecode /Length ' . strlen($jpg) . " >>\nstream\n" . $jpg . "\nendstream";
+            $xobj .= '/Im' . ($i + 1) . ' ' . $next . ' 0 R ';
+            $next++;
+        }
+        $res = '/Font << /F1 3 0 R /F2 4 0 R >>' . ($xobj !== '' ? ' /XObject << ' . $xobj . '>>' : '');
         foreach ($pages as $content) {
             $data = gzcompress($content, 6);
             $objs[$next] = '<< /Length ' . strlen($data) . " /Filter /FlateDecode >>\nstream\n" . $data . "\nendstream";
-            $objs[$next + 1] = sprintf('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %.2F %.2F] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents %d 0 R >>', $this->w, $this->h, $next);
+            $objs[$next + 1] = sprintf('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 %.2F %.2F] /Resources << %s >> /Contents %d 0 R >>', $this->w, $this->h, $res, $next);
             $kids[] = ($next + 1) . ' 0 R';
             $next += 2;
         }
