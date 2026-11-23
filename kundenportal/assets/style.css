@@ -727,3 +727,11 @@ code.secret { font-size: 1rem; word-break: break-all; user-select: all; }
 .inv-grid { align-items: start; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); }
 .inv-grid .form .grid2 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 @media (max-width: 900px) { .inv-grid { grid-template-columns: 1fr; } }
+.badge.lic-aktiv { background: #e2f4e6; color: #1a6b31; }
+.badge.lic-bald { background: #fff1d6; color: #7a4b00; }
+.badge.lic-abgelaufen { background: #fde2e1; color: #a1201b; }
+.badge.lic-gekuendigt { background: #e3eefa; color: #1f4f86; }
+.badge.lic-beendet { background: #eceff3; color: #59636f; }
+.inline-pair { display: flex; gap: .4rem; }
+.inline-pair input { width: 6rem; flex: 0 0 6rem; }
+.inline-form.inline-mini { display: inline-flex; margin: 0 0 0 .4rem; }

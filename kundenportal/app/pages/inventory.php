@@ -202,7 +202,8 @@ function page_inventory(): void
     $soon = date('Y-m-d', strtotime('+60 days'));
 
     render_page(t('Geräte & Lizenzen'), function () use ($cid, $perm, $types, $locations, $status, $type, $loc, $search, $list, $counts, $stock, $soon) {
-        echo company_switcher($cid, 'inventory'); ?>
+        echo company_switcher($cid, 'inventory');
+        inv_tabs('inventory'); ?>
         <div class="toolbar">
             <?php if ($perm >= INV_PERM_EDIT): ?><a class="btn primary" href="<?= e(iurl('inv_device', ['id' => 'new'])) ?>"><?= e(t('+ Gerät erfassen')) ?></a><?php endif; ?>
             <?php if (inv_can_manage($cid)): ?><a class="btn" href="<?= e(iurl('inv_settings')) ?>"><?= e(t('Einstellungen')) ?></a><?php endif; ?>
@@ -278,10 +279,13 @@ function page_inv_device(): void
     $employees = $perm >= INV_PERM_EDIT ? inv_employees($cid, $d ? (int)$d['employee_id'] : null) : [];
     $log = $d ? rows('SELECT l.*, u.name AS user_name FROM inv_log l LEFT JOIN users u ON u.id = l.user_id WHERE l.device_id = ? ORDER BY l.id DESC LIMIT 200', [$d['id']]) : [];
     $files = $d ? rows('SELECT * FROM inv_files WHERE device_id = ? ORDER BY id', [$d['id']]) : [];
+    $licenses = $d ? rows('SELECT DISTINCT l.id, l.product, l.kind, l.status, l.end_date, l.notice_value, l.notice_unit, l.auto_renew, l.renew_months
+        FROM inv_licenses l LEFT JOIN inv_license_assign a ON a.license_id = l.id
+        WHERE l.company_id = ? AND (a.device_id = ? OR l.device_id = ?) ORDER BY l.product', [$cid, $d['id'], $d['id']]) : [];
     $revealed = $GLOBALS['inv_revealed'] ?? null;
     $title = $isNew ? t('Gerät erfassen') : $d['inv_no'] . ' · ' . (trim($d['manufacturer'] . ' ' . $d['model']) ?: t($d['type_name'] ?? 'Gerät'));
 
-    render_page($title, function () use ($cid, $perm, $co, $d, $isNew, $types, $locations, $employees, $log, $files, $revealed) {
+    render_page($title, function () use ($cid, $perm, $co, $d, $isNew, $types, $locations, $employees, $log, $files, $licenses, $revealed) {
         $edit = $perm >= INV_PERM_EDIT;
         $v = fn(string $k) => (string)($d[$k] ?? ''); ?>
         <p><a href="<?= e(iurl('inventory')) ?>">← <?= e(t('Geräte & Lizenzen')) ?></a></p>
@@ -369,6 +373,13 @@ function page_inv_device(): void
                 <?php endif; ?>
             </div>
             <?php endif; ?>
+            <div class="card">
+                <h3><?= e(t('Lizenzen')) ?></h3>
+                <?php if ($licenses): ?><ul class="inv-log">
+                    <?php foreach ($licenses as $lc): ?><li><a href="<?= e(iurl('inv_license', ['id' => $lc['id']])) ?>"><?= e($lc['product']) ?></a> <?= inv_lic_state_badge(inv_lic_state($lc)) ?>
+                        <span class="muted small">· <?= e(t(INV_LIC_KINDS[$lc['kind']] ?? $lc['kind'])) ?><?= $lc['end_date'] !== '' ? ' · ' . e(t('bis')) . ' ' . fmt_date($lc['end_date']) : '' ?></span></li><?php endforeach; ?></ul>
+                <?php else: ?><p class="muted"><?= e(t('Keine Lizenzen zugeordnet.')) ?></p><?php endif; ?>
+            </div>
             <div class="card">
                 <h3><?= e(t('Anhänge')) ?></h3>
                 <?php if ($files): ?><ul class="file-list">
@@ -531,6 +542,8 @@ function page_inv_action(): void
             foreach (rows('SELECT stored_name FROM inv_files WHERE device_id = ?', [$d['id']]) as $f) @unlink(inv_files_dir($cid) . '/' . basename((string)$f['stored_name']));
             q('DELETE FROM inv_files WHERE device_id = ?', [$d['id']]);
             q('DELETE FROM inv_log WHERE device_id = ?', [$d['id']]);
+            q('DELETE FROM inv_license_assign WHERE device_id = ?', [$d['id']]);
+            q('UPDATE inv_licenses SET device_id = NULL WHERE device_id = ?', [$d['id']]);
             q('DELETE FROM inv_devices WHERE id = ?', [$d['id']]);
             audit('inventory.delete', $d['inv_no'], $cid);
             flash('success', t('Das Gerät {x} wurde gelöscht.', ['x' => $d['inv_no']]));
