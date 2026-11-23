@@ -46,6 +46,9 @@ if ($user && company_pending($user)) {
         $inTickets = in_array($route, ['tickets', 'ticket', 'ticket_new', 'ticket_settings', 'ticket_inbox'], true);
         $nav[] = ['tickets', t($myApps['tickets']['name']), $inTickets];
     }
+    if (isset($myApps['inventar'])) {
+        $nav[] = ['inventory', t($myApps['inventar']['name']), str_starts_with($route, 'inv_') || $route === 'inventory'];
+    }
     if (isset($myApps['links'])) {
         $nav[] = ['links', t($myApps['links']['name']), in_array($route, ['links', 'link_edit'], true)];
     }

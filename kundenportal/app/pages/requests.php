@@ -559,6 +559,8 @@ function page_request_detail(): void
             </div>
         </div>
 
+        <?php if (function_exists('inv_request_card')) inv_request_card($r); ?>
+
         <?php if (request_change_open($r)): ?>
         <div class="card">
             <h2><?= e(t('Änderungsantrag')) ?></h2>

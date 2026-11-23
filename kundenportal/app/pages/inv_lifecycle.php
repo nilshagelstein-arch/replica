@@ -212,19 +212,20 @@ function page_inv_handover(): void
 {
     $cid = inv_company_id();
     $perm = inv_perm($cid);
-    if ($perm === INV_PERM_NONE) abort(403);
     $h = row('SELECT * FROM inv_handovers WHERE id = ? AND company_id = ?', [query_int('id'), $cid]);
     if (!$h) abort(404);
+    if (!inv_handover_visible($cid, $h)) abort(403);
+    $own = ($me = inv_my_employee($cid)) && (int)$h['employee_id'] === (int)$me['id'];
     $items = rows('SELECT * FROM inv_handover_items WHERE handover_id = ? ORDER BY inv_no', [$h['id']]);
     $files = rows('SELECT * FROM inv_files WHERE handover_id = ? ORDER BY id', [$h['id']]);
     $co = row('SELECT name, street, zip, city FROM companies WHERE id = ?', [$cid]) ?? ['name' => ''];
     $signer = $h['signed_by'] ? row('SELECT name FROM users WHERE id = ?', [$h['signed_by']]) : null;
     $title = t(INV_HO_KINDS[$h['kind']]) . ' · ' . $h['employee_name'] . ' · ' . fmt_date($h['handover_date']);
 
-    render_page($title, function () use ($cid, $perm, $h, $items, $files, $co, $signer) {
+    render_page($title, function () use ($cid, $perm, $h, $items, $files, $co, $signer, $own) {
         $edit = $perm >= INV_PERM_EDIT;
         $logo = function_exists('logo_tag') ? logo_tag($cid, 'ho-logo') : ''; ?>
-        <p class="no-print"><a href="<?= e(iurl('inv_handovers')) ?>">← <?= e(t('Übergaben')) ?></a></p>
+        <p class="no-print"><a href="<?= e(iurl($perm > INV_PERM_NONE ? 'inv_handovers' : 'inv_my')) ?>">← <?= e($perm > INV_PERM_NONE ? t('Übergaben') : t('Meine Geräte')) ?></a></p>
         <div class="toolbar no-print">
             <button type="button" class="btn" data-print><?= e(t('Drucken / als PDF speichern')) ?></button>
         </div>
@@ -239,7 +240,7 @@ function page_inv_handover(): void
                 <thead><tr><th><?= e(t('Inventarnummer')) ?></th><th><?= e(t('Gerät')) ?></th><th><?= e(t('Seriennummer')) ?></th><?php if ($h['kind'] === 'rueckgabe'): ?><th><?= e(t('Zustand')) ?></th><?php endif; ?></tr></thead>
                 <tbody>
                 <?php foreach ($items as $i): ?>
-                    <tr><td><?php if ($i['device_id']): ?><a href="<?= e(iurl('inv_device', ['id' => $i['device_id']])) ?>"><?= e($i['inv_no']) ?></a><?php else: ?><?= e($i['inv_no']) ?><?php endif; ?></td>
+                    <tr><td><?php if ($i['device_id'] && $perm > INV_PERM_NONE): ?><a href="<?= e(iurl('inv_device', ['id' => $i['device_id']])) ?>"><?= e($i['inv_no']) ?></a><?php else: ?><?= e($i['inv_no']) ?><?php endif; ?></td>
                         <td><?= e($i['description']) ?></td><td><?= e($i['serial']) ?></td>
                         <?php if ($h['kind'] === 'rueckgabe'): ?><td><?= e(t(INV_ITEM_CONDITIONS[$i['item_condition']] ?? $i['item_condition'])) ?></td><?php endif; ?></tr>
                 <?php endforeach; ?>
@@ -258,7 +259,7 @@ function page_inv_handover(): void
             </div>
         </article>
 
-        <?php if ($h['status'] === 'offen' && $edit): ?>
+        <?php if ($h['status'] === 'offen' && ($edit || $own)): ?>
         <div class="grid2 no-print">
             <form method="post" action="<?= e(iurl('inv_ho_action', ['id' => $h['id']])) ?>" class="form card">
                 <?= csrf_field() ?><input type="hidden" name="action" value="sign"><input type="hidden" name="signature" value="">
@@ -268,6 +269,7 @@ function page_inv_handover(): void
                 <label><?= e(t('Name der unterschreibenden Person')) ?> <input name="sign_name" maxlength="190" required value="<?= e($h['employee_name']) ?>"></label>
                 <button class="btn primary"><?= e(t('Unterschrift speichern')) ?></button>
             </form>
+            <?php if ($edit): ?>
             <form method="post" action="<?= e(iurl('inv_ho_action', ['id' => $h['id']])) ?>" enctype="multipart/form-data" class="form card">
                 <?= csrf_field() ?><input type="hidden" name="action" value="scan">
                 <h3><?= e(t('Auf Papier unterschrieben')) ?></h3>
@@ -275,9 +277,10 @@ function page_inv_handover(): void
                 <label><?= e(t('Scan (PDF oder Bild)')) ?> <input type="file" name="files[]" required></label>
                 <button class="btn"><?= e(t('Hochladen und als unterschrieben markieren')) ?></button>
             </form>
+            <?php endif; ?>
         </div>
         <?php endif; ?>
-        <?php if ($files): ?>
+        <?php if ($files && $edit): ?>
         <div class="card no-print"><h3><?= e(t('Unterschriebener Scan')) ?></h3><ul class="file-list">
             <?php foreach ($files as $f): ?><li><a href="<?= e(iurl('inv_file', ['id' => $f['id']])) ?>"><?= e($f['filename']) ?></a> <span class="muted small"><?= fmt_dt($f['created_at']) ?></span></li><?php endforeach; ?>
         </ul></div>
@@ -295,9 +298,12 @@ function page_inv_ho_action(): void
     $cid = inv_company_id();
     if (!is_post()) abort(405);
     require_post_csrf();
-    if (inv_perm($cid) < INV_PERM_EDIT) abort(403);
     $h = row('SELECT * FROM inv_handovers WHERE id = ? AND company_id = ?', [query_int('id'), $cid]);
     if (!$h) abort(404);
+    // Mitarbeiter unterschreiben ihr eigenes Protokoll selbst; alles andere braucht „bearbeiten“
+    $me = inv_my_employee($cid);
+    $own = $me && (int)$h['employee_id'] === (int)$me['id'];
+    if (inv_perm($cid) < INV_PERM_EDIT && !($own && post('action') === 'sign')) abort(403);
     $back = fn() => iredirect('inv_handover', ['id' => $h['id']]);
     $logItems = function (string $msg) use ($h, $cid) {
         foreach (rows('SELECT device_id FROM inv_handover_items WHERE handover_id = ? AND device_id IS NOT NULL', [$h['id']]) as $i) inv_log($cid, (int)$i['device_id'], $msg);

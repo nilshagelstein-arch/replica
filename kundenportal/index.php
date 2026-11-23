@@ -48,6 +48,7 @@ require APP_DIR . '/pages/ticket_stats.php';
 require APP_DIR . '/pages/inventory.php';
 require APP_DIR . '/pages/inv_licenses.php';
 require APP_DIR . '/pages/inv_lifecycle.php';
+require APP_DIR . '/pages/inv_links.php';
 require APP_DIR . '/ticket_mail.php';
 
 $routes = [
@@ -134,6 +135,8 @@ $routes = [
     'inv_ho_action'   => 'page_inv_ho_action',
     'inv_life'        => 'page_inv_life',
     'inv_labels'      => 'page_inv_labels',
+    'inv_my'          => 'page_inv_my',
+    'inv_req_action'  => 'page_inv_req_action',
 ];
 
 /**
@@ -169,6 +172,7 @@ const ROUTE_AREAS = [
     'inv_licenses' => ['inventory', PERM_VIEW], 'inv_license' => ['inventory', PERM_VIEW], 'inv_lic_action' => ['inventory', PERM_EDIT],
     'inv_handovers' => ['inventory', PERM_VIEW], 'inv_handover' => ['inventory', PERM_VIEW], 'inv_handover_new' => ['inventory', PERM_EDIT],
     'inv_ho_action' => ['inventory', PERM_EDIT], 'inv_life' => ['inventory', PERM_EDIT], 'inv_labels' => ['inventory', PERM_VIEW],
+    'inv_my' => ['inventory', PERM_VIEW], 'inv_req_action' => ['inventory', PERM_EDIT],
 ];
 
 /**

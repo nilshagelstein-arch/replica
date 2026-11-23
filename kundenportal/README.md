@@ -74,7 +74,10 @@ Eingebaute Apps sind **On- & Offboarding**, **Formulare**, **Datensicherung** un
 - **Lizenzen** (Reiter „Lizenzen“): Abo, Kauflizenz oder Wartung/Support mit Plätzen (0 = unbegrenzt), Vergabe an Mitarbeiter oder Geräte (Warnung bei Überbelegung), Laufzeit mit Kündigungsfrist („Kündigen bis“ wird berechnet), automatischer Verlängerung (rückt nach Ablauf selbst weiter), Kosten je Monat/Jahr/einmalig, Kündigen und Beenden, Verlauf und Anhänge. Lizenzschlüssel verschlüsselt mit „Anzeigen“ wie BitLocker. „Läuft bald ab“: Ende oder letzter Kündigungstag in den nächsten 60 Tagen.
 - **Lebenszyklus:** Ausgabe aus dem Lager und Rücknahme (mit Zustand je Gerät und Ziel-Lager) erzeugen ein **Übergabe- bzw. Rückgabeprotokoll** (Reiter „Übergaben“) mit Logo, Geräteliste, Zubehör und Hinweistext (je Firma einstellbar). Unterschrift am Bildschirm (Maus, Finger, Stift; gespeichert als PNG) oder Ausdruck und Upload des unterschriebenen Scans. Reparatur mit Grund, Dienstleister und geplanter Rückgabe; Ausmustern (gibt Zuordnung und Lizenzplätze frei); Entsorgen mit Nachweis (Datum, Entsorger, bestätigte Datenlöschung mit Verfahren, Nachweis als Anhang).
 - **QR-Code-Etiketten** (einzeln oder für die gefilterte Liste) für A4-Bögen 70 × 37 mm; der Code öffnet die Geräteseite.
-- „Meine Geräte“, Erinnerungen und Import folgen in den nächsten Stufen.
+- **Meine Geräte:** Jeder Benutzer sieht die Geräte und Lizenzen des Mitarbeiters mit seiner E-Mail-Adresse (Mitarbeiterliste), unterschreibt eigene Übergabeprotokolle selbst und meldet einen Defekt direkt als Ticket. Ohne Recht im Inventar landet man in der App automatisch hier.
+- **Tickets:** Beim Anlegen kann das betroffene Gerät gewählt werden (eigene Geräte; Bearbeiter alle aktiven); das Ticket zeigt das Gerät, die Geräteseite die Tickets (für Bearbeiter und Firmen-Admins).
+- **On- und Offboarding:** Im Auftrag zeigt eine Karte die Geräte und Lizenzen des Mitarbeiters – beim Onboarding mit Ausgabe aus dem Lager und Vergabe von Lizenzplätzen, beim Offboarding als Rückgabeliste mit Rücknahme und „Alle Lizenzplätze freigeben“.
+- Erinnerungen, Kostenübersicht und Import folgen in der nächsten Stufe.
 
 ### API der Kundendatenbank
 

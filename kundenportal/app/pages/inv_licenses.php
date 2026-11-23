@@ -19,7 +19,8 @@ const INV_LIC_SOON_DAYS = 60;
 
 function inv_tabs(string $active): void
 {
-    $tabs = ['inventory' => t('Geräte'), 'inv_licenses' => t('Lizenzen'), 'inv_handovers' => t('Übergaben')]; ?>
+    $tabs = ['inventory' => t('Geräte'), 'inv_licenses' => t('Lizenzen'), 'inv_handovers' => t('Übergaben')];
+    if (!empty($GLOBALS['inv_cid']) && inv_my_employee((int)$GLOBALS['inv_cid'])) $tabs['inv_my'] = t('Meine Geräte'); ?>
     <nav class="type-tabs">
         <?php foreach ($tabs as $route => $label): ?><a class="<?= $route === $active ? 'active' : '' ?>" href="<?= e(iurl($route)) ?>"><?= e($label) ?></a><?php endforeach; ?>
     </nav>

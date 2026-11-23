@@ -775,8 +775,16 @@ function page_ticket_new(): void
     if ($onBehalf) foreach (departments_of($cid) as $d) $groups[(int)$d['id']] = $d['name'];
     elseif (!$staff) $groups = user_groups((int)$u['id']);
     $data = ['queue_id' => (int)($queues[0]['id']), 'subject' => '', 'body' => '', 'priority' => 'einschraenkung', 'category' => '', 'employee_id' => 0,
-        'created_by' => $staff ? 0 : (int)$u['id'], 'group_id' => 0];
+        'created_by' => $staff ? 0 : (int)$u['id'], 'group_id' => 0, 'device_id' => 0];
     if (count($queues) > 1) $data['queue_id'] = query_int('queue');
+    // Betroffenes Gerät aus der App „Geräte & Lizenzen“: eigene Geräte, für Bearbeiter alle aktiven
+    $devices = function_exists('inv_ticket_devices') ? inv_ticket_devices($cid, $onBehalf) : [];
+    $deviceIds = array_map('intval', array_column($devices, 'id'));
+    if (!is_post() && query_int('device') && in_array(query_int('device'), $deviceIds, true)) {
+        $data['device_id'] = query_int('device');
+        $dv = $devices[array_search($data['device_id'], $deviceIds, true)];
+        $data['subject'] = t('Defekt: {x}', ['x' => trim($dv['inv_no'] . ' ' . $dv['manufacturer'] . ' ' . $dv['model'])]);
+    }
     $errors = [];
 
     if (is_post()) {
@@ -790,6 +798,8 @@ function page_ticket_new(): void
         if ($onBehalf) $data['created_by'] = (int)post('created_by', 0);
         $data['group_id'] = (int)post('group_id', 0);
         if ($data['group_id'] && !isset($groups[$data['group_id']])) $data['group_id'] = 0;
+        $data['device_id'] = (int)post('device_id', 0);
+        if (!in_array($data['device_id'], $deviceIds, true)) $data['device_id'] = 0;
         if (!in_array($data['queue_id'], array_map('intval', array_column($queues, 'id')), true)) $errors[] = t('Bitte eine Queue wählen.');
         if ($data['subject'] === '') $errors[] = t('Bitte einen Betreff angeben.');
         if ($data['body'] === '') $errors[] = t('Bitte beschreiben Sie das Anliegen.');
@@ -810,6 +820,7 @@ function page_ticket_new(): void
                     $id = insert('tickets', ['company_id' => $cid, 'seq_year' => $year, 'seq_no' => $seq, 'number' => $number, 'queue_id' => $data['queue_id'],
                         'subject' => $data['subject'], 'priority' => $data['priority'], 'category' => $data['category'], 'status' => 'offen',
                         'created_by' => $data['created_by'], 'entered_by' => (int)$u['id'], 'employee_id' => $data['employee_id'] ?: null,
+                        'device_id' => $data['device_id'] ?: null,
                         'visibility' => $data['group_id'] ? 'group' : 'me', 'group_id' => $data['group_id'] ?: null,
                         'waiting_since' => now(), 'reminder_level' => 0, 'due_at' => '', 'due_notified' => 0,
                         'assigned_to' => null, 'follow_up_at' => '', 'resolved_at' => '', 'closed_at' => '', 'viewing_by' => null, 'viewing_at' => '',
@@ -824,6 +835,7 @@ function page_ticket_new(): void
                 ticket_log($id, $cid, (int)$u['id'], 'event', 'Im Namen des Mitarbeiters angelegt');
             }
             $tk = load_ticket($id);
+            if ($data['device_id'] && function_exists('inv_log')) inv_log($cid, $data['device_id'], 'Ticket #' . $tk['number'] . ': ' . $tk['subject']);
             audit('ticket.create', '#' . $tk['number'] . ' ' . $tk['subject'], $cid);
             $body = $data['body'];
             ticket_notify_processors($tk, fn() => t("Neues Ticket in der Queue „{queue}“\nVon: {name}\nDringlichkeit: {prio}\n\n", [
@@ -836,7 +848,7 @@ function page_ticket_new(): void
         }
     }
 
-    render_page(t('Neues Ticket'), function () use ($queues, $data, $errors, $cats, $employees, $onBehalf, $people, $groups) { ?>
+    render_page(t('Neues Ticket'), function () use ($queues, $data, $errors, $cats, $employees, $onBehalf, $people, $groups, $devices) { ?>
         <?php foreach ($errors as $err): ?><div class="alert error"><?= e($err) ?></div><?php endforeach; ?>
         <form method="post" enctype="multipart/form-data" class="form card">
             <?= csrf_field() ?>
@@ -869,6 +881,11 @@ function page_ticket_new(): void
                 </select></label>
                 <?php endif; ?>
             </div>
+            <?php if ($devices): ?>
+            <label><?= e(t('Betroffenes Gerät')) ?> <select name="device_id"><option value="0"><?= e(t('– kein Gerät –')) ?></option>
+                <?php foreach ($devices as $dv): ?><option value="<?= (int)$dv['id'] ?>" <?= (int)$data['device_id'] === (int)$dv['id'] ? 'selected' : '' ?>><?= e($dv['inv_no'] . ' · ' . trim(($dv['type_name'] ? t($dv['type_name']) . ' ' : '') . $dv['manufacturer'] . ' ' . $dv['model'])) ?></option><?php endforeach; ?>
+            </select></label>
+            <?php endif; ?>
             <?php if ($groups): ?>
             <label><?= e(t('Wer soll das Ticket sehen?')) ?> <select name="group_id">
                 <option value="0"><?= e($onBehalf ? t('Nur der Ersteller (und die Bearbeiter)') : t('Nur ich (und die Bearbeiter)')) ?></option>
@@ -919,6 +936,8 @@ function page_ticket(): void
     $processors = $proc ? ticket_queue_processors((int)$tk['queue_id'], $cid) : [];
     $queues = $proc ? rows('SELECT id, name FROM ticket_queues WHERE company_id = ? AND active = 1 ORDER BY sort, name', [$cid]) : [];
     $employee = $tk['employee_id'] ? row('SELECT first_name, last_name, employee_no FROM employees WHERE id = ?', [$tk['employee_id']]) : null;
+    $device = !empty($tk['device_id']) ? row('SELECT d.id, d.inv_no, d.manufacturer, d.model, d.serial FROM inv_devices d WHERE d.id = ? AND d.company_id = ?', [$tk['device_id'], $cid]) : null;
+    $deviceLink = $device && function_exists('inv_perm') && company_has_app($cid, 'inventar') && inv_perm($cid) > 0;
     $isCreator = (int)$tk['created_by'] === (int)$u['id'];
     $requester = $isCreator || ticket_in_group($tk);
     $lead = ticket_is_lead($tk);
@@ -927,7 +946,7 @@ function page_ticket(): void
     $providers = $proc ? rows('SELECT id, name, email, user_id FROM ticket_providers WHERE company_id = ? AND active = 1 ORDER BY name', [$cid]) : [];
     $providerName = ticket_provider_name($tk);
 
-    render_page('#' . $tk['number'] . ' ' . $tk['subject'], function () use ($tk, $u, $proc, $othersViewing, $msgs, $files, $processors, $queues, $employee, $isCreator, $requester, $lead, $mayAssign, $provSees, $provActive, $providers, $providerName) {
+    render_page('#' . $tk['number'] . ' ' . $tk['subject'], function () use ($tk, $u, $proc, $othersViewing, $msgs, $files, $processors, $queues, $employee, $isCreator, $requester, $lead, $mayAssign, $provSees, $provActive, $providers, $providerName, $device, $deviceLink) {
         $closed = in_array($tk['status'], TICKET_CLOSED, true);
         $action = e(turl('ticket_action', ['id' => $tk['id']])); ?>
         <p><a href="<?= e(turl('tickets')) ?>"><?= e(t('← Zur Übersicht')) ?></a></p>
@@ -1002,6 +1021,8 @@ function page_ticket(): void
                         <?php if ($proc && $tk['lead_name'] !== null): ?><dt><?= e(t('Teamleitung')) ?></dt><dd><?= e($tk['lead_name']) ?></dd><?php endif; ?>
                         <?php if ($providerName !== '' && ($proc || $provSees || $provActive)): ?><dt><?= e(t('Dienstleister')) ?></dt><dd><?= e($providerName) ?><?= $tk['provider_since'] !== '' ? '<br><span class="muted small">' . e(t('übergeben')) . ' ' . fmt_dt($tk['provider_since']) . '</span>' : '' ?></dd><?php endif; ?>
                         <?php if ($employee): ?><dt><?= e(t('Betroffener Mitarbeiter')) ?></dt><dd><?= e($employee['first_name'] . ' ' . $employee['last_name']) ?></dd><?php endif; ?>
+                        <?php if ($device): ?><dt><?= e(t('Betroffenes Gerät')) ?></dt><dd><?php if ($deviceLink): ?><a href="<?= e(url('inv_device', ['id' => $device['id']] + (is_admin() ? ['company' => $tk['company_id']] : []))) ?>"><?= e($device['inv_no']) ?></a><?php else: ?><?= e($device['inv_no']) ?><?php endif; ?>
+                            <?= e(trim(' · ' . $device['manufacturer'] . ' ' . $device['model'], ' ·')) ?><?= $device['serial'] !== '' ? '<br><span class="muted small">S/N ' . e($device['serial']) . '</span>' : '' ?></dd><?php endif; ?>
                         <dt><?= e(t('Erstellt')) ?></dt><dd><?= fmt_dt($tk['created_at']) ?><br><span class="muted small"><?= e(ticket_age($tk['created_at'])) ?></span></dd>
                     </dl>
                 </div>

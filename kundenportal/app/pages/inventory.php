@@ -161,6 +161,7 @@ function page_inventory(): void
     $cid = inv_company_id();
     $perm = inv_perm($cid);
     $co = inv_company($cid);
+    if ($perm === INV_PERM_NONE && !inv_staff_blocked($cid)) { page_inv_my(); return; }
     if ($perm === INV_PERM_NONE) {
         render_page(t('Geräte & Lizenzen'), function () use ($cid) {
             echo company_switcher($cid, 'inventory'); ?>
@@ -363,6 +364,7 @@ function page_inv_device(): void
         <div>
         <?php if (!$isNew): ?>
             <?php inv_lifecycle_card($cid, $d, $edit); ?>
+            <?php inv_device_tickets_card($cid, $d); ?>
             <?php if ($edit && !empty($d['bitlocker_enc'])): ?>
             <div class="card">
                 <h3><?= e(t('BitLocker-Schlüssel')) ?></h3>
