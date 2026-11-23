@@ -14,7 +14,7 @@ header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
 // Formular-Editor und Dokumente brauchen Inline-Stile (Schriftart, Größe, Farbe); Inhalte werden vorher serverseitig gefiltert
-$styleSrc = in_array((string)($_GET['r'] ?? ''), ['form_edit', 'form_layouts', 'form_use', 'form_print'], true) ? "'self' 'unsafe-inline'" : "'self'";
+$styleSrc = in_array((string)($_GET['r'] ?? ''), ['form_edit', 'form_layouts', 'form_use', 'form_print', 'contract_letter'], true) ? "'self' 'unsafe-inline'" : "'self'";
 header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src $styleSrc; script-src 'self'; form-action 'self'; frame-ancestors 'none'");
 
 require APP_DIR . '/schema.php';
@@ -55,6 +55,7 @@ require APP_DIR . '/pages/contracts.php';
 require APP_DIR . '/pages/ct_inventory.php';
 require APP_DIR . '/pdf.php';
 require APP_DIR . '/pages/ct_deadlines.php';
+require APP_DIR . '/pages/ct_cancel.php';
 require APP_DIR . '/ticket_mail.php';
 
 $routes = [
@@ -156,6 +157,8 @@ $routes = [
     'contract_deadlines'=> 'page_contract_deadlines',
     'contract_pdf'      => 'page_contract_pdf',
     'contract_ics'      => 'page_contract_ics',
+    'contract_letter'   => 'page_contract_letter',
+    'contract_letter_pdf' => 'page_contract_letter_pdf',
 ];
 
 /**
@@ -197,6 +200,7 @@ const ROUTE_AREAS = [
     'contracts' => ['contracts', PERM_VIEW], 'contract' => ['contracts', PERM_VIEW], 'contract_file' => ['contracts', PERM_VIEW],
     'contract_action' => ['contracts', PERM_EDIT], 'contract_settings' => ['contracts', PERM_VIEW],
     'contract_deadlines' => ['contracts', PERM_VIEW], 'contract_pdf' => ['contracts', PERM_VIEW],
+    'contract_letter' => ['contracts', PERM_VIEW], 'contract_letter_pdf' => ['contracts', PERM_VIEW],
 ];
 
 /**

@@ -571,6 +571,34 @@ function schema_statements(string $driver): array
         last_used_at VARCHAR(19) NOT NULL DEFAULT ''
     )$tail";
 
+    // Verträge, Stufe 4 (ab Version 32): Kündigungen mit Freigabe
+    $tables[] = "CREATE TABLE IF NOT EXISTS ct_cancellations (
+        id $pk,
+        company_id $fk NOT NULL,
+        contract_id $fk NOT NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'freigabe',
+        mode VARCHAR(10) NOT NULL DEFAULT 'next',
+        effective_date VARCHAR(10) NOT NULL DEFAULT '',
+        reason VARCHAR(500) NOT NULL DEFAULT '',
+        prev_status VARCHAR(20) NOT NULL DEFAULT 'aktiv',
+        out_of_time INT NOT NULL DEFAULT 0,
+        letter_html $long,
+        prepared_by $fk NULL,
+        prepared_at $ts NOT NULL,
+        decided_by $fk NULL,
+        decided_at VARCHAR(19) NULL,
+        decision_note VARCHAR(500) NOT NULL DEFAULT '',
+        approve_reminded_at VARCHAR(19) NULL,
+        sent_by $fk NULL,
+        sent_at VARCHAR(19) NULL,
+        sent_via VARCHAR(20) NOT NULL DEFAULT '',
+        sent_to VARCHAR(190) NOT NULL DEFAULT '',
+        confirmed_at VARCHAR(19) NULL,
+        confirmed_by $fk NULL,
+        confirm_reminded_at VARCHAR(19) NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
     // Dienstleister je Firma (Stufe 5): externe Partner mit Portal-Zugang (Rolle „dienstleister“) oder nur per Mail
     $tables[] = "CREATE TABLE IF NOT EXISTS ticket_providers (
         id $pk,
@@ -838,6 +866,7 @@ function schema_statements(string $driver): array
         'idx_ct_links_l'      => 'ct_links (company_id, license_id)',
         'idx_ct_notice'       => 'ct_notices (company_id, kind, ref_id)',
         'idx_ct_feed'         => 'ct_feeds (token_hash)',
+        'idx_ct_cancel'       => 'ct_cancellations (company_id, contract_id, status)',
         'idx_tk_creator'      => 'tickets (company_id, created_by)',
         'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
         'idx_tkmsg_t'         => 'ticket_messages (ticket_id, id)',
@@ -851,7 +880,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 31;
+const SCHEMA_VERSION = 32;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -982,6 +1011,13 @@ function run_migrations(): void
         ['companies', 'ct_pdf_interval', "VARCHAR(10) NOT NULL DEFAULT ''"],
         ['companies', 'ct_pdf_recipients', "VARCHAR(1000) NOT NULL DEFAULT ''"],
         ['companies', 'ct_pdf_costs', 'INT NOT NULL DEFAULT 0'],
+        // Verträge, Stufe 4 (ab Version 32): Anschrift und E-Mail des Anbieters, Vier-Augen-Prinzip, Vorlage des Kündigungsschreibens
+        ['contracts', 'partner_street', "VARCHAR(190) NOT NULL DEFAULT ''"],
+        ['contracts', 'partner_zip', "VARCHAR(20) NOT NULL DEFAULT ''"],
+        ['contracts', 'partner_city', "VARCHAR(120) NOT NULL DEFAULT ''"],
+        ['contracts', 'partner_email', "VARCHAR(190) NOT NULL DEFAULT ''"],
+        ['companies', 'ct_four_eyes', 'INT NOT NULL DEFAULT 1'],
+        ['companies', 'ct_cancel_form_id', 'INT NULL'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -1070,6 +1106,9 @@ function ensure_schema(): void
         db()->query('SELECT ct_lead_days, ct_pdf_interval, ct_pdf_recipients, ct_pdf_costs FROM companies LIMIT 1');
         db()->query('SELECT id FROM ct_notices LIMIT 1');
         db()->query('SELECT id FROM ct_feeds LIMIT 1');
+        db()->query('SELECT partner_street, partner_zip, partner_city, partner_email FROM contracts LIMIT 1');
+        db()->query('SELECT ct_four_eyes, ct_cancel_form_id FROM companies LIMIT 1');
+        db()->query('SELECT id FROM ct_cancellations LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

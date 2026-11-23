@@ -31,6 +31,8 @@ require APP_DIR . '/pages/contracts.php';
 require APP_DIR . '/pages/ct_inventory.php';
 require APP_DIR . '/pdf.php';
 require APP_DIR . '/pages/ct_deadlines.php';
+require APP_DIR . '/forms_lib.php';
+require APP_DIR . '/pages/ct_cancel.php';
 
 if (!$cli) {
     header('Content-Type: text/plain; charset=utf-8');

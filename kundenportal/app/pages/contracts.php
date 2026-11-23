@@ -18,9 +18,14 @@ const CT_APP = 'vertraege';
 const CT_PERM_NONE = 0;
 const CT_PERM_VIEW = 1;
 const CT_PERM_EDIT = 2;
-const CT_STATUSES = ['aktiv' => 'Aktiv', 'kuendigung_freigabe' => 'Kündigung in Freigabe', 'gekuendigt' => 'Gekündigt', 'verlaengert' => 'Verlängert', 'beendet' => 'Beendet'];
+const CT_STATUSES = ['aktiv' => 'Aktiv', 'kuendigung_freigabe' => 'Kündigung in Freigabe', 'kuendigung_freigegeben' => 'Kündigung freigegeben',
+    'gekuendigt' => 'Gekündigt', 'verlaengert' => 'Verlängert', 'beendet' => 'Beendet'];
 /** Status, die als laufender Vertrag zählen */
-const CT_RUNNING = ['aktiv', 'kuendigung_freigabe', 'verlaengert'];
+const CT_RUNNING = ['aktiv', 'kuendigung_freigabe', 'kuendigung_freigegeben', 'verlaengert'];
+/** Status, die nur der Kündigungsablauf setzt (nicht im Formular wählbar) */
+const CT_FLOW_STATUSES = ['kuendigung_freigabe', 'kuendigung_freigegeben'];
+/** SQL-Liste der laufenden und gekündigten (noch nicht beendeten) Verträge */
+const CT_OPEN_SQL = "('aktiv', 'kuendigung_freigabe', 'kuendigung_freigegeben', 'verlaengert', 'gekuendigt')";
 const CT_TYPES_DEFAULT = ['Internet und Telefonie', 'Mobilfunk', 'Software-Abo', 'Wartung und Support', 'Leasing und Miete', 'Hosting und Domains',
     'IT-Dienstleistung', 'Versicherung', 'Strom und Gas', 'Miete und Pacht', 'Fahrzeuge und Leasing', 'Sonstiges'];
 const CT_INTERVALS = ['monat' => 'pro Monat', 'quartal' => 'pro Quartal', 'jahr' => 'pro Jahr', 'einmalig' => 'einmalig'];
@@ -30,7 +35,8 @@ const CT_NOTICE_UNITS = ['days' => 'Tage', 'weeks' => 'Wochen', 'months' => 'Mon
 const CT_DOC_KINDS = ['vertrag' => 'Vertrag', 'agb' => 'AGB', 'rechnung' => 'Rechnung', 'kuendigung' => 'Kündigungsbestätigung', 'sonstiges' => 'Sonstiges'];
 /** Felder, deren Änderung im Verlauf steht (Feld => Bezeichnung); Kostenfelder stehen getrennt (Verlauf nur mit „Kosten sehen“) */
 const CT_LOG_FIELDS = ['title' => 'Bezeichnung', 'partner' => 'Vertragspartner', 'contract_no' => 'Vertragsnummer', 'customer_no' => 'Kundennummer',
-    'partner_contact' => 'Ansprechpartner beim Anbieter', 'start_date' => 'Beginn', 'end_date' => 'Ende', 'cancelled_to' => 'Gekündigt zum'];
+    'partner_contact' => 'Ansprechpartner beim Anbieter', 'partner_street' => 'Straße des Anbieters', 'partner_zip' => 'PLZ des Anbieters',
+    'partner_city' => 'Ort des Anbieters', 'partner_email' => 'E-Mail des Anbieters', 'start_date' => 'Beginn', 'end_date' => 'Ende', 'cancelled_to' => 'Gekündigt zum'];
 const CT_DATE_FIELDS = ['start_date', 'end_date', 'cancelled_to'];
 
 // ---------------------------------------------------------------------------
@@ -360,7 +366,7 @@ function page_contracts(): void
 
     $where = ['c.company_id = ?'];
     $p = [$cid];
-    if ($status === 'laufend') $where[] = "c.status IN ('aktiv', 'kuendigung_freigabe', 'verlaengert', 'gekuendigt')";
+    if ($status === 'laufend') $where[] = 'c.status IN ' . CT_OPEN_SQL;
     elseif ($status !== 'alle') { $where[] = 'c.status = ?'; $p[] = $status; }
     if ($type) { $where[] = 'c.type_id = ?'; $p[] = $type; }
     if ($managed !== '') { $where[] = 'c.managed_by = ?'; $p[] = $managed; }
@@ -410,7 +416,7 @@ function page_contracts(): void
         </div>
         <?php ct_due_box($cid, $costs); ?>
         <div class="tiles">
-            <?php $tiles = ['laufend' => [t('Laufend'), $counts['aktiv'] + $counts['kuendigung_freigabe'] + $counts['verlaengert'] + $counts['gekuendigt']]];
+            <?php $tiles = ['laufend' => [t('Laufend'), $counts['aktiv'] + $counts['kuendigung_freigabe'] + $counts['kuendigung_freigegeben'] + $counts['verlaengert'] + $counts['gekuendigt']]];
             foreach (CT_STATUSES as $k => $l) $tiles[$k] = [t($l), $counts[$k]];
             $tiles['alle'] = [t('Alle'), array_sum($counts)];
             foreach ($tiles as $k => [$label, $n]): ?>
@@ -501,10 +507,14 @@ function page_contract(): void
                 <label><?= e(t('Vertragsnummer')) ?> <input name="contract_no" maxlength="120" value="<?= e($v('contract_no')) ?>"></label>
                 <label><?= e(t('Kundennummer')) ?> <input name="customer_no" maxlength="120" value="<?= e($v('customer_no')) ?>"></label>
                 <label><?= e(t('Ansprechpartner beim Anbieter')) ?> <input name="partner_contact" maxlength="255" value="<?= e($v('partner_contact')) ?>" placeholder="<?= e(t('Name, Telefon, E-Mail')) ?>"></label>
+                <label><?= e(t('Straße des Anbieters')) ?> <input name="partner_street" maxlength="190" value="<?= e($v('partner_street')) ?>"></label>
+                <label><?= e(t('PLZ und Ort des Anbieters')) ?> <span class="inline-inputs"><input name="partner_zip" maxlength="20" class="narrow-input" value="<?= e($v('partner_zip')) ?>" aria-label="<?= e(t('PLZ des Anbieters')) ?>">
+                    <input name="partner_city" maxlength="120" value="<?= e($v('partner_city')) ?>" aria-label="<?= e(t('Ort des Anbieters')) ?>"></span></label>
+                <label><?= e(t('E-Mail für Kündigungen')) ?> <input type="email" name="partner_email" maxlength="190" value="<?= e($v('partner_email')) ?>" placeholder="<?= e(t('z. B. kuendigung@anbieter.de')) ?>"></label>
                 <label><?= e(t('Verantwortlich in der Firma')) ?> <select name="responsible_user_id"><option value=""><?= e(t('– niemand –')) ?></option>
                     <?php foreach ($users as $us): ?><option value="<?= (int)$us['id'] ?>" <?= (int)($c['responsible_user_id'] ?? 0) === (int)$us['id'] ? 'selected' : '' ?>><?= e($us['name']) ?> (<?= e($us['email']) ?>)</option><?php endforeach; ?></select></label>
                 <label><?= e(t('Status')) ?> <select name="status">
-                    <?php foreach (CT_STATUSES as $k => $l): if ($k === 'kuendigung_freigabe' && $status !== $k) continue; ?>
+                    <?php foreach (CT_STATUSES as $k => $l): if (in_array($k, CT_FLOW_STATUSES, true) && $status !== $k) continue; ?>
                         <option value="<?= e($k) ?>" <?= $status === $k ? 'selected' : '' ?>><?= e(t($l)) ?></option><?php endforeach; ?></select></label>
                 <label><?= e(t('Gekündigt zum')) ?> <input type="date" name="cancelled_to" value="<?= e($v('cancelled_to')) ?>"></label>
             </div>
@@ -546,6 +556,7 @@ function page_contract(): void
             <dl class="facts">
                 <?php foreach ([t('Bezeichnung') => $v('title'), t('Vertragsart') => $c['type_name'] !== null ? t($c['type_name']) : '', t('Vertragspartner') => $v('partner'),
                     t('Vertragsnummer') => $v('contract_no'), t('Kundennummer') => $v('customer_no'), t('Ansprechpartner beim Anbieter') => $v('partner_contact'),
+                    t('Anschrift des Anbieters') => trim($v('partner_street') . ', ' . trim($v('partner_zip') . ' ' . $v('partner_city')), ', '), t('E-Mail für Kündigungen') => $v('partner_email'),
                     t('Verantwortlich in der Firma') => (string)($c['responsible_name'] ?? ''), t('Betreuender Dienstleister') => ct_managed_label($c)] as $k => $val):
                     if ($val === '') continue; ?>
                     <dt><?= e($k) ?></dt><dd><?= e($val) ?></dd>
@@ -572,8 +583,9 @@ function page_contract(): void
                         <dt><?= e(t('Kündigen bis')) ?></dt><dd><strong><?= fmt_date($dl['by']) ?></strong></dd>
                     <?php elseif ($dl['end'] !== '' && in_array($c['status'], CT_RUNNING, true)): ?><dt><?= e(t('Kündigung')) ?></dt><dd><?= e(t('nicht nötig, der Vertrag endet ohne Verlängerung')) ?></dd><?php endif; ?>
                 </dl>
-                <?php if ($edit && in_array($c['status'], CT_RUNNING, true)): ?><p class="muted small"><?= e(t('An Fristen erinnert das Portal per E-Mail. Die Kündigung mit Freigabe folgt in der nächsten Stufe.')) ?></p><?php endif; ?>
+                <?php if (in_array($c['status'], CT_RUNNING, true)): ?><p class="muted small"><?= e(t('An Fristen erinnert das Portal per E-Mail.')) ?></p><?php endif; ?>
             </div>
+            <?php ct_cancel_card($cid, $c, $edit); ?>
             <?php if ($costs) ct_prices_card($c, $prices, $edit); ?>
             <?php ct_links_card($cid, $c, $edit); ?>
             <div class="card">
@@ -648,10 +660,14 @@ function page_contract_action(): void
             $managed = 'provider';
         } elseif (!in_array($managed, ['it', 'company'], true)) $managed = 'it';
         $status = (string)post('status');
-        if (!isset(CT_STATUSES[$status]) || ($status === 'kuendigung_freigabe' && ($c['status'] ?? '') !== 'kuendigung_freigabe')) $status = $c['status'] ?? 'aktiv';
+        // Status des Kündigungsablaufs setzt nur der Ablauf selbst; solange er läuft, bleibt der Status
+        if (!isset(CT_STATUSES[$status]) || (in_array($status, CT_FLOW_STATUSES, true) && ($c['status'] ?? '') !== $status)) $status = $c['status'] ?? 'aktiv';
+        if (in_array($c['status'] ?? '', CT_FLOW_STATUSES, true)) $status = $c['status'];
         $unit = (string)post('notice_unit');
         $data = ['title' => $f('title', 190), 'type_id' => $type['id'] ?? null, 'partner' => $f('partner', 190), 'contract_no' => $f('contract_no', 120),
             'customer_no' => $f('customer_no', 120), 'partner_contact' => $f('partner_contact', 255), 'responsible_user_id' => $resp['id'] ?? null,
+            'partner_street' => $f('partner_street', 190), 'partner_zip' => $f('partner_zip', 20), 'partner_city' => $f('partner_city', 120),
+            'partner_email' => filter_var($f('partner_email', 190), FILTER_VALIDATE_EMAIL) ? mb_strtolower($f('partner_email', 190)) : '',
             'status' => $status, 'start_date' => ct_date((string)post('start_date')), 'min_term_months' => max(0, min(600, (int)post('min_term_months', 0))),
             'end_date' => ct_date((string)post('end_date')), 'auto_renew' => post('auto_renew') === '1' ? 1 : 0, 'renew_months' => max(1, min(120, (int)post('renew_months', 12))),
             'notice_value' => max(0, min(999, (int)post('notice_value', 0))), 'notice_unit' => isset(CT_NOTICE_UNITS[$unit]) ? $unit : 'months',
@@ -674,6 +690,7 @@ function page_contract_action(): void
         elseif ($data['partner'] === '') $err = t('Bitte den Vertragspartner angeben.');
         elseif ($costs && $raw !== '' && $data['cost_cents'] === null) $err = t('Der Betrag „{x}“ ist keine gültige Zahl.', ['x' => $raw]);
         elseif ($data['start_date'] !== '' && $data['end_date'] !== '' && $data['end_date'] < $data['start_date']) $err = t('Das Ende liegt vor dem Beginn.');
+        elseif ($f('partner_email', 190) !== '' && $data['partner_email'] === '') $err = t('Die E-Mail-Adresse des Anbieters ist ungültig.');
         if ($err) { flash('error', $err); $c ? $back() : ct_redirect('contract', ['id' => 'new']); }
 
         if (!$c) {
@@ -719,6 +736,7 @@ function page_contract_action(): void
     }
     if (!$c) abort(400);
     if (ct_links_action($cid, $c, $action)) $back();
+    if (ct_cancel_action($cid, $c, $action)) $back();
     switch ($action) {
         case 'price_add':
             if (!$costs) abort(403);
@@ -785,6 +803,7 @@ function page_contract_action(): void
             q('DELETE FROM ct_log WHERE contract_id = ? AND company_id = ?', [$c['id'], $cid]);
             q('DELETE FROM ct_prices WHERE contract_id = ? AND company_id = ?', [$c['id'], $cid]);
             q('DELETE FROM ct_links WHERE contract_id = ? AND company_id = ?', [$c['id'], $cid]);
+            q('DELETE FROM ct_cancellations WHERE contract_id = ? AND company_id = ?', [$c['id'], $cid]);
             q('DELETE FROM contracts WHERE id = ? AND company_id = ?', [$c['id'], $cid]);
             audit('contract.delete', $c['title'], $cid);
             flash('success', t('Der Vertrag „{x}“ wurde gelöscht.', ['x' => $c['title']]));
@@ -847,6 +866,12 @@ function page_contract_settings(): void
                 if ($data['ct_pdf_interval'] !== '' && !$list) { flash('error', t('Für den automatischen Versand bitte Empfänger angeben.')); break; }
                 update('companies', $cid, $data);
                 audit('contract.settings', json_encode($data, JSON_UNESCAPED_UNICODE), $cid);
+                flash('success', t('Die Einstellungen wurden gespeichert.'));
+                break;
+            case 'cancel':
+                if ($staff) abort(403);
+                update('companies', $cid, ['ct_four_eyes' => post('four_eyes') === '1' ? 1 : 0]);
+                audit('contract.settings', 'ct_four_eyes=' . (post('four_eyes') === '1' ? 1 : 0), $cid);
                 flash('success', t('Die Einstellungen wurden gespeichert.'));
                 break;
             case 'view':
@@ -922,6 +947,20 @@ function page_contract_settings(): void
             <?php if (ct_can_costs($cid)): ?><label class="check"><input type="checkbox" name="pdf_costs" value="1" <?= (int)($co['ct_pdf_costs'] ?? 0) ? 'checked' : '' ?>> <?= e(t('Kosten im PDF zeigen')) ?></label><?php endif; ?>
             <p class="muted small"><?= e(t('Monatlich mit den Fristen der nächsten 3 Monate, vierteljährlich mit den nächsten 6 Monaten.')) ?></p>
             <button class="btn primary"><?= e(t('Speichern')) ?></button>
+        </form>
+
+        <?php $tpl = ct_cancel_template($cid); $fourEyes = (int)(row('SELECT ct_four_eyes FROM companies WHERE id = ?', [$cid])['ct_four_eyes'] ?? 1); ?>
+        <form method="post" class="form card">
+            <?= csrf_field() ?><input type="hidden" name="action" value="cancel">
+            <h2><?= e(t('Kündigungen')) ?></h2>
+            <label class="check"><input type="checkbox" name="four_eyes" value="1" <?= $fourEyes ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
+                <?= e(t('Vier-Augen-Prinzip: Wer eine Kündigung vorbereitet, darf sie nicht selbst freigeben')) ?></label>
+            <p class="muted small"><?= e(t('Für kleine Firmen mit nur einer berechtigten Person abschalten. Freigeben dürfen Firmen-Admins und Gruppen mit „Freigabe Kündigung“.')) ?></p>
+            <p><?= e(t('Vorlage des Kündigungsschreibens: „{x}“', ['x' => $tpl['name']])) ?>
+                <?php if (company_has_app($cid, 'formulare') && (!$staff || admin_can('forms', true))): ?>
+                    · <a href="<?= e(url('form_edit', ['id' => $tpl['id']] + (is_admin() ? ['company' => $cid] : []))) ?>"><?= e(t('in „Formulare“ bearbeiten')) ?></a><?php endif; ?></p>
+            <p class="muted small"><?= e(t('Briefkopf, Logo und Fußzeile kommen aus der App „Formulare“. Platzhalter wie {{vertrag.termin}} werden beim Vorbereiten gefüllt.')) ?></p>
+            <?php if (!$staff): ?><button class="btn primary"><?= e(t('Speichern')) ?></button><?php endif; ?>
         </form>
 
         <?php if (company_has_app($cid, 'inventar')): ?>

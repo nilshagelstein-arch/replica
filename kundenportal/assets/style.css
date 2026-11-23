@@ -717,7 +717,7 @@ fieldset.rights { margin-top: 1rem; }
 .badge.inv-reparatur { background: #fff1d6; color: #7a4b00; }
 .badge.inv-ausgemustert, .badge.inv-entsorgt { background: #eceff3; color: #59636f; }
 .badge.ct-aktiv, .badge.ct-verlaengert { background: #e2f4e6; color: #1a6b31; }
-.badge.ct-kuendigung_freigabe { background: #fff1d6; color: #7a4b00; }
+.badge.ct-kuendigung_freigabe, .badge.ct-kuendigung_freigegeben { background: #fff1d6; color: #7a4b00; }
 .badge.ct-gekuendigt { background: #fde8e8; color: #9b1c1c; }
 .badge.ct-beendet { background: #eceff3; color: #59636f; }
 .inline-inputs { display: flex; gap: .4rem; align-items: center; }
