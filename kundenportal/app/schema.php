@@ -895,7 +895,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 34;
+const SCHEMA_VERSION = 35;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -1038,6 +1038,11 @@ function run_migrations(): void
         // Verträge, Stufe 6 (ab Version 34): API-Schlüssel je App (kunden = Formulare, vertraege) und Kostenrecht
         ['api_tokens', 'scope', "VARCHAR(20) NOT NULL DEFAULT 'kunden'"],
         ['api_tokens', 'see_costs', 'INT NOT NULL DEFAULT 0'],
+        // Verträge, Stufe 7 (ab Version 35): Texterkennung gescannter PDFs über Mistral OCR (EU), nur wenn die Firma sie selbst einschaltet
+        ['companies', 'ct_ocr_enabled', 'INT NOT NULL DEFAULT 0'],
+        ['companies', 'ct_ocr_key', "TEXT NULL"],
+        ['companies', 'ct_ocr_confirmed_by', 'INT NULL'],
+        ['companies', 'ct_ocr_confirmed_at', 'VARCHAR(19) NULL'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -1132,6 +1137,7 @@ function ensure_schema(): void
         db()->query('SELECT ct_provider_all FROM companies LIMIT 1');
         db()->query('SELECT id FROM ct_offers LIMIT 1');
         db()->query('SELECT scope, see_costs FROM api_tokens LIMIT 1');
+        db()->query('SELECT ct_ocr_enabled, ct_ocr_key, ct_ocr_confirmed_by, ct_ocr_confirmed_at FROM companies LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

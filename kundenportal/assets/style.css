@@ -786,3 +786,10 @@ code.secret { font-size: 1rem; word-break: break-all; user-select: all; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .85rem; }
 .ct-bar { width: 45%; }
 .ct-bar progress { width: 100%; height: .8rem; }
+/* Verträge, Stufe 7: PDF auslesen, Vorjahresvergleich */
+.alert.warn { background: #fff6e0; border-color: #f0d08a; color: #6b4600; }
+.tag.success { background: #e9f6ec; color: #1d6b33; }
+.ct-text { max-height: 24rem; overflow: auto; white-space: pre-wrap; font-size: .85rem; }
+.ct-ocr { border-top: 1px solid var(--line, #d9dee5); padding-top: .6rem; margin-top: .6rem; }
+.num.up { color: #a1201b; }
+.num.down { color: #1d6b33; }

@@ -242,6 +242,7 @@ Sichern Sie regelmäßig die Datenbank (Backup-Funktion des Hosters) und die Dat
 - **Cron:** Per HTTP muss der Token per `hash_equals` gegen `backup_cron_token` passen. Per CLI ist kein Token nötig `[cron.php]`.
 - **Webserver:** `.htaccess` sperrt `config.php`, `config.sample.php`, `README.md`, `*.sqlite`, `*.log` und `*.lock`, erzwingt HTTPS und reicht `Authorization` an PHP weiter. `app/.htaccess` und `app/data/.htaccess` enthalten `Require all denied`.
 - Ein Datenbankfehler (`PDOException`) im Handler wird protokolliert und mit einer allgemeinen 500-Seite beantwortet `[index.php]`.
+- **Verträge, PDF auslesen:** Standard ist die Auswertung auf dem Server ohne Übertragung. Die Texterkennung über Mistral OCR (`cfg('mistral_ocr_url')`, Standard `https://api.mistral.ai/v1/ocr`) läuft nur, wenn ein Firmen-Admin der Firma sie mit eigenem API-Schlüssel und beiden Bestätigungen eingeschaltet hat, und nur nach Zustimmung je Dokument. Der Schlüssel liegt verschlüsselt in `companies.ct_ocr_key` und fehlt in der Firmen-Sicherung `[ct_extract.php:ct_ocr_text]`.
 - Weitere Regeln zu Rechten, Mandantentrennung und Workflow: siehe [app/README.md](./app/README.md) und [app/pages/README.md](./app/pages/README.md).
 
 ## Side Effects

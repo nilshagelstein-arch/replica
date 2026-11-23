@@ -489,8 +489,13 @@ function page_contract_costs(): void
     }
     $events = ct_events($cid, $today, date('Y-m-d', strtotime('+12 months')), ['costs' => true, 'inv' => $withInv]);
     $max = max([1] + $forecast);
+    // Stufe 7: Vorjahresvergleich (auch mit beendeten Verträgen)
+    $year = max((int)date('Y') - 10, min((int)date('Y') + 1, query_int('jahr') ?: (int)date('Y')));
+    $all = ct_contracts_full($cid);
+    if ($withInv) foreach (ct_inv_license_rows($cid) as $l) $all[] = $l + ['start_date' => ''];
+    $cmp = [$year - 1 => ct_year_costs($all, $prices, $year - 1), $year => ct_year_costs($all, $prices, $year)];
 
-    render_page(t('Kostenübersicht') . ' · ' . t('Verträge & Laufzeiten'), function () use ($cid, $monthly, $byType, $byPartner, $forecast, $oneOff, $events, $max, $withInv, $invPossible) {
+    render_page(t('Kostenübersicht') . ' · ' . t('Verträge & Laufzeiten'), function () use ($cid, $monthly, $byType, $byPartner, $forecast, $oneOff, $events, $max, $withInv, $invPossible, $year, $cmp) {
         echo company_switcher($cid, 'contract_costs');
         ct_tabs('contract_costs'); ?>
         <div class="toolbar">
@@ -523,6 +528,7 @@ function page_contract_costs(): void
             <tr><th><?= e(t('Summe')) ?></th><th class="num nowrap"><?= e(ct_fmt_price(array_sum($forecast))) ?></th><th></th></tr>
             </tbody></table>
         </div>
+        <?php ct_year_compare_card($year, $cmp, $withInv); ?>
         <?php if ($oneOff): ?>
         <div class="card">
             <h2><?= e(t('Einmalige Kosten')) ?></h2>
@@ -545,6 +551,90 @@ function page_contract_costs(): void
         </div>
     <?php });
 }
+
+/**
+ * Kosten eines Vertrags in einem Monat, auch rückblickend: beendete Verträge zählen bis zu ihrem Ende
+ * (Gekündigt zum, Vertragsende oder – ohne Datum – der Tag, an dem sie auf „Beendet“ gesetzt wurden).
+ */
+function ct_cost_in_month_hist(array $c, array $prices, string $month): int
+{
+    if ($c['status'] !== 'beendet') return ct_cost_in_month($c, $prices, $month);
+    $end = (string)(($c['cancelled_to'] ?? '') ?: ($c['end_date'] ?? '') ?: substr((string)($c['updated_at'] ?? ''), 0, 10));
+    if ($end === '' || $end < $month) return 0;
+    return ct_cost_in_month(['status' => 'gekuendigt', 'cancelled_to' => $end] + $c, $prices, $month);
+}
+
+/** Kosten eines Kalenderjahres: ['months' => [JJJJ-MM-01 => Cent], 'types' => [Art => Cent], 'total' => Cent] */
+function ct_year_costs(array $list, array $prices, int $year): array
+{
+    $months = []; $types = [];
+    for ($m = 1; $m <= 12; $m++) {
+        $month = sprintf('%04d-%02d-01', $year, $m);
+        $sum = 0;
+        foreach ($list as $c) {
+            $v = ct_cost_in_month_hist($c, !empty($c['_inv']) ? [] : ($prices[(int)$c['id']] ?? []), $month);
+            if ($v <= 0) continue;
+            $sum += $v;
+            $tn = ($c['type_name'] ?? null) !== null ? t((string)$c['type_name']) : t('ohne Art');
+            $types[$tn] = ($types[$tn] ?? 0) + $v;
+        }
+        $months[$month] = $sum;
+    }
+    return ['months' => $months, 'types' => $types, 'total' => array_sum($months)];
+}
+
+function ct_diff_cell(int $old, int $new): string
+{
+    $d = $new - $old;
+    $cls = $d > 0 ? 'up' : ($d < 0 ? 'down' : '');
+    $pct = $old > 0 ? ' (' . ($d > 0 ? '+' : '') . number_format($d / $old * 100, 1, ',', '.') . ' %)' : '';
+    return '<td class="num nowrap ' . $cls . '">' . ($d > 0 ? '+' : '') . e(ct_fmt_price($d)) . e($pct) . '</td>';
+}
+
+function ct_year_compare_card(int $year, array $cmp, bool $withInv): void
+{
+    $prev = $cmp[$year - 1]; $cur = $cmp[$year];
+    $thisMonth = date('Y-m-01');
+    $types = array_unique(array_merge(array_keys($prev['types']), array_keys($cur['types'])));
+    usort($types, fn($a, $b) => ($cur['types'][$b] ?? 0) <=> ($cur['types'][$a] ?? 0) ?: strcmp($a, $b));
+    $hasForecast = $cur['months'] && array_key_last($cur['months']) >= $thisMonth; ?>
+    <div class="card" id="vorjahr">
+        <h2><?= e(t('Vorjahresvergleich {a} – {b}', ['a' => $year - 1, 'b' => $year])) ?></h2>
+        <div class="toolbar">
+            <a class="btn small" href="<?= e(cturl('contract_costs', ['jahr' => $year - 1, 'inv' => $withInv ? '1' : '0'])) ?>#vorjahr">‹ <?= e((string)($year - 2)) ?> – <?= e((string)($year - 1)) ?></a>
+            <?php if ($year < (int)date('Y') + 1): ?><a class="btn small" href="<?= e(cturl('contract_costs', ['jahr' => $year + 1, 'inv' => $withInv ? '1' : '0'])) ?>#vorjahr"><?= e((string)$year) ?> – <?= e((string)($year + 1)) ?> ›</a><?php endif; ?>
+        </div>
+        <div class="tiles">
+            <div class="tile"><strong><?= e(ct_fmt_price($prev['total'])) ?></strong><span><?= e((string)($year - 1)) ?></span></div>
+            <div class="tile"><strong><?= e(ct_fmt_price($cur['total'])) ?></strong><span><?= e((string)$year) ?><?= $hasForecast ? ' ' . e(t('(mit Hochrechnung)')) : '' ?></span></div>
+            <div class="tile"><strong><?= e(($cur['total'] - $prev['total'] > 0 ? '+' : '') . ct_fmt_price($cur['total'] - $prev['total'])) ?></strong>
+                <span><?= e(t('Veränderung')) ?><?= $prev['total'] > 0 ? ' · ' . e(($cur['total'] >= $prev['total'] ? '+' : '') . number_format(($cur['total'] - $prev['total']) / $prev['total'] * 100, 1, ',', '.') . ' %') : '' ?></span></div>
+        </div>
+        <p class="muted small"><?= e(t('Berechnet aus den eingetragenen Verträgen und Preisen (keine Buchhaltungsdaten). Beendete Verträge zählen bis zu ihrem Ende; Verträge ohne Beginn zählen, als ob sie schon im Vorjahr liefen. Monate ab heute sind hochgerechnet.')) ?></p>
+        <div class="grid2">
+            <div>
+                <h3><?= e(t('Nach Vertragsart')) ?></h3>
+                <?php if (!$types): ?><p class="muted"><?= e(t('Keine Kosten in diesem Zeitraum.')) ?></p><?php else: ?>
+                <table class="table"><thead><tr><th></th><th class="num"><?= e((string)($year - 1)) ?></th><th class="num"><?= e((string)$year) ?></th><th class="num"><?= e(t('Veränderung')) ?></th></tr></thead><tbody>
+                <?php foreach ($types as $tn): $a = $prev['types'][$tn] ?? 0; $b = $cur['types'][$tn] ?? 0; ?>
+                    <tr><td><?= e($tn) ?></td><td class="num nowrap"><?= e(ct_fmt_price($a)) ?></td><td class="num nowrap"><?= e(ct_fmt_price($b)) ?></td><?= ct_diff_cell($a, $b) ?></tr>
+                <?php endforeach; ?>
+                <tr><th><?= e(t('Summe')) ?></th><th class="num nowrap"><?= e(ct_fmt_price($prev['total'])) ?></th><th class="num nowrap"><?= e(ct_fmt_price($cur['total'])) ?></th><?= ct_diff_cell($prev['total'], $cur['total']) ?></tr>
+                </tbody></table>
+                <?php endif; ?>
+            </div>
+            <div>
+                <h3><?= e(t('Nach Monat')) ?></h3>
+                <table class="table"><thead><tr><th><?= e(t('Monat')) ?></th><th class="num"><?= e((string)($year - 1)) ?></th><th class="num"><?= e((string)$year) ?></th><th class="num"><?= e(t('Veränderung')) ?></th></tr></thead><tbody>
+                <?php foreach (array_keys($cur['months']) as $i => $m): $pm = sprintf('%04d-%s', $year - 1, substr($m, 5)); $a = $prev['months'][$pm] ?? 0; $b = $cur['months'][$m]; ?>
+                    <tr><td><?= e(ct_month_label($m)) ?><?= $m >= $thisMonth ? ' <span class="muted small">' . e(t('Hochrechnung')) . '</span>' : '' ?></td>
+                        <td class="num nowrap"><?= e(ct_fmt_price($a)) ?></td><td class="num nowrap"><?= e(ct_fmt_price($b)) ?></td><?= ct_diff_cell($a, $b) ?></tr>
+                <?php endforeach; ?>
+                </tbody></table>
+            </div>
+        </div>
+    </div>
+<?php }
 
 function ct_cost_table(array $rows, int $total): void
 {

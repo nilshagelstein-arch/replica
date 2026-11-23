@@ -69,6 +69,7 @@ Der ganze Ordner ist per `.htaccess` (`Require all denied`) vor direktem Zugriff
   - CSV: `csv_read`, `csv_map_headers` und `csv_cell_safe`/`csv_cell_unescape` (Schutz gegen Formel-Injection beim Export, wird beim Import wieder entfernt)
   - API-Schlüssel: `api_token_generate`, `api_token_lookup`
 - **`pdf.php`**: `SimplePdf` erzeugt PDFs ohne Fremdbibliothek (A4, Helvetica/WinAnsi, Tabellen mit Seitenumbruch und Seitenzahlen).
+- **`pdftext.php`**: `PdfText::extract()` liest Text aus PDFs ohne Fremdbibliothek (FlateDecode, Objekt-Streams, ToUnicode/Identity-H, WinAnsi). Ist `pdftotext` auf dem Server vorhanden, wird es bevorzugt. Gescannte PDFs (nur Bilder) liefern keinen Text.
 - **`mail.php`/`i18n.php`**: `send_mail()`, `send_mail_t()`, `send_via_account()` und `build_mime()` nehmen optional Anhänge `[['name', 'mime', 'data'], …]` (SMTP, Microsoft Graph, Gmail, PHP `mail()`).
 - **`updates.php`**: `updates_dir`, `update_embedded_info`, `update_check_package`, `update_extract_zip`, `update_valid_id`, `update_meta_path`, `update_store`, `updates_list`, `update_get`, `update_save_meta`, `update_apply`. Das Paket erzeugt `../../tools/build-update.php` (siehe [../../tools/README.md](../../tools/README.md)).
 
