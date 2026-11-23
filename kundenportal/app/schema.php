@@ -457,6 +457,77 @@ function schema_statements(string $driver): array
         perm INT NOT NULL DEFAULT 0
     )$tail";
 
+    // App „Verträge & Laufzeiten“ (ab Version 29): Vertragsarten, Verträge, Verlauf, Dokumente, Rechte je Gruppe
+    $tables[] = "CREATE TABLE IF NOT EXISTS ct_types (
+        id $pk,
+        company_id $fk NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        sort INT NOT NULL DEFAULT 0,
+        active INT NOT NULL DEFAULT 1
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS contracts (
+        id $pk,
+        company_id $fk NOT NULL,
+        type_id $fk NULL,
+        title VARCHAR(190) NOT NULL,
+        partner VARCHAR(190) NOT NULL DEFAULT '',
+        contract_no VARCHAR(120) NOT NULL DEFAULT '',
+        customer_no VARCHAR(120) NOT NULL DEFAULT '',
+        partner_contact VARCHAR(255) NOT NULL DEFAULT '',
+        responsible_user_id $fk NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'aktiv',
+        start_date VARCHAR(10) NOT NULL DEFAULT '',
+        min_term_months INT NOT NULL DEFAULT 0,
+        end_date VARCHAR(10) NOT NULL DEFAULT '',
+        auto_renew INT NOT NULL DEFAULT 1,
+        renew_months INT NOT NULL DEFAULT 12,
+        notice_value INT NOT NULL DEFAULT 3,
+        notice_unit VARCHAR(10) NOT NULL DEFAULT 'months',
+        cancelled_to VARCHAR(10) NOT NULL DEFAULT '',
+        cost_cents INT NULL,
+        cost_interval VARCHAR(10) NOT NULL DEFAULT 'monat',
+        payment_method VARCHAR(20) NOT NULL DEFAULT '',
+        managed_by VARCHAR(10) NOT NULL DEFAULT 'it',
+        provider_id $fk NULL,
+        notes TEXT,
+        created_by $fk NULL,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ct_log (
+        id $pk,
+        company_id $fk NOT NULL,
+        contract_id $fk NOT NULL,
+        user_id $fk NULL,
+        kind VARCHAR(10) NOT NULL DEFAULT 'event',
+        body TEXT,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ct_files (
+        id $pk,
+        company_id $fk NOT NULL,
+        contract_id $fk NOT NULL,
+        doc_kind VARCHAR(20) NOT NULL DEFAULT 'sonstiges',
+        filename VARCHAR(190) NOT NULL,
+        mime VARCHAR(100) NOT NULL DEFAULT '',
+        size INT NOT NULL DEFAULT 0,
+        stored_name VARCHAR(120) NOT NULL,
+        user_id $fk NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS ct_group_perms (
+        id $pk,
+        company_id $fk NOT NULL,
+        department_id $fk NOT NULL,
+        perm INT NOT NULL DEFAULT 0,
+        see_costs INT NOT NULL DEFAULT 0,
+        approve_cancel INT NOT NULL DEFAULT 0
+    )$tail";
+
     // Dienstleister je Firma (Stufe 5): externe Partner mit Portal-Zugang (Rolle „dienstleister“) oder nur per Mail
     $tables[] = "CREATE TABLE IF NOT EXISTS ticket_providers (
         id $pk,
@@ -715,6 +786,9 @@ function schema_statements(string $driver): array
         'idx_inv_lic'         => 'inv_licenses (company_id, status)',
         'idx_inv_notice'      => 'inv_notices (company_id, kind, ref_id)',
         'idx_inv_lic_as'      => 'inv_license_assign (license_id)',
+        'idx_ct_co'           => 'contracts (company_id, status)',
+        'idx_ct_log'          => 'ct_log (contract_id, id)',
+        'idx_ct_files'        => 'ct_files (contract_id)',
         'idx_tk_creator'      => 'tickets (company_id, created_by)',
         'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
         'idx_tkmsg_t'         => 'ticket_messages (ticket_id, id)',
@@ -728,7 +802,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 28;
+const SCHEMA_VERSION = 29;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -744,6 +818,8 @@ const BUILTIN_APPS = [
         'target' => 'tickets', 'icon' => '🎫', 'color' => '#b4235a', 'sort' => 15],
     'inventar' => ['name' => 'Geräte & Lizenzen', 'description' => 'Inventar der Firma: Geräte mit Standort, Zuordnung und Verlauf, Lager mit Bestand – Lizenzen folgen.',
         'target' => 'inventory', 'icon' => '💻', 'color' => '#0e7490', 'sort' => 17],
+    'vertraege' => ['name' => 'Verträge & Laufzeiten', 'description' => 'Alle Verträge der Firma an einem Ort: Laufzeiten, Kündigungsfristen, Kosten und Dokumente – damit sich nichts unbemerkt verlängert.',
+        'target' => 'contracts', 'icon' => '📄', 'color' => '#7c3aed', 'sort' => 18],
 ];
 
 /**
@@ -847,6 +923,9 @@ function run_migrations(): void
         ['companies', 'inv_tools_other', "VARCHAR(190) NOT NULL DEFAULT ''"],
         // Meine Geräte (ab Version 28): Mitarbeiter dürfen ihre Lizenzschlüssel anzeigen
         ['companies', 'inv_my_keys', 'INT NOT NULL DEFAULT 0'],
+        // Verträge & Laufzeiten (ab Version 29): Einsicht für den Dienstleister, dabei Kosten sehen
+        ['companies', 'ct_provider_access', 'INT NOT NULL DEFAULT 0'],
+        ['companies', 'ct_provider_costs', 'INT NOT NULL DEFAULT 0'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -926,6 +1005,9 @@ function ensure_schema(): void
         db()->query('SELECT id FROM inv_min_stock LIMIT 1');
         db()->query('SELECT id FROM inv_notices LIMIT 1');
         db()->query('SELECT inv_tools, inv_tools_other, inv_my_keys FROM companies LIMIT 1');
+        db()->query('SELECT ct_provider_access, ct_provider_costs FROM companies LIMIT 1');
+        db()->query('SELECT id FROM contracts LIMIT 1');
+        db()->query('SELECT id FROM ct_group_perms LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

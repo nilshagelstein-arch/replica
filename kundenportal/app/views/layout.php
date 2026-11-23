@@ -49,6 +49,9 @@ if ($user && company_pending($user)) {
     if (isset($myApps['inventar'])) {
         $nav[] = ['inventory', t($myApps['inventar']['name']), str_starts_with($route, 'inv_') || $route === 'inventory'];
     }
+    if (isset($myApps['vertraege'])) {
+        $nav[] = ['contracts', t($myApps['vertraege']['name']), str_starts_with($route, 'contract')];
+    }
     if (isset($myApps['links'])) {
         $nav[] = ['links', t($myApps['links']['name']), in_array($route, ['links', 'link_edit'], true)];
     }
@@ -81,6 +84,7 @@ if ($user && !company_pending($user)) {
         'datensicherung' => ['company_backups'],
         'links'          => ['links', 'link_edit'],
         'tickets'        => ['tickets', 'ticket', 'ticket_new', 'ticket_settings', 'ticket_inbox'],
+        'vertraege'      => ['contracts', 'contract', 'contract_settings'],
     ];
     foreach ($routeApps as $slug => $routes) {
         if (in_array($route, $routes, true)) {

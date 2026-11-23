@@ -654,6 +654,11 @@ function cbackup_data(int $cid): array
         'inv_handovers'  => rows('SELECT * FROM inv_handovers WHERE company_id = ?', [$cid]),
         'inv_handover_items' => rows('SELECT i.* FROM inv_handover_items i JOIN inv_handovers h ON h.id = i.handover_id WHERE h.company_id = ?', [$cid]),
         'inv_files'      => rows('SELECT * FROM inv_files WHERE company_id = ?', [$cid]),
+        'ct_types'       => rows('SELECT * FROM ct_types WHERE company_id = ?', [$cid]),
+        'ct_group_perms' => rows('SELECT * FROM ct_group_perms WHERE company_id = ?', [$cid]),
+        'contracts'      => rows('SELECT * FROM contracts WHERE company_id = ?', [$cid]),
+        'ct_log'         => rows('SELECT * FROM ct_log WHERE company_id = ?', [$cid]),
+        'ct_files'       => rows('SELECT * FROM ct_files WHERE company_id = ?', [$cid]),
     ];
 }
 
@@ -686,6 +691,7 @@ function cbackup_create(int $cid, string $kind): string
     // Anhänge der Tickets (Dateien liegen nicht in der Datenbank)
     foreach (glob(APP_DIR . '/data/tickets/' . $cid . '/*.bin') ?: [] as $f) $zip->addFile($f, 'ticket-anhaenge/' . basename($f));
     foreach (glob(APP_DIR . '/data/inventory/' . $cid . '/*.bin') ?: [] as $f) $zip->addFile($f, 'inventar-anhaenge/' . basename($f));
+    foreach (glob(APP_DIR . '/data/contracts/' . $cid . '/*.bin') ?: [] as $f) $zip->addFile($f, 'vertrags-dokumente/' . basename($f));
     $zip->addFromString('kunden.csv', cbackup_csv(array_map(function ($r) { unset($r['company_id']); return $r; }, $data['customers'])));
     $zip->addFromString('LIESMICH.txt', "Datensicherung „{$co['name']}“ vom " . date('d.m.Y H:i') . "\r\n\r\n"
         . t("daten.json   alle Daten der Firma im Kundenportal: Firmenprofil, Benutzer (ohne Passwörter), Abteilungen,\n")

@@ -41,7 +41,7 @@ Der ganze Ordner ist per `.htaccess` (`Require all denied`) vor direktem Zugriff
 
   Quelle: `[bootstrap.php:*]`
 - **`schema.php`**:
-  - `SCHEMA_VERSION` (= 14; ab 14 hat `requests` die Spalten `change_requested_at`, `change_requested_by` und `change_reason` für den Änderungsantrag), `BUILTIN_APPS` (`onboarding`, `formulare`, `datensicherung`, `links`)
+  - `SCHEMA_VERSION` (= 29; ab 29 gibt es die App „Verträge & Laufzeiten“ mit `ct_types`, `contracts`, `ct_log`, `ct_files`, `ct_group_perms` und den Schaltern `companies.ct_provider_access`/`ct_provider_costs`), `BUILTIN_APPS` (`onboarding`, `formulare`, `datensicherung`, `links`, `tickets`, `inventar`, `vertraege`)
   - `schema_statements()` für MySQL und SQLite
   - `run_migrations()`, `ensure_schema()`
   - Tabellen: `companies`, `users`, `user_tokens`, `departments`, `positions`, `catalog_items`, `template_items`, `requests`, `request_items`, `request_log`, `audit_log`, `apps`, `company_apps`, `link_tabs`, `link_sections`, `links`, `mail_accounts`, `settings`, `form_folders`, `forms`, `form_layouts`, `form_branding`, `customer_fields`, `customers`, `api_tokens`, `employees`

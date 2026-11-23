@@ -34,6 +34,7 @@ In der Spalte „POST-`action`“ stehen die Werte des Formularfelds `action`. �
 | `changes.php` | Offboarding, Stilllegung, Reaktivierung | `change_new` `[changes.php:page_change_form]` | Speichern |
 | `companies.php` | Firmen, Freischaltung von Registrierungen | `companies`, `company_edit` `[companies.php:page_company_edit]` | `approve_registration`, `reject_registration`, Speichern |
 | `company_backups.php` | Firmen-Sicherung (App Datensicherung) | `company_backups`, `company_backup_download` `[company_backups.php:page_company_backups]` | `create`, `delete`, `settings`, `gdrive_*` |
+| `contracts.php` | App „Verträge & Laufzeiten“ (Stufe 1): Verträge mit Art, Laufzeit, Fristen, Kosten, Betreuung, Dokumenten und Verlauf; Rechte je Gruppe mit „Kosten sehen“ | `contracts`, `contract`, `contract_action`, `contract_file`, `contract_settings` `[contracts.php:page_contracts]` | `save`, `note`, `upload`, `file_delete`, `delete`; Einstellungen `general`, `type_save`, `perms` |
 | `customers.php` | Kundendatenbank (App Formulare) | `customers`, `customer_edit`, `customer_fields`, `customer_import`, `customer_export` `[customers.php:page_customers]` | `delete`, `add`, `save`; Import-Modus `add`/`upsert` |
 | `employees.php` | Mitarbeiterliste | `employees`, `employee_edit` `[employees.php:page_employees]` | `import` (auf `employees`), `delete` (auf `employee_edit`) |
 | `form_editor.php` | Formular bearbeiten, ausfüllen, drucken | `form_edit`, `form_use`, `form_print` `[form_editor.php:page_form_edit]` | Speichern |
