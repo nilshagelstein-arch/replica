@@ -294,6 +294,83 @@ function schema_statements(string $driver): array
         UNIQUE (company_id, seq_year, seq_no)
     )$tail";
 
+    // App „Geräte & Lizenzen“ (Inventar): Gerätetypen, Standorte/Lager, Geräte, Verlauf, Anhänge, Rechte je Gruppe
+    $tables[] = "CREATE TABLE IF NOT EXISTS inv_types (
+        id $pk,
+        company_id $fk NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        sort INT NOT NULL DEFAULT 0,
+        active INT NOT NULL DEFAULT 1
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS inv_locations (
+        id $pk,
+        company_id $fk NOT NULL,
+        name VARCHAR(190) NOT NULL,
+        address VARCHAR(255) NOT NULL DEFAULT '',
+        is_store INT NOT NULL DEFAULT 1,
+        sort INT NOT NULL DEFAULT 0,
+        active INT NOT NULL DEFAULT 1
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS inv_devices (
+        id $pk,
+        company_id $fk NOT NULL,
+        inv_no VARCHAR(60) NOT NULL,
+        type_id $fk NULL,
+        manufacturer VARCHAR(120) NOT NULL DEFAULT '',
+        model VARCHAR(190) NOT NULL DEFAULT '',
+        serial VARCHAR(120) NOT NULL DEFAULT '',
+        status VARCHAR(20) NOT NULL DEFAULT 'lager',
+        location_id $fk NULL,
+        room VARCHAR(120) NOT NULL DEFAULT '',
+        employee_id $fk NULL,
+        purchase_date VARCHAR(10) NOT NULL DEFAULT '',
+        price_cents INT NULL,
+        supplier VARCHAR(190) NOT NULL DEFAULT '',
+        warranty_until VARCHAR(10) NOT NULL DEFAULT '',
+        os VARCHAR(120) NOT NULL DEFAULT '',
+        ip VARCHAR(64) NOT NULL DEFAULT '',
+        mac VARCHAR(64) NOT NULL DEFAULT '',
+        bitlocker_enc TEXT,
+        phone_no VARCHAR(60) NOT NULL DEFAULT '',
+        sim_no VARCHAR(60) NOT NULL DEFAULT '',
+        mobile_contract VARCHAR(190) NOT NULL DEFAULT '',
+        notes TEXT,
+        created_by $fk NULL,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS inv_log (
+        id $pk,
+        company_id $fk NOT NULL,
+        device_id $fk NOT NULL,
+        user_id $fk NULL,
+        kind VARCHAR(10) NOT NULL DEFAULT 'event',
+        body TEXT,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS inv_files (
+        id $pk,
+        company_id $fk NOT NULL,
+        device_id $fk NOT NULL,
+        filename VARCHAR(190) NOT NULL,
+        mime VARCHAR(100) NOT NULL DEFAULT '',
+        size INT NOT NULL DEFAULT 0,
+        stored_name VARCHAR(120) NOT NULL,
+        user_id $fk NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS inv_group_perms (
+        id $pk,
+        company_id $fk NOT NULL,
+        department_id $fk NOT NULL,
+        perm INT NOT NULL DEFAULT 0
+    )$tail";
+
     // Dienstleister je Firma (Stufe 5): externe Partner mit Portal-Zugang (Rolle „dienstleister“) oder nur per Mail
     $tables[] = "CREATE TABLE IF NOT EXISTS ticket_providers (
         id $pk,
@@ -546,6 +623,9 @@ function schema_statements(string $driver): array
         'idx_udep_u'          => 'user_departments (user_id, department_id)',
         'idx_udep_d'          => 'user_departments (department_id)',
         'idx_tk_queue'        => 'tickets (company_id, queue_id, status)',
+        'idx_inv_dev'         => 'inv_devices (company_id, status)',
+        'idx_inv_dev_emp'     => 'inv_devices (company_id, employee_id)',
+        'idx_inv_log'         => 'inv_log (device_id, id)',
         'idx_tk_creator'      => 'tickets (company_id, created_by)',
         'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
         'idx_tkmsg_t'         => 'ticket_messages (ticket_id, id)',
@@ -559,7 +639,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 21;
+const SCHEMA_VERSION = 22;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -573,6 +653,8 @@ const BUILTIN_APPS = [
         'target' => 'links', 'icon' => '🔗', 'color' => '#c2410c', 'sort' => 40],
     'tickets' => ['name' => 'Tickets', 'description' => 'Interner Helpdesk: Anliegen in Queues melden, bearbeiten und verfolgen – mit Verlauf, Anhängen und Benachrichtigungen.',
         'target' => 'tickets', 'icon' => '🎫', 'color' => '#b4235a', 'sort' => 15],
+    'inventar' => ['name' => 'Geräte & Lizenzen', 'description' => 'Inventar der Firma: Geräte mit Standort, Zuordnung und Verlauf, Lager mit Bestand – Lizenzen folgen.',
+        'target' => 'inventory', 'icon' => '💻', 'color' => '#0e7490', 'sort' => 17],
 ];
 
 /**
@@ -645,6 +727,9 @@ function run_migrations(): void
         ['tickets', 'provider_id', 'INT NULL'],
         // Auswertung (ab Version 21): Mitarbeiter-Statistik je Firma, zunächst aus
         ['companies', 'ticket_staff_stats', 'INT NOT NULL DEFAULT 0'],
+        // Inventar (ab Version 22): Einsicht für den Dienstleister, Art der Inventarnummer
+        ['companies', 'inv_provider_access', 'INT NOT NULL DEFAULT 0'],
+        ['companies', 'inv_number_mode', "VARCHAR(10) NOT NULL DEFAULT 'auto'"],
         ['tickets', 'provider_internal', 'INT NOT NULL DEFAULT 0'],
         ['tickets', 'provider_since', "VARCHAR(19) NOT NULL DEFAULT ''"],
         ['ticket_messages', 'author_name', "VARCHAR(190) NOT NULL DEFAULT ''"],
@@ -712,6 +797,8 @@ function ensure_schema(): void
         db()->query('SELECT provider_id, provider_internal, provider_since FROM tickets LIMIT 1');
         db()->query('SELECT author_name FROM ticket_messages LIMIT 1');
         db()->query('SELECT ticket_staff_stats FROM companies LIMIT 1');
+        db()->query('SELECT inv_provider_access, inv_number_mode FROM companies LIMIT 1');
+        db()->query('SELECT id FROM inv_devices LIMIT 1');
         db()->query('SELECT id FROM ticket_mail_rules LIMIT 1');
         db()->query('SELECT id FROM ticket_inbox LIMIT 1');
     } catch (PDOException $ex) {
