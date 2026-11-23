@@ -895,7 +895,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 33;
+const SCHEMA_VERSION = 34;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -1035,6 +1035,9 @@ function run_migrations(): void
         ['companies', 'ct_cancel_form_id', 'INT NULL'],
         // Verträge, Stufe 5 (ab Version 33): Vertriebsübersicht auch mit Verträgen anderer Dienstleister
         ['companies', 'ct_provider_all', 'INT NOT NULL DEFAULT 0'],
+        // Verträge, Stufe 6 (ab Version 34): API-Schlüssel je App (kunden = Formulare, vertraege) und Kostenrecht
+        ['api_tokens', 'scope', "VARCHAR(20) NOT NULL DEFAULT 'kunden'"],
+        ['api_tokens', 'see_costs', 'INT NOT NULL DEFAULT 0'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -1128,6 +1131,7 @@ function ensure_schema(): void
         db()->query('SELECT id FROM ct_cancellations LIMIT 1');
         db()->query('SELECT ct_provider_all FROM companies LIMIT 1');
         db()->query('SELECT id FROM ct_offers LIMIT 1');
+        db()->query('SELECT scope, see_costs FROM api_tokens LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

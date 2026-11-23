@@ -18,7 +18,7 @@ Der Dienstleister verwaltet Firmen, Benutzer, App-Freigaben, E-Mail-Versand, Sic
 Browser ──> kundenportal/index.php ──> app/pages/*.php ──> app/*.php ──> MySQL/SQLite
    │            (?r=route, CSP)        (page_* Handler)    (Rechte, Schema,
    │                                                         Mail, Backup)
-   ├──> kundenportal/api.php (Bearer kp_… ──> customers)
+   ├──> kundenportal/api.php (Bearer kp_… ──> customers bzw. contracts je nach Schlüssel)
    └──> assets/*.js (nur links.js ruft ?r=link_suggest)
 Cron ──> kundenportal/cron.php ──> backup_daily ──> app/data/backups/ (+ Google Apps Script)
 Entwickler ──> tools/build-update.php ──> build/update.php ──> app/updates.php (update_apply)
