@@ -57,7 +57,7 @@ function inv_seed(int $cid): void
 function inv_company(int $cid): array
 {
     static $cache = [];
-    return $cache[$cid] ??= (row('SELECT id, name, inv_provider_access, inv_number_mode, inv_handover_text FROM companies WHERE id = ?', [$cid]) ?? []);
+    return $cache[$cid] ??= (row('SELECT id, name, inv_provider_access, inv_number_mode, inv_handover_text, inv_lead_days, inv_tools, inv_tools_other FROM companies WHERE id = ?', [$cid]) ?? []);
 }
 
 /** Recht des angemeldeten Benutzers im Inventar der Firma: 0 kein, 1 ansehen, 2 bearbeiten */
@@ -760,6 +760,7 @@ function page_inv_settings(): void
         <div class="card">
             <h2><?= e(t('Anbindungen')) ?> <span class="tag"><?= e(t('demnächst')) ?></span></h2>
             <p class="muted"><?= e(t('Geräte sollen später automatisch aus diesen Systemen übernommen werden:')) ?> Terra Management Cloud, NinjaOne, PRTG, Microsoft Intune / Entra ID, TANSS.</p>
+            <p><a class="btn" href="<?= e(iurl('inv_integrations')) ?>"><?= e(t('Genutzte Systeme angeben')) ?></a></p>
         </div>
     <?php });
 }
