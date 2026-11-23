@@ -65,7 +65,8 @@ if (!$token) {
 $cid = (int)$token['company_id'];
 $company = row('SELECT active FROM companies WHERE id = ?', [$cid]);
 if (!$company || !(int)$company['active']) api_error(403, t('Die Firma ist deaktiviert.'));
-if (!company_has_app($cid, FORMS_APP)) api_error(403, t('Die App „Formulare“ ist für diese Firma nicht freigeschaltet.'));
+$scope = (string)($token['scope'] ?? 'kunden');
+if ($scope === 'kunden' && !company_has_app($cid, FORMS_APP)) api_error(403, t('Die App „Formulare“ ist für diese Firma nicht freigeschaltet.'));
 if (($token['last_used_at'] ?? '') < date('Y-m-d H:i:s', time() - 60)) q('UPDATE api_tokens SET last_used_at = ? WHERE id = ?', [now(), $token['id']]);
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -85,6 +86,21 @@ if (in_array($method, ['POST', 'PUT', 'PATCH'], true)) {
 }
 if ($method === 'DELETE' && !$canWrite) api_error(403, t('Dieser API-Schlüssel darf nur lesen.'));
 $tokenLabel = 'API: ' . $token['name'];
+
+// --- Verträge (eigene Schlüssel mit scope „vertraege“) ----------------------------
+$contractPaths = ['vertraege', 'contracts', 'fristen', 'deadlines', 'vertragsarten'];
+if ($scope === 'vertraege') {
+    require APP_DIR . '/pages/contracts.php';
+    require APP_DIR . '/pages/ct_inventory.php';
+    require APP_DIR . '/pages/ct_deadlines.php';
+    require APP_DIR . '/pages/ct_data.php';
+    $parts[0] = ['contracts' => 'vertraege', 'deadlines' => 'fristen'][$parts[0]] ?? $parts[0];
+    if ($parts[0] === '') api_out(200, ['firma_id' => $cid, 'schreibrechte' => $canWrite, 'kosten' => (int)$token['see_costs'] === 1,
+        'pfade' => ['vertraege', 'vertraege/{id}', 'fristen', 'vertragsarten']]);
+    if (!in_array($parts[0], $contractPaths, true)) api_error(403, t('Dieser API-Schlüssel gilt nur für Verträge.'));
+    ct_api($token, $parts, $method, $body);
+}
+if (in_array($parts[0], $contractPaths, true)) api_error(403, t('Für Verträge wird ein eigener API-Schlüssel aus der App „Verträge & Laufzeiten“ benötigt.'));
 
 // --- Routen --------------------------------------------------------------------
 if ($parts[0] === '' ) {

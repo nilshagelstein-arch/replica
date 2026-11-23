@@ -331,6 +331,7 @@ function ct_tabs(string $active): void
 {
     $cid = (int)($GLOBALS['ct_cid'] ?? 0);
     $tabs = ['contracts' => t('Verträge'), 'contract_deadlines' => t('Fristenkalender')];
+    if ($cid && ct_can_costs($cid)) $tabs['contract_costs'] = t('Kosten');
     if ($cid && ct_can_manage($cid)) $tabs['contract_settings'] = t('Einstellungen');
     if (is_staff_role(current_user()['role']) && admin_can('contracts')) $tabs['contract_sales'] = t('Vertriebsübersicht'); ?>
     <nav class="type-tabs">
@@ -413,6 +414,9 @@ function page_contracts(): void
         <div class="toolbar">
             <?php if ($perm >= CT_PERM_EDIT): ?><a class="btn primary" href="<?= e(cturl('contract', ['id' => 'new'])) ?>"><?= e(t('+ Vertrag erfassen')) ?></a><?php endif; ?>
             <a class="btn" href="<?= e(cturl('contract_deadlines')) ?>"><?= e(t('Fristenkalender')) ?></a>
+            <?php if ($costs): ?><a class="btn" href="<?= e(cturl('contract_costs')) ?>"><?= e(t('Kostenübersicht')) ?></a><?php endif; ?>
+            <a class="btn" href="<?= e(cturl('contract_export')) ?>"><?= e(t('CSV-Export')) ?></a>
+            <?php if ($perm >= CT_PERM_EDIT): ?><a class="btn" href="<?= e(cturl('contract_import')) ?>"><?= e(t('CSV-Import')) ?></a><?php endif; ?>
             <?php if (ct_can_manage($cid)): ?><a class="btn" href="<?= e(cturl('contract_settings')) ?>"><?= e(t('Einstellungen')) ?></a><?php endif; ?>
         </div>
         <?php ct_due_box($cid, $costs); ?>
@@ -848,6 +852,7 @@ function page_contract_settings(): void
     if (is_post()) {
         require_post_csrf();
         $action = (string)post('action');
+        if (ct_api_settings_post($cid, $action)) ct_redirect('contract_settings');
         switch ($action) {
             case 'general':
                 // Die Einsicht für den Dienstleister schaltet nur die Firma selbst
@@ -993,11 +998,13 @@ function page_contract_settings(): void
                     <td><input type="checkbox" name="costs[<?= $id ?>]" value="1" <?= (int)$dp['see_costs'] ? 'checked' : '' ?> aria-label="<?= e(t('Kosten sehen') . ' · ' . $dp['name']) ?>"></td>
                     <td><input type="checkbox" name="approve[<?= $id ?>]" value="1" <?= (int)$dp['approve_cancel'] ? 'checked' : '' ?> aria-label="<?= e(t('Freigabe Kündigung') . ' · ' . $dp['name']) ?>"></td></tr><?php endforeach; ?>
                 </tbody></table></div>
-                <p class="muted small"><?= e(t('„Kosten sehen“ und „Freigabe Kündigung“ wirken nur zusammen mit „ansehen“ oder „bearbeiten“. Die Freigabe von Kündigungen kommt mit einer der nächsten Stufen.')) ?></p>
+                <p class="muted small"><?= e(t('„Kosten sehen“ und „Freigabe Kündigung“ wirken nur zusammen mit „ansehen“ oder „bearbeiten“.')) ?></p>
                 <button class="btn primary"><?= e(t('Rechte speichern')) ?></button>
             </form>
             <?php endif; ?>
         </div>
+
+        <?php ct_api_settings_card($cid); ?>
 
         <div class="card">
             <h2><?= e(t('Vertragsarten')) ?></h2>

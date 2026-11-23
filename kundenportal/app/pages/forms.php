@@ -479,7 +479,7 @@ function page_form_settings(): void
             $_SESSION['new_api_token'] = $plain;
             flash('success', t('Der API-Schlüssel wurde erzeugt. Kopieren Sie ihn jetzt, er wird nur einmal angezeigt.'));
         } elseif ($action === 'token_revoke') {
-            $t = row('SELECT * FROM api_tokens WHERE id = ? AND company_id = ?', [(int)post('id', 0), $cid]);
+            $t = row("SELECT * FROM api_tokens WHERE id = ? AND company_id = ? AND scope = 'kunden'", [(int)post('id', 0), $cid]);
             if (!$t) abort(404);
             q('DELETE FROM api_tokens WHERE id = ?', [$t['id']]);
             audit('api_token_revoked', $t['name'], $cid);
@@ -489,7 +489,7 @@ function page_form_settings(): void
     }
     $newToken = $_SESSION['new_api_token'] ?? null;
     unset($_SESSION['new_api_token']);
-    $tokens = rows('SELECT t.*, u.name AS creator FROM api_tokens t LEFT JOIN users u ON u.id = t.created_by WHERE t.company_id = ? ORDER BY t.created_at DESC', [$cid]);
+    $tokens = rows("SELECT t.*, u.name AS creator FROM api_tokens t LEFT JOIN users u ON u.id = t.created_by WHERE t.company_id = ? AND t.scope = 'kunden' ORDER BY t.created_at DESC", [$cid]);
     $apiBase = rtrim((string)cfg('base_url', ''), '/') . '/api.php';
 
     render_page(t('Einstellungen Formulare'), function () use ($cid, $b, $tokens, $newToken, $apiBase) { ?>
