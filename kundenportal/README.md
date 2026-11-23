@@ -82,6 +82,8 @@ Eingebaute Apps sind **On- & Offboarding**, **Formulare**, **Datensicherung** un
 - **Mindestbestand** je Lager und Gerätetyp unter Einstellungen.
 - **Kostenübersicht** (Reiter „Kosten“, für Firmen-Admins und den Dienstleister mit Einsicht): laufende Lizenzkosten je Monat und Jahr, nach Produkt und Hersteller, Gerätekäufe je Jahr und Typ, Ausblick auf die nächsten 12 Monate.
 - **CSV-Export** von Geräten, Lizenzen und Lizenzvergabe; **CSV-Import** von Geräten und Lizenzen mit Vorschau (Spalten auf Deutsch, Englisch oder Französisch; bestehende Inventarnummern bzw. Produkt + Vertragsnummer werden aktualisiert).
+- **Anbindungen** (Reiter für Firmen-Admins): Vorschau auf die automatische Erfassung aus Terra Management Cloud, NinjaOne, PRTG, Microsoft Intune/Entra ID und TANSS sowie auf Automatisierung (wiederkehrende Wartung) und Doku-App. Die Firma kreuzt an, welche Systeme sie nutzt; der Dienstleister sieht die Auswertung über alle Firmen.
+- **Mitarbeiterliste:** beim Mitarbeiter stehen seine Geräte, Lizenzen und offenen Protokolle (mit Einsicht ins Inventar).
 
 ### API der Kundendatenbank
 

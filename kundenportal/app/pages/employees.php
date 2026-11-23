@@ -321,6 +321,7 @@ function page_employee_edit(): void
             <?php if ($e): ?><p class="muted small"><?= e(t('Der Status wird mit jedem abgeschlossenen Auftrag automatisch gesetzt. Von Hand ändern Sie ihn nur für Fälle außerhalb des Portals.')) ?></p><?php endif; ?>
         </form>
         <?php if ($e): ?>
+        <?php if (function_exists('inv_employee_card')) inv_employee_card($e); ?>
         <div class="card">
             <h2><?= e(t('Verlauf')) ?></h2>
             <?php if (!$history): ?><p class="muted"><?= e(t('Noch keine Aufträge im Portal.')) ?></p><?php else: ?>

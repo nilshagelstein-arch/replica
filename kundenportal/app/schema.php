@@ -728,7 +728,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 26;
+const SCHEMA_VERSION = 27;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -842,6 +842,9 @@ function run_migrations(): void
         ['ticket_messages', 'author_name', "VARCHAR(190) NOT NULL DEFAULT ''"],
         // Erinnerungen (ab Version 26): Vorlauf in Tagen
         ['companies', 'inv_lead_days', 'INT NOT NULL DEFAULT 60'],
+        // Anbindungen (ab Version 27): Systeme, die die Firma nutzt
+        ['companies', 'inv_tools', "VARCHAR(190) NOT NULL DEFAULT ''"],
+        ['companies', 'inv_tools_other', "VARCHAR(190) NOT NULL DEFAULT ''"],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -920,6 +923,7 @@ function ensure_schema(): void
         db()->query('SELECT inv_lead_days FROM companies LIMIT 1');
         db()->query('SELECT id FROM inv_min_stock LIMIT 1');
         db()->query('SELECT id FROM inv_notices LIMIT 1');
+        db()->query('SELECT inv_tools, inv_tools_other FROM companies LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }
