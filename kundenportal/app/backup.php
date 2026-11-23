@@ -610,7 +610,7 @@ function cbackup_data(int $cid): array
     $in = $rq ? implode(',', array_map('intval', $rq)) : '0';
     $userCols = 'id, company_id, email, name, role, totp_enabled, active, last_login, created_at';
     return [
-        'companies'      => rows('SELECT * FROM companies WHERE id = ?', [$cid]),
+        'companies'      => array_map(fn($r) => array_diff_key($r, ['ct_ocr_key' => 1]), rows('SELECT * FROM companies WHERE id = ?', [$cid])),
         'users'          => rows("SELECT $userCols FROM users WHERE company_id = ?", [$cid]),
         'departments'    => rows('SELECT * FROM departments WHERE company_id = ?', [$cid]),
         'positions'      => rows('SELECT * FROM positions WHERE company_id = ?', [$cid]),

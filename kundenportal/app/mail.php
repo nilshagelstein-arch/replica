@@ -113,14 +113,14 @@ function oauth_endpoints(string $provider): array
     return array_merge($defaults[$provider], (array)cfg("oauth_endpoints.$provider", []));
 }
 
-function http_call(string $method, string $url, array $headers = [], ?string $body = null): array
+function http_call(string $method, string $url, array $headers = [], ?string $body = null, int $timeout = 25): array
 {
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_CUSTOMREQUEST  => $method,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER     => $headers,
-        CURLOPT_TIMEOUT        => 25,
+        CURLOPT_TIMEOUT        => $timeout,
         CURLOPT_CONNECTTIMEOUT => 10,
     ]);
     if ($body !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, $body);

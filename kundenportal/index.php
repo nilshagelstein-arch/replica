@@ -58,6 +58,7 @@ require APP_DIR . '/pages/ct_deadlines.php';
 require APP_DIR . '/pages/ct_cancel.php';
 require APP_DIR . '/pages/ct_sales.php';
 require APP_DIR . '/pages/ct_data.php';
+require APP_DIR . '/pages/ct_extract.php';
 require APP_DIR . '/ticket_mail.php';
 
 $routes = [
@@ -165,6 +166,7 @@ $routes = [
     'contract_costs'    => 'page_contract_costs',
     'contract_export'   => 'page_contract_export',
     'contract_import'   => 'page_contract_import',
+    'contract_extract'  => 'page_contract_extract',
 ];
 
 /**
@@ -209,6 +211,7 @@ const ROUTE_AREAS = [
     'contract_letter' => ['contracts', PERM_VIEW], 'contract_letter_pdf' => ['contracts', PERM_VIEW],
     'contract_sales' => ['contracts', PERM_VIEW],
     'contract_costs' => ['contracts', PERM_VIEW], 'contract_export' => ['contracts', PERM_VIEW], 'contract_import' => ['contracts', PERM_EDIT],
+    'contract_extract' => ['contracts', PERM_EDIT],
 ];
 
 /**

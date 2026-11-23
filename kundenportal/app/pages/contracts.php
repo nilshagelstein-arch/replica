@@ -416,7 +416,7 @@ function page_contracts(): void
             <a class="btn" href="<?= e(cturl('contract_deadlines')) ?>"><?= e(t('Fristenkalender')) ?></a>
             <?php if ($costs): ?><a class="btn" href="<?= e(cturl('contract_costs')) ?>"><?= e(t('Kostenübersicht')) ?></a><?php endif; ?>
             <a class="btn" href="<?= e(cturl('contract_export')) ?>"><?= e(t('CSV-Export')) ?></a>
-            <?php if ($perm >= CT_PERM_EDIT): ?><a class="btn" href="<?= e(cturl('contract_import')) ?>"><?= e(t('CSV-Import')) ?></a><?php endif; ?>
+            <?php if ($perm >= CT_PERM_EDIT): ?><a class="btn" href="<?= e(cturl('contract_extract')) ?>"><?= e(t('Aus PDF erfassen')) ?></a><a class="btn" href="<?= e(cturl('contract_import')) ?>"><?= e(t('CSV-Import')) ?></a><?php endif; ?>
             <?php if (ct_can_manage($cid)): ?><a class="btn" href="<?= e(cturl('contract_settings')) ?>"><?= e(t('Einstellungen')) ?></a><?php endif; ?>
         </div>
         <?php ct_due_box($cid, $costs); ?>
@@ -492,8 +492,11 @@ function page_contract(): void
     $files = $c ? rows('SELECT * FROM ct_files WHERE contract_id = ? AND company_id = ? ORDER BY id', [$c['id'], $cid]) : [];
     $prices = $c && $costs ? (ct_prices_for($cid, [(int)$c['id']])[(int)$c['id']] ?? []) : [];
     $title = $isNew ? t('Vertrag erfassen') : $c['title'];
+    // Stufe 7: Vorbelegung aus einer ausgelesenen PDF
+    $prefill = $isNew && ($_GET['from'] ?? '') !== '' ? ct_extract_prefill($cid, (string)$_GET['from']) : null;
+    if ($prefill) $c = $prefill['c'];
 
-    render_page($title, function () use ($cid, $perm, $costs, $c, $isNew, $types, $providers, $users, $log, $files, $prices) {
+    render_page($title, function () use ($cid, $perm, $costs, $c, $isNew, $types, $providers, $users, $log, $files, $prices, $prefill) {
         $edit = $perm >= CT_PERM_EDIT;
         $v = fn(string $k) => (string)($c[$k] ?? '');
         $status = $c['status'] ?? 'aktiv'; ?>
@@ -503,6 +506,8 @@ function page_contract(): void
         <?php if ($edit): ?>
         <form method="post" action="<?= e(cturl('contract_action', $isNew ? [] : ['id' => $c['id']])) ?>" class="form card">
             <?= csrf_field() ?><input type="hidden" name="action" value="save">
+            <?php if ($prefill): ?><input type="hidden" name="from_token" value="<?= e($prefill['token']) ?>">
+            <div class="alert info"><?= e(t('Vorausgefüllt aus „{x}“ ({n} Angaben gefunden). Bitte alles prüfen – die PDF wird beim Anlegen als Dokument „Vertrag“ angehängt.', ['x' => $prefill['name'], 'n' => $prefill['count']])) ?></div><?php endif; ?>
             <h2><?= e(t('Stammdaten')) ?></h2>
             <div class="grid2">
                 <label><?= e(t('Bezeichnung *')) ?> <input name="title" maxlength="190" required value="<?= e($v('title')) ?>" placeholder="<?= e(t('z. B. Mobilfunk Geschäftsführung')) ?>"></label>
@@ -599,6 +604,7 @@ function page_contract(): void
                 <?php if ($files): ?><ul class="file-list">
                     <?php foreach ($files as $f): ?><li><span class="tag"><?= e(t(CT_DOC_KINDS[$f['doc_kind']] ?? 'Sonstiges')) ?></span> <a href="<?= e(cturl('contract_file', ['id' => $f['id']])) ?>"><?= e($f['filename']) ?></a>
                         <span class="muted small"><?= e(number_format($f['size'] / 1024, 0, ',', '.')) ?> KB · <?= fmt_dt($f['created_at']) ?></span>
+                        <?php if ($edit && ($f['mime'] === 'application/pdf' || str_ends_with(strtolower((string)$f['filename']), '.pdf'))): ?><a class="btn small" href="<?= e(cturl('contract_extract', ['id' => $c['id'], 'file' => $f['id']])) ?>"><?= e(t('Daten auslesen')) ?></a><?php endif; ?>
                         <?php if ($edit): ?><form method="post" action="<?= e(cturl('contract_action', ['id' => $c['id']])) ?>" class="inline-form"><?= csrf_field() ?><input type="hidden" name="action" value="file_delete"><input type="hidden" name="file_id" value="<?= (int)$f['id'] ?>">
                             <button class="btn small danger" data-confirm="<?= e(t('Dokument „{x}“ löschen?', ['x' => $f['filename']])) ?>">✕</button></form><?php endif; ?></li>
                     <?php endforeach; ?></ul>
@@ -697,11 +703,12 @@ function page_contract_action(): void
         elseif ($costs && $raw !== '' && $data['cost_cents'] === null) $err = t('Der Betrag „{x}“ ist keine gültige Zahl.', ['x' => $raw]);
         elseif ($data['start_date'] !== '' && $data['end_date'] !== '' && $data['end_date'] < $data['start_date']) $err = t('Das Ende liegt vor dem Beginn.');
         elseif ($f('partner_email', 190) !== '' && $data['partner_email'] === '') $err = t('Die E-Mail-Adresse des Anbieters ist ungültig.');
-        if ($err) { flash('error', $err); $c ? $back() : ct_redirect('contract', ['id' => 'new']); }
+        if ($err) { flash('error', $err); $c ? $back() : ct_redirect('contract', ['id' => 'new'] + ((string)post('from_token') !== '' ? ['from' => (string)post('from_token')] : [])); }
 
         if (!$c) {
             $id = insert('contracts', $data + ['company_id' => $cid, 'created_by' => current_user()['id'], 'created_at' => now()]);
             ct_log($cid, $id, 'Vertrag angelegt: ' . $data['title']);
+            if ((string)post('from_token') !== '') ct_extract_attach($cid, $id, (string)post('from_token'));
             if ($costs && $data['cost_cents'] !== null) ct_log($cid, $id, 'Kosten: ' . ct_fmt_price($data['cost_cents']) . ' ' . CT_INTERVALS[$data['cost_interval']], 'cost');
             audit('contract.create', $data['title'], $cid);
             flash('success', t('Der Vertrag „{x}“ wurde angelegt.', ['x' => $data['title']]));
@@ -853,6 +860,7 @@ function page_contract_settings(): void
         require_post_csrf();
         $action = (string)post('action');
         if (ct_api_settings_post($cid, $action)) ct_redirect('contract_settings');
+        if (ct_ocr_settings_post($cid, $action)) ct_redirect('contract_settings');
         switch ($action) {
             case 'general':
                 // Die Einsicht für den Dienstleister schaltet nur die Firma selbst
@@ -1005,6 +1013,7 @@ function page_contract_settings(): void
         </div>
 
         <?php ct_api_settings_card($cid); ?>
+        <?php ct_ocr_settings_card($cid); ?>
 
         <div class="card">
             <h2><?= e(t('Vertragsarten')) ?></h2>
