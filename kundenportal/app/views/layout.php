@@ -22,9 +22,7 @@ if ($user && company_pending($user)) {
                 $subnav[] = ['change_new', t('+ Reaktivierung'), ['type' => 'reaktivierung'], $route === 'change_new' && $curType === 'reaktivierung'];
             }
             if (in_array($user['role'], ['superadmin', 'admin', 'firma_admin'], true)) {
-                $subnav[] = ['structure', t('Abteilungen & Positionen'), [], $route === 'structure'];
-                $subnav[] = ['catalog', t('Katalog'), [], $route === 'catalog'];
-                $subnav[] = ['templates', t('Vorlagen'), [], $route === 'templates'];
+                $subnav[] = ['settings', t('Einstellungen'), ['cat' => 'onboarding'], false];
             }
         }
     }
@@ -37,8 +35,7 @@ if ($user && company_pending($user)) {
             $subnav[] = ['forms', t('Formulare'), $fp, in_array($route, ['forms', 'form_edit', 'form_use'], true)];
             $subnav[] = ['customers', t('Kundendatenbank'), $fp, in_array($route, ['customers', 'customer_edit', 'customer_fields', 'customer_import'], true)];
             if (in_array($user['role'], ['superadmin', 'admin', 'firma_admin'], true)) {
-                $subnav[] = ['form_layouts', t('Briefkopf & Fußzeile'), $fp, $route === 'form_layouts'];
-                $subnav[] = ['form_settings', t('Logo, Briefpapier & API'), $fp, $route === 'form_settings'];
+                $subnav[] = ['settings', t('Einstellungen'), $fp + ['cat' => 'formulare'], false];
             }
         }
     }
@@ -73,12 +70,15 @@ if ($user && company_pending($user)) {
             'contracts' => ['contract_sales', t('Vertriebsübersicht'), $route === 'contract_sales'],
         ];
         foreach ($adminNav as $area => $item) if (admin_can($area)) $nav[] = $item;
-    } elseif ($user['role'] === 'firma_admin') {
-        $nav[] = ['company_edit', t('Firmenprofil'), $route === 'company_edit'];
-        $nav[] = ['users', t('Benutzer'), in_array($route, ['users', 'user_edit'], true)];
-        $nav[] = ['mail_settings', t('E-Mail-Versand'), $route === 'mail_settings'];
     }
 }
+// Zentrale Einstellungen: Seite im Rahmen mit Kategorien; dann ist kein App-Menüpunkt aktiv
+$settingsFrame = $user ? settings_frame($route) : null;
+if ($settingsFrame) {
+    foreach ($nav as $i => $item) $nav[$i][2] = false;
+    $subnav = [];
+}
+$showSettings = $user && settings_available();
 // App, zu der die aktuelle Seite gehört (für das große Symbol links oben)
 $pageApp = null;
 if ($user && !company_pending($user)) {
@@ -91,6 +91,7 @@ if ($user && !company_pending($user)) {
         'vertraege'      => ['contracts', 'contract', 'contract_settings', 'contract_deadlines', 'contract_costs', 'contract_import'],
         'dokumente'      => ['docs', 'doc_space', 'doc', 'doc_edit', 'doc_space_edit', 'doc_settings', 'doc_search', 'doc_history', 'doc_version', 'doc_diff', 'doc_templates', 'doc_template_edit', 'doc_file', 'doc_vault'],
     ];
+    if ($settingsFrame) $routeApps = [];
     foreach ($routeApps as $slug => $routes) {
         if (in_array($route, $routes, true)) {
             $pageApp = row('SELECT id, name, icon FROM apps WHERE slug = ?', [$slug]);
@@ -124,6 +125,7 @@ if ($user && $user['company_id']) {
     <div class="who">
         <span><?= e($user['name']) ?></span>
         <span class="muted"><?= $companyName ? e($companyName) : e(($user['role'] ?? '') === 'dienstleister' ? t('Externer Dienstleister') : t('Administration')) ?></span>
+        <?php if ($showSettings): ?><a href="<?= e(url('settings')) ?>" class="gear<?= $settingsFrame ? ' active' : '' ?>" title="<?= e(t('Einstellungen')) ?>"><span aria-hidden="true">⚙</span> <?= e(t('Einstellungen')) ?></a><?php endif; ?>
         <a href="<?= e(url('account')) ?>"><?= e(t('Mein Konto')) ?></a>
         <form method="post" action="<?= e(url('logout')) ?>" class="inline"><?= csrf_field() ?><button class="linklike"><?= e(t('Abmelden')) ?></button></form>
     </div>
@@ -152,13 +154,19 @@ if ($user && $user['company_id']) {
             <h1><?= e($title) ?></h1>
         </div>
     </div>
+    <?php elseif ($settingsFrame): ?>
+    <div class="page-head"><div><div class="page-app"><?= e(t('Einstellungen')) ?></div><h1><?= e($title) ?></h1></div></div>
     <?php else: ?>
     <h1><?= e($title) ?></h1>
     <?php endif; ?>
     <?php foreach ($flashes as [$type, $msg]): ?>
         <div class="alert <?= e($type) ?>"><?= e($msg) ?></div>
     <?php endforeach; ?>
+    <?php if ($settingsFrame): ?>
+    <div class="set-layout"><?= settings_sidebar($settingsFrame, $route) ?><div class="set-main"><?php $GLOBALS['in_settings'] = true; $content(); ?></div></div>
+    <?php else: ?>
     <?php $content(); ?>
+    <?php endif; ?>
 </main>
 <script src="index.php?r=i18n_js&amp;l=<?= e(current_lang()) ?>"></script>
 <script src="assets/app.js"></script>

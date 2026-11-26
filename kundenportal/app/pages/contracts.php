@@ -330,6 +330,7 @@ function ct_users(int $cid, ?int $keep = null): array
 
 function ct_tabs(string $active): void
 {
+    if (!empty($GLOBALS['in_settings'])) return; // im Rahmen der Einstellungen ohne App-Reiter
     $cid = (int)($GLOBALS['ct_cid'] ?? 0);
     $tabs = ['contracts' => t('Verträge'), 'contract_deadlines' => t('Fristenkalender')];
     if ($cid && ct_can_costs($cid)) $tabs['contract_costs'] = t('Kosten');

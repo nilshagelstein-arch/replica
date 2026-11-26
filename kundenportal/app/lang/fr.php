@@ -4060,4 +4060,6 @@ De : {name} ({email})
     'Passwort geändert' => 'Mot de passe changé',
     'Der Zugriff auf den Tresor endet automatisch, sobald das Konto deaktiviert oder aus den Gruppen entfernt wird; die betroffenen Ordner werden dann neu verschlüsselt.' => 'L’accès au coffre-fort prend fin automatiquement dès que le compte est désactivé ou retiré des groupes ; les dossiers concernés sont alors rechiffrés.',
     'Der verknüpfte Eintrag ist für Sie nicht freigegeben.' => 'L’entrée liée ne vous est pas ouverte.',
+    // Zentrale Einstellungen
+    'Mitarbeiter-Onboarding' => 'Intégration des collaborateurs',
 ];

@@ -977,3 +977,24 @@ pre.vault-val { margin: 0; white-space: pre-wrap; font-family: inherit; flex: 1 
 /* Dokumente & Anleitungen, Stufe 6: Verknüpfungen */
 .wkl-add { display: flex; flex-direction: column; gap: .4rem; margin-top: .6rem; }
 .wkl-add select { max-width: 100%; }
+
+/* Zentrale Einstellungen */
+.who a.gear { color: #fff; text-decoration: none; }
+.who a.gear.active { font-weight: 600; text-decoration: underline; }
+.set-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+.set-side { position: sticky; top: 1rem; background: var(--card, #fff); border: 1px solid var(--line); border-radius: 8px; padding: .75rem; font-size: .92rem; }
+.set-side .company-switch { margin-bottom: .75rem; }
+.set-side .company-switch select { max-width: 100%; }
+.set-side .set-group { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: .6rem .4rem .2rem; }
+.set-side ul { list-style: none; margin: 0; padding: 0; }
+.set-side ul ul { margin: .15rem 0 .3rem .8rem; border-left: 2px solid var(--line); }
+.set-side a { display: block; padding: .35rem .5rem; border-radius: 5px; text-decoration: none; color: var(--text); }
+.set-side a:hover { background: rgba(0, 0, 0, .04); color: var(--accent); }
+.set-side a.active { color: var(--accent); font-weight: 600; background: rgba(0, 0, 0, .04); }
+.set-side .set-pick { display: none; }
+@media (max-width: 800px) {
+    .set-layout { grid-template-columns: 1fr; gap: .75rem; }
+    .set-side { position: static; padding: .5rem .75rem; }
+    .set-side .set-group, .set-side > ul { display: none; }
+    .set-side .set-pick { display: block; }
+}

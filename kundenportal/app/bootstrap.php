@@ -703,6 +703,8 @@ function render_page(string $title, callable $content): void
 
 function company_switcher(int $current, string $route, array $extra = []): string
 {
+    // im Rahmen der Einstellungen steht die Firmenauswahl in der linken Spalte
+    if (!empty($GLOBALS['in_settings']) && $route !== 'settings') return '';
     if (!is_admin() && !(is_provider_user() && count(provider_company_ids()) > 1)) return '';
     $html = '<form method="get" class="company-switch"><input type="hidden" name="r" value="' . e($route) . '">';
     foreach ($extra as $k => $v) $html .= '<input type="hidden" name="' . e($k) . '" value="' . e($v) . '">';
