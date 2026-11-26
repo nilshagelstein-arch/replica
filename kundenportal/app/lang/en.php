@@ -2650,6 +2650,7 @@ When you sign in for the first time, you set up two-factor authentication with a
     'Anhang gelöscht' => 'Attachment deleted',
     'SIM-Nummer' => 'SIM number',
     'Inventar der Firma: Geräte mit Standort, Zuordnung und Verlauf, Lager mit Bestand – Lizenzen folgen.' => 'Company inventory: devices with location, assignment and history, storage with stock – licences to follow.',
+    'Inventar der Firma: Geräte und Lizenzen mit Standort, Zuordnung und Verlauf, Lager mit Bestand und Erinnerungen an Garantie und Laufzeit.' => 'Company inventory: devices and licences with location, assignment and history, storage with stock and reminders for warranty and term.',
     'Inventar der Firmen; nur mit Einsicht-Freigabe der Firma' => 'Companies\' inventory; only with the company\'s access approval',
     // Inventar: Lizenzen (Stufe 2)
     '+ Lizenz erfassen' => '+ Add licence',

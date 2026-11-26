@@ -895,7 +895,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 35;
+const SCHEMA_VERSION = 36;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -909,7 +909,7 @@ const BUILTIN_APPS = [
         'target' => 'links', 'icon' => '🔗', 'color' => '#c2410c', 'sort' => 40],
     'tickets' => ['name' => 'Tickets', 'description' => 'Interner Helpdesk: Anliegen in Queues melden, bearbeiten und verfolgen – mit Verlauf, Anhängen und Benachrichtigungen.',
         'target' => 'tickets', 'icon' => '🎫', 'color' => '#b4235a', 'sort' => 15],
-    'inventar' => ['name' => 'Geräte & Lizenzen', 'description' => 'Inventar der Firma: Geräte mit Standort, Zuordnung und Verlauf, Lager mit Bestand – Lizenzen folgen.',
+    'inventar' => ['name' => 'Geräte & Lizenzen', 'description' => 'Inventar der Firma: Geräte und Lizenzen mit Standort, Zuordnung und Verlauf, Lager mit Bestand und Erinnerungen an Garantie und Laufzeit.',
         'target' => 'inventory', 'icon' => '💻', 'color' => '#0e7490', 'sort' => 17],
     'vertraege' => ['name' => 'Verträge & Laufzeiten', 'description' => 'Alle Verträge der Firma an einem Ort: Laufzeiten, Kündigungsfristen, Kosten und Dokumente – damit sich nichts unbemerkt verlängert.',
         'target' => 'contracts', 'icon' => '📄', 'color' => '#7c3aed', 'sort' => 18],
@@ -1054,6 +1054,9 @@ function run_migrations(): void
     // Anzeigename der eingebauten App aktualisieren, solange er nicht angepasst wurde
     q("UPDATE apps SET name = ?, description = ? WHERE slug = 'onboarding' AND name = 'Onboarding'",
         [BUILTIN_APPS['onboarding']['name'], BUILTIN_APPS['onboarding']['description']]);
+    // Kachel „Geräte & Lizenzen“: alten Text „Lizenzen folgen“ ersetzen, solange er nicht angepasst wurde (ab Version 36)
+    q('UPDATE apps SET description = ? WHERE slug = ? AND description = ?',
+        [BUILTIN_APPS['inventar']['description'], 'inventar', 'Inventar der Firma: Geräte mit Standort, Zuordnung und Verlauf, Lager mit Bestand – Lizenzen folgen.']);
     foreach (BUILTIN_APPS as $slug => $a) {
         if (!row('SELECT id FROM apps WHERE slug = ?', [$slug])) {
             $appId = insert('apps', ['slug' => $slug, 'name' => $a['name'], 'description' => $a['description'], 'kind' => 'intern',
