@@ -1,6 +1,6 @@
 <?php
 /**
- * App „Dokumente & Anleitungen“ – Stufe 1: Wiki-Grundgerüst
+ * App „Dokumente & Anleitungen“ – Stufe 1: Wiki-Grundgerüst (Stufe 2 in docs_more.php)
  *
  * - Je Firma getrennt: Bereiche (z. B. je Abteilung) mit einem beliebig tiefen Seitenbaum.
  * - Rechte je Bereich über Gruppen (Abteilungen): „ansehen“ oder „bearbeiten“; dazu der Schalter
@@ -325,7 +325,7 @@ function wk_user_name(?int $id): string
 function wk_tabs(int $cid, string $active, string $search = ''): void
 {
     $tabs = ['docs' => t('Bereiche')];
-    if (wk_can_manage($cid)) $tabs['doc_settings'] = t('Einstellungen'); ?>
+    if (wk_can_manage($cid)) { $tabs['doc_templates'] = t('Vorlagen'); $tabs['doc_settings'] = t('Einstellungen'); } ?>
     <div class="wk-head">
         <nav class="type-tabs">
             <?php foreach ($tabs as $route => $label): ?><a class="<?= $route === $active ? 'active' : '' ?>" href="<?= e(wkurl($route)) ?>"><?= e($label) ?></a><?php endforeach; ?>
@@ -475,8 +475,10 @@ function page_doc(): void
     $siblings = $map[(int)($page['parent_id'] ?? 0)] ?? [];
     $pos = array_search((int)$page['id'], array_map(fn($s) => (int)$s['id'], $siblings), true);
     $body = wk_render_body((string)$page['body']);
+    $watching = wk_is_watching($cid, (int)$page['id'], (int)current_user()['id']);
+    $versionCount = (int)(row('SELECT COUNT(*) AS n FROM wk_versions WHERE company_id = ? AND page_id = ?', [$cid, $page['id']])['n'] ?? 0);
 
-    render_page($page['title'] . ' · ' . $space['name'], function () use ($cid, $space, $page, $perm, $map, $anc, $openIds, $kids, $siblings, $pos, $body) {
+    render_page($page['title'] . ' · ' . $space['name'], function () use ($cid, $space, $page, $perm, $map, $anc, $openIds, $kids, $siblings, $pos, $body, $watching, $versionCount) {
         echo company_switcher($cid, 'docs');
         wk_tabs($cid, 'docs'); ?>
         <div class="wk-layout">
@@ -495,7 +497,17 @@ function page_doc(): void
                         </div>
                         <?php endif; ?>
                     </div>
-                    <p class="muted small"><?= e(t('Zuletzt geändert am {d} von {n}', ['d' => fmt_dt($page['updated_at']), 'n' => wk_user_name((int)$page['updated_by'])])) ?></p>
+                    <div class="wk-meta">
+                        <span class="muted small"><?= e(t('Zuletzt geändert am {d} von {n}', ['d' => fmt_dt($page['updated_at']), 'n' => wk_user_name((int)$page['updated_by'])])) ?></span>
+                        <span class="wk-meta-links">
+                            <a href="<?= e(wkurl('doc_history', ['id' => $page['id']])) ?>"><?= e($versionCount ? t('Verlauf ({n} Versionen)', ['n' => $versionCount]) : t('Verlauf')) ?></a>
+                            <a href="<?= e(wkurl('doc_pdf', ['id' => $page['id']])) ?>"><?= e(t('PDF')) ?></a>
+                            <?php if ($kids): ?><a href="<?= e(wkurl('doc_pdf', ['id' => $page['id'], 'tree' => 1])) ?>"><?= e(t('PDF mit Unterseiten')) ?></a><?php endif; ?>
+                            <a href="#kommentare"><?= e(t('Kommentare')) ?></a>
+                            <form method="post" action="<?= e(wkurl('doc_action')) ?>" class="inline"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$page['id'] ?>">
+                                <button class="btn small <?= $watching ? '' : 'primary' ?>" name="action" value="<?= $watching ? 'unwatch' : 'watch' ?>"><?= e($watching ? t('👁 Nicht mehr beobachten') : t('👁 Beobachten')) ?></button></form>
+                        </span>
+                    </div>
                     <div class="wk-body"><?= $body !== '' ? $body : '<p class="muted">' . e(t('Diese Seite ist noch leer.')) . '</p>' ?></div>
                     <?php if ($kids): ?>
                         <div class="wk-children">
@@ -504,6 +516,7 @@ function page_doc(): void
                         </div>
                     <?php endif; ?>
                 </article>
+                <?php wk_comments_card($cid, $page, $space); ?>
                 <?php if ($perm >= WK_PERM_EDIT): ?>
                 <div class="card wk-tools">
                     <form method="post" action="<?= e(wkurl('doc_action')) ?>" class="btn-row">
@@ -511,6 +524,7 @@ function page_doc(): void
                         <span class="muted small"><?= e(t('Reihenfolge:')) ?></span>
                         <button class="btn small" name="action" value="move_up" <?= $pos === 0 ? 'disabled' : '' ?>><?= e(t('↑ nach oben')) ?></button>
                         <button class="btn small" name="action" value="move_down" <?= $pos === count($siblings) - 1 ? 'disabled' : '' ?>><?= e(t('↓ nach unten')) ?></button>
+                        <?php if (wk_can_manage($cid)): ?><button class="btn small" name="action" value="save_template"><?= e(t('Als Vorlage speichern')) ?></button><?php endif; ?>
                     </form>
                     <form method="post" action="<?= e(wkurl('doc_action')) ?>" data-confirm="<?= e(t('Diese Seite wirklich löschen? Das lässt sich nicht rückgängig machen.')) ?>">
                         <?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$page['id'] ?>">
@@ -523,72 +537,9 @@ function page_doc(): void
     <?php });
 }
 
-// ---------------------------------------------------------------------------
-// Seite anlegen / bearbeiten
-// ---------------------------------------------------------------------------
-
-function page_doc_edit(): void
-{
-    $cid = wk_company_id();
-    $id = query_int('id');
-    $page = $id ? wk_page($cid, $id) : null;
-    if ($id && !$page) abort(404);
-    $space = wk_require_space($cid, $page ? (int)$page['space_id'] : query_int('space'), WK_PERM_EDIT);
-    $sid = (int)$space['id'];
-    $map = wk_children_map($cid, $sid);
-    $exclude = $page ? wk_subtree_ids($map, (int)$page['id']) : [];
-    $parent = $page ? (int)($page['parent_id'] ?? 0) : query_int('parent');
-    if ($parent && (in_array($parent, $exclude, true) || (int)(wk_page($cid, $parent)['space_id'] ?? 0) !== $sid)) $parent = 0;
-    $err = '';
-    $title = $page['title'] ?? '';
-    $body = (string)($page['body'] ?? '');
-
-    if (is_post()) {
-        require_post_csrf();
-        $title = mb_substr(trim((string)post('title')), 0, 190);
-        $raw = (string)post('body');
-        $parent = (int)post('parent_id', 0);
-        if ($parent && (in_array($parent, $exclude, true) || (int)(wk_page($cid, $parent)['space_id'] ?? 0) !== $sid)) $parent = 0;
-        if ($title === '') $err = t('Bitte einen Titel angeben.');
-        elseif (strlen($raw) > WK_BODY_MAX) $err = t('Die Seite ist zu groß (höchstens {n} MB inklusive Bilder). Bitte Bilder verkleinern oder auf mehrere Seiten verteilen.', ['n' => WK_BODY_MAX / 1048576]);
-        if ($err === '') {
-            $body = sanitize_html($raw);
-            $data = ['title' => $title, 'body' => $body, 'parent_id' => $parent ?: null, 'updated_by' => current_user()['id'], 'updated_at' => now()];
-            if ($page) {
-                if ((int)($page['parent_id'] ?? 0) !== $parent) {
-                    $data['sort'] = (int)(row('SELECT MAX(sort) AS m FROM wk_pages WHERE company_id = ? AND space_id = ? AND ' . ($parent ? 'parent_id = ?' : 'parent_id IS NULL'),
-                        array_merge([$cid, $sid], $parent ? [$parent] : []))['m'] ?? 0) + 10;
-                }
-                update('wk_pages', (int)$page['id'], $data);
-                $pid = (int)$page['id'];
-                wk_log($cid, 'page_update', '#' . $pid . ' ' . $title);
-            } else {
-                $data += ['company_id' => $cid, 'space_id' => $sid, 'created_by' => current_user()['id'], 'created_at' => now(),
-                    'sort' => (int)(row('SELECT MAX(sort) AS m FROM wk_pages WHERE company_id = ? AND space_id = ? AND ' . ($parent ? 'parent_id = ?' : 'parent_id IS NULL'),
-                        array_merge([$cid, $sid], $parent ? [$parent] : []))['m'] ?? 0) + 10];
-                $pid = insert('wk_pages', $data);
-                wk_log($cid, 'page_create', '#' . $pid . ' ' . $title);
-            }
-            update('wk_spaces', $sid, ['updated_at' => now()]);
-            flash('success', t('Die Seite wurde gespeichert.'));
-            wk_redirect('doc', ['id' => $pid]);
-        }
-        $body = sanitize_html(substr($raw, 0, WK_BODY_MAX));
-    }
-
-    $heading = $page ? t('Seite bearbeiten') : t('Neue Seite');
-    render_page($heading . ' · ' . $space['name'], function () use ($cid, $space, $page, $map, $exclude, $parent, $title, $body, $err, $heading) { ?>
-        <nav class="wk-crumbs"><a href="<?= e(wkurl('docs')) ?>"><?= e(t('Bereiche')) ?></a> ›
-            <a href="<?= e(wkurl('doc_space', ['id' => $space['id']])) ?>"><?= e($space['name']) ?></a> › <span><?= e($heading) ?></span></nav>
-        <?php if ($err !== ''): ?><div class="alert error"><?= e($err) ?></div><?php endif; ?>
-        <form method="post" class="form card wk-edit" id="wk-form">
-            <?= csrf_field() ?>
-            <div class="wk-edit-head">
-                <label class="grow"><?= e(t('Titel')) ?> <input name="title" required maxlength="190" value="<?= e($title) ?>" autofocus></label>
-                <label><?= e(t('Übergeordnete Seite')) ?> <select name="parent_id">
-                    <option value="0"><?= e(t('– oberste Ebene im Bereich –')) ?></option>
-                    <?= wk_parent_options($map, 0, $exclude, $parent) ?></select></label>
-            </div>
+/** Werkzeugleiste und Editor (assets/wiki.js); ohne JavaScript bleibt das HTML-Textfeld */
+function wk_editor(string $body): void
+{ ?>
             <div class="wk-toolbar" id="wk-toolbar" role="toolbar" aria-label="<?= e(t('Formatierung')) ?>" hidden>
                 <select data-block aria-label="<?= e(t('Absatzformat')) ?>">
                     <option value="p"><?= e(t('Standard')) ?></option><option value="h2"><?= e(t('Überschrift 1')) ?></option>
@@ -638,6 +589,82 @@ function page_doc_edit(): void
             </div>
             <div class="wk-editor wk-body" id="wk-editor" hidden></div>
             <textarea name="body" id="wk-body" rows="18" class="wk-fallback"><?= e($body) ?></textarea>
+<?php }
+
+// ---------------------------------------------------------------------------
+// Seite anlegen / bearbeiten
+// ---------------------------------------------------------------------------
+
+function page_doc_edit(): void
+{
+    $cid = wk_company_id();
+    $id = query_int('id');
+    $page = $id ? wk_page($cid, $id) : null;
+    if ($id && !$page) abort(404);
+    $space = wk_require_space($cid, $page ? (int)$page['space_id'] : query_int('space'), WK_PERM_EDIT);
+    $sid = (int)$space['id'];
+    $map = wk_children_map($cid, $sid);
+    $exclude = $page ? wk_subtree_ids($map, (int)$page['id']) : [];
+    $parent = $page ? (int)($page['parent_id'] ?? 0) : query_int('parent');
+    if ($parent && (in_array($parent, $exclude, true) || (int)(wk_page($cid, $parent)['space_id'] ?? 0) !== $sid)) $parent = 0;
+    $err = '';
+    $title = $page['title'] ?? '';
+    $body = (string)($page['body'] ?? '');
+    if (!$page && !is_post()) {
+        $tpl = (string)($_GET['tpl'] ?? '');
+        if ($tpl === '') { wk_template_chooser($cid, $space, $parent); return; }
+        if ($tpl !== 'leer' && ($t = wk_template_body($cid, $tpl))) $body = (string)$t['body'];
+    }
+
+    if (is_post()) {
+        require_post_csrf();
+        $title = mb_substr(trim((string)post('title')), 0, 190);
+        $raw = (string)post('body');
+        $parent = (int)post('parent_id', 0);
+        if ($parent && (in_array($parent, $exclude, true) || (int)(wk_page($cid, $parent)['space_id'] ?? 0) !== $sid)) $parent = 0;
+        if ($title === '') $err = t('Bitte einen Titel angeben.');
+        elseif (strlen($raw) > WK_BODY_MAX) $err = t('Die Seite ist zu groß (höchstens {n} MB inklusive Bilder). Bitte Bilder verkleinern oder auf mehrere Seiten verteilen.', ['n' => WK_BODY_MAX / 1048576]);
+        if ($err === '') {
+            $body = sanitize_html($raw);
+            $data = ['title' => $title, 'body' => $body, 'parent_id' => $parent ?: null, 'updated_by' => current_user()['id'], 'updated_at' => now()];
+            if ($page) {
+                if ((int)($page['parent_id'] ?? 0) !== $parent) {
+                    $data['sort'] = (int)(row('SELECT MAX(sort) AS m FROM wk_pages WHERE company_id = ? AND space_id = ? AND ' . ($parent ? 'parent_id = ?' : 'parent_id IS NULL'),
+                        array_merge([$cid, $sid], $parent ? [$parent] : []))['m'] ?? 0) + 10;
+                }
+                update('wk_pages', (int)$page['id'], $data);
+                $pid = (int)$page['id'];
+                wk_log($cid, 'page_update', '#' . $pid . ' ' . $title);
+                wk_after_save($cid, $page, $pid, $title, $body);
+            } else {
+                $data += ['company_id' => $cid, 'space_id' => $sid, 'created_by' => current_user()['id'], 'created_at' => now(),
+                    'sort' => (int)(row('SELECT MAX(sort) AS m FROM wk_pages WHERE company_id = ? AND space_id = ? AND ' . ($parent ? 'parent_id = ?' : 'parent_id IS NULL'),
+                        array_merge([$cid, $sid], $parent ? [$parent] : []))['m'] ?? 0) + 10];
+                $pid = insert('wk_pages', $data);
+                wk_log($cid, 'page_create', '#' . $pid . ' ' . $title);
+                wk_after_save($cid, null, $pid, $title, $body);
+            }
+            update('wk_spaces', $sid, ['updated_at' => now()]);
+            flash('success', t('Die Seite wurde gespeichert.'));
+            wk_redirect('doc', ['id' => $pid]);
+        }
+        $body = sanitize_html(substr($raw, 0, WK_BODY_MAX));
+    }
+
+    $heading = $page ? t('Seite bearbeiten') : t('Neue Seite');
+    render_page($heading . ' · ' . $space['name'], function () use ($cid, $space, $page, $map, $exclude, $parent, $title, $body, $err, $heading) { ?>
+        <nav class="wk-crumbs"><a href="<?= e(wkurl('docs')) ?>"><?= e(t('Bereiche')) ?></a> ›
+            <a href="<?= e(wkurl('doc_space', ['id' => $space['id']])) ?>"><?= e($space['name']) ?></a> › <span><?= e($heading) ?></span></nav>
+        <?php if ($err !== ''): ?><div class="alert error"><?= e($err) ?></div><?php endif; ?>
+        <form method="post" class="form card wk-edit" id="wk-form">
+            <?= csrf_field() ?>
+            <div class="wk-edit-head">
+                <label class="grow"><?= e(t('Titel')) ?> <input name="title" required maxlength="190" value="<?= e($title) ?>" autofocus></label>
+                <label><?= e(t('Übergeordnete Seite')) ?> <select name="parent_id">
+                    <option value="0"><?= e(t('– oberste Ebene im Bereich –')) ?></option>
+                    <?= wk_parent_options($map, 0, $exclude, $parent) ?></select></label>
+            </div>
+            <?php wk_editor($body); ?>
             <p class="muted small"><?= e(t('Tipp: Bilder lassen sich auch per Kopieren und Einfügen oder Ziehen einfügen. Strg+S speichert.')) ?></p>
             <div class="btn-row">
                 <button class="btn primary"><?= e(t('Speichern')) ?></button>
@@ -677,6 +704,9 @@ function page_doc_action(): void
     $page = wk_page($cid, (int)post('id', 0));
     if (!$page) abort(404);
     $sid = (int)$page['space_id'];
+    wk_require_space($cid, $sid, WK_PERM_VIEW);
+    // Kommentare, Beobachten, Wiederherstellen, Als Vorlage speichern (Rechte prüft wk_action_more selbst)
+    wk_action_more($cid, $page, $action);
     wk_require_space($cid, $sid, WK_PERM_EDIT);
     switch ($action) {
         case 'move_up':
@@ -697,6 +727,7 @@ function page_doc_action(): void
                 wk_redirect('doc', ['id' => $page['id']]);
             }
             q('DELETE FROM wk_pages WHERE id = ? AND company_id = ?', [$page['id'], $cid]);
+            wk_page_cleanup($cid, (int)$page['id']);
             wk_log($cid, 'page_delete', '#' . $page['id'] . ' ' . $page['title']);
             flash('success', t('Die Seite wurde gelöscht.'));
             if ($page['parent_id']) wk_redirect('doc', ['id' => $page['parent_id']]);

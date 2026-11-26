@@ -60,6 +60,7 @@ require APP_DIR . '/pages/ct_sales.php';
 require APP_DIR . '/pages/ct_data.php';
 require APP_DIR . '/pages/ct_extract.php';
 require APP_DIR . '/pages/docs.php';
+require APP_DIR . '/pages/docs_more.php';
 require APP_DIR . '/ticket_mail.php';
 
 $routes = [
@@ -177,6 +178,12 @@ $routes = [
     'doc_space_edit'  => 'page_doc_space_edit',
     'doc_settings'    => 'page_doc_settings',
     'doc_search'      => 'page_doc_search',
+    'doc_history'     => 'page_doc_history',
+    'doc_version'     => 'page_doc_version',
+    'doc_diff'        => 'page_doc_diff',
+    'doc_pdf'         => 'page_doc_pdf',
+    'doc_templates'   => 'page_doc_templates',
+    'doc_template_edit' => 'page_doc_template_edit',
 ];
 
 /**
@@ -224,6 +231,8 @@ const ROUTE_AREAS = [
     'contract_extract' => ['contracts', PERM_EDIT],
     'docs' => ['docs', PERM_VIEW], 'doc_space' => ['docs', PERM_VIEW], 'doc' => ['docs', PERM_VIEW], 'doc_search' => ['docs', PERM_VIEW],
     'doc_edit' => ['docs', PERM_EDIT], 'doc_action' => ['docs', PERM_EDIT], 'doc_space_edit' => ['docs', PERM_EDIT], 'doc_settings' => ['docs', PERM_VIEW],
+    'doc_history' => ['docs', PERM_VIEW], 'doc_version' => ['docs', PERM_VIEW], 'doc_diff' => ['docs', PERM_VIEW], 'doc_pdf' => ['docs', PERM_VIEW],
+    'doc_templates' => ['docs', PERM_VIEW], 'doc_template_edit' => ['docs', PERM_EDIT],
 ];
 
 /**
