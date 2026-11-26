@@ -648,6 +648,7 @@ function page_doc(): void
                     <?php endif; ?>
                 </article>
                 <?php wk_files_card($cid, $page, $perm); ?>
+                <?php if (function_exists('wkl_backlinks_card')) wkl_backlinks_card($cid, $page); ?>
                 <?php if (wk_is_hub($cid)) wk_copy_card($page); else wk_comments_card($cid, $page, $space); ?>
                 <?php if ($perm >= WK_PERM_EDIT): ?>
                 <div class="card wk-tools">

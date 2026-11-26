@@ -710,6 +710,28 @@ function schema_statements(string $driver): array
         created_at $ts NOT NULL
     )$tail";
 
+    // Dokumente & Anleitungen, Stufe 6 (ab Version 42): Verknüpfungen mit Geräten, Verträgen, Tickets, Aufträgen; Offboarding-Haken
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_links (
+        id $pk,
+        company_id $fk NOT NULL,
+        target_type VARCHAR(20) NOT NULL,
+        target_id $fk NOT NULL,
+        page_id $fk NULL,
+        page_company INT NOT NULL DEFAULT 0,
+        vault_entry_id $fk NULL,
+        created_by $fk NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_offboard_checks (
+        id $pk,
+        company_id $fk NOT NULL,
+        request_id $fk NOT NULL,
+        entry_id $fk NOT NULL,
+        done_by $fk NULL,
+        done_at $ts NOT NULL
+    )$tail";
+
     // Verträge, Stufe 2 (ab Version 30): Preishistorie und Verknüpfung mit Geräten/Lizenzen des Inventars
     $tables[] = "CREATE TABLE IF NOT EXISTS ct_prices (
         id $pk,
@@ -1078,6 +1100,10 @@ function schema_statements(string $driver): array
         'idx_wkv_perms'       => 'wk_vault_folder_perms (company_id, folder_id)',
         'idx_wkv_entries'     => 'wk_vault_entries (company_id, folder_id)',
         'idx_wkv_log'         => 'wk_vault_log (company_id, entry_id)',
+        'idx_wkv_logu'        => 'wk_vault_log (company_id, user_id)',
+        'idx_wk_links_t'      => 'wk_links (company_id, target_type, target_id)',
+        'idx_wk_links_p'      => 'wk_links (page_company, page_id)',
+        'idx_wk_offb'         => 'wk_offboard_checks (request_id, entry_id)',
         'idx_tk_creator'      => 'tickets (company_id, created_by)',
         'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
         'idx_tkmsg_t'         => 'ticket_messages (ticket_id, id)',
@@ -1091,7 +1117,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 41;
+const SCHEMA_VERSION = 42;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -1362,6 +1388,8 @@ function ensure_schema(): void
         db()->query('SELECT id FROM wk_files LIMIT 1');
         db()->query('SELECT id FROM wk_file_versions LIMIT 1');
         db()->query('SELECT change_months, expires_notified FROM wk_vault_entries LIMIT 1');
+        db()->query('SELECT id FROM wk_links LIMIT 1');
+        db()->query('SELECT id FROM wk_offboard_checks LIMIT 1');
         foreach (['wk_vault_accounts', 'wk_vault_company', 'wk_vault_folders', 'wk_vault_folder_perms', 'wk_vault_keys', 'wk_vault_entries', 'wk_vault_log'] as $tbl) db()->query("SELECT id FROM $tbl LIMIT 1");
     } catch (PDOException $ex) {
         run_migrations();

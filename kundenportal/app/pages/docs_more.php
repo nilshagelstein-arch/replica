@@ -762,6 +762,8 @@ function wk_action_more(int $cid, array $page, string $action): bool
 function wk_page_cleanup(int $cid, int $pageId): void
 {
     foreach (['wk_versions', 'wk_comments', 'wk_watch'] as $tbl) q("DELETE FROM $tbl WHERE company_id = ? AND page_id = ?", [$cid, $pageId]);
+    // Verknüpfungen (Stufe 6); Seiten „Für alle Kunden“ sind in allen Firmen verknüpfbar
+    q('DELETE FROM wk_links WHERE page_id = ? AND page_company = ?' . (wk_is_hub($cid) ? '' : ' AND company_id = ?'), wk_is_hub($cid) ? [$pageId, 0] : [$pageId, $cid, $cid]);
 }
 
 /** Nach dem Speichern einer Seite: Version anlegen, Ersteller beobachtet, Beobachter benachrichtigen */

@@ -391,6 +391,7 @@ function page_inv_device(): void
             <?php inv_lifecycle_card($cid, $d, $edit); ?>
             <?php inv_device_tickets_card($cid, $d); ?>
             <?php if (function_exists('ct_inventory_card')) ct_inventory_card($cid, 'device', (int)$d['id']); ?>
+            <?php if (function_exists('wkl_card')) wkl_card($cid, 'device', (int)$d['id']); ?>
             <?php if ($edit && !empty($d['bitlocker_enc'])): ?>
             <div class="card">
                 <h3><?= e(t('BitLocker-Schlüssel')) ?></h3>

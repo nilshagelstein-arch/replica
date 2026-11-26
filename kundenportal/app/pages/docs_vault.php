@@ -322,6 +322,7 @@ function page_doc_vault_api(): void
         case 'folder_delete':
             if (!$admin) wkv_fail('Dafür fehlt Ihnen das Recht.', 403);
             $f = $folder((int)($p['id'] ?? 0), WK_V_PERM_EDIT);
+            q('DELETE FROM wk_links WHERE company_id = ? AND vault_entry_id IN (SELECT id FROM wk_vault_entries WHERE company_id = ? AND folder_id = ?)', [$cid, $cid, $f['id']]);
             foreach (['wk_vault_entries', 'wk_vault_keys', 'wk_vault_folder_perms'] as $tbl) q("DELETE FROM $tbl WHERE company_id = ? AND folder_id = ?", [$cid, $f['id']]);
             q('DELETE FROM wk_vault_folders WHERE id = ?', [$f['id']]);
             wkv_log($cid, (int)$f['id'], null, 'folder_delete', (string)$f['name']);
@@ -469,6 +470,7 @@ function page_doc_vault_api(): void
             if (!$e) wkv_fail('Eintrag nicht gefunden.', 404);
             $folder((int)$e['folder_id'], WK_V_PERM_EDIT);
             q('DELETE FROM wk_vault_entries WHERE id = ?', [$e['id']]);
+            q('DELETE FROM wk_links WHERE company_id = ? AND vault_entry_id = ?', [$cid, $e['id']]);
             wkv_log($cid, (int)$e['folder_id'], (int)$e['id'], 'delete', (string)$e['title']);
             wkv_json(['ok' => true]);
 
