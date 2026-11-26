@@ -6,7 +6,7 @@ Statische Dateien, die der Browser direkt lädt. Dazu gehören fünf JavaScript-
 
 Welche Seite welches Skript lädt:
 
-- `../app/views/layout.php`: `app.js` überall; `links.js` auf `link_edit`; `wiki.js` auf `doc`, `doc_space`, `doc_edit` und `doc_template_edit`; `calc.js` und `forms.js` auf `form_layouts`
+- `../app/views/layout.php`: `app.js` überall; `links.js` auf `link_edit`; `wiki.js` auf `doc`, `doc_space`, `doc_edit` und `doc_template_edit`; `vault.js` auf `doc_vault`; `calc.js` und `forms.js` auf `form_layouts`
 - `render_app_shell()` in `../app/pages/form_editor.php`:
   - `form_edit`: `calc.js` und `forms.js`
   - `form_use`: `calc.js` und `fill.js`
@@ -40,6 +40,7 @@ Welche Seite welches Skript lädt:
   - Felder `[data-key]`: `.fill`, `.fill-multi`, `.fill-check`, `.fill-select` und `.fill-date`
   - Eingabezellen `td[data-input]` und erweiterbare Tabellen `table[data-grow]`
   - Kundenauswahl `[data-apply-customers]` und Zurücksetzen `[data-fill-reset]`
+- **`vault.js`**: Passwort-Tresor (nur auf `doc_vault`): komplette Oberfläche und Kryptografie mit Web Crypto (ECDH P-256, HKDF, PBKDF2, AES-256-GCM). Spricht ausschließlich mit `doc_vault_api` (POST mit `_csrf`, `action`, `p` als JSON). Schlüssel nur im Arbeitsspeicher; automatische Sperre nach `lock_minutes`.
 - **`wiki.js`**: Seitenbaum ein-/ausklappen (`.wk-twisty`) und Seiten-Editor (`#wk-editor`, Werkzeugleiste `#wk-toolbar`; beim Absenden wird der Inhalt in `#wk-body` geschrieben, ohne JavaScript bleibt das Textfeld). Bilder werden im Browser verkleinert und als `data:`-Bild eingefügt; kein Serveraufruf. Dazu die @-Vorschlagsliste im Kommentarfeld (`#wk-comment-text`, Namen aus `data-names`).
 - **`links.js`**: Bildvorschläge im Linkeditor. Startet, sobald `#link-url` vorhanden ist. `data-suggest` liest es erst beim Abruf.
   - Ruft `GET <data-suggest>&url=…` auf (Route `link_suggest`).

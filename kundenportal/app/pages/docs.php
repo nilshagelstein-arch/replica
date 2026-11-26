@@ -365,6 +365,7 @@ function wk_user_name(?int $id): string
 function wk_tabs(int $cid, string $active, string $search = ''): void
 {
     $tabs = ['docs' => t('Bereiche')];
+    if (!wk_is_hub($cid)) $tabs['doc_vault'] = t('Tresor');
     if (wk_can_manage($cid)) { $tabs['doc_templates'] = t('Vorlagen'); if (!wk_is_hub($cid)) $tabs['doc_settings'] = t('Einstellungen'); } ?>
     <div class="wk-head">
         <nav class="type-tabs">
@@ -420,7 +421,7 @@ function page_docs(): void
         function () use ($cid, $hub, $spaces, $recent, $manage, $hasAny, $perms, $review, $drafts, $hubSpaces, $staffHub) {
         echo wk_switcher($cid, 'docs');
         $blocked = wk_staff_blocked($cid);
-        if ($blocked): ?>
+        if ($blocked): wk_tabs($cid, 'docs'); ?>
             <div class="alert info"><?= e(t('Das Wiki dieser Firma ist nur intern sichtbar. Die Firma kann die Einsicht für den IT-Dienstleister unter Einstellungen einschalten.')) ?></div>
         <?php else:
         wk_tabs($cid, 'docs');

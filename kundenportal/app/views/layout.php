@@ -89,7 +89,7 @@ if ($user && !company_pending($user)) {
         'links'          => ['links', 'link_edit'],
         'tickets'        => ['tickets', 'ticket', 'ticket_new', 'ticket_settings', 'ticket_inbox'],
         'vertraege'      => ['contracts', 'contract', 'contract_settings', 'contract_deadlines', 'contract_costs', 'contract_import'],
-        'dokumente'      => ['docs', 'doc_space', 'doc', 'doc_edit', 'doc_space_edit', 'doc_settings', 'doc_search', 'doc_history', 'doc_version', 'doc_diff', 'doc_templates', 'doc_template_edit', 'doc_file'],
+        'dokumente'      => ['docs', 'doc_space', 'doc', 'doc_edit', 'doc_space_edit', 'doc_settings', 'doc_search', 'doc_history', 'doc_version', 'doc_diff', 'doc_templates', 'doc_template_edit', 'doc_file', 'doc_vault'],
     ];
     foreach ($routeApps as $slug => $routes) {
         if (in_array($route, $routes, true)) {
@@ -164,6 +164,7 @@ if ($user && $user['company_id']) {
 <script src="assets/app.js"></script>
 <?php if ($user && $route === 'link_edit'): ?><script src="assets/links.js"></script><?php endif; ?>
 <?php if ($user && in_array($route, ['doc', 'doc_space', 'doc_edit', 'doc_template_edit'], true)): ?><script src="assets/wiki.js"></script><?php endif; ?>
+<?php if ($user && $route === 'doc_vault'): ?><script src="assets/vault.js"></script><?php endif; ?>
 <?php if ($user && $route === 'form_layouts'): ?><script src="assets/calc.js"></script><script src="assets/forms.js"></script><?php endif; ?>
 </body>
 </html>
