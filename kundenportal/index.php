@@ -61,6 +61,7 @@ require APP_DIR . '/pages/ct_data.php';
 require APP_DIR . '/pages/ct_extract.php';
 require APP_DIR . '/pages/docs.php';
 require APP_DIR . '/pages/docs_more.php';
+require APP_DIR . '/pages/docs_files.php';
 require APP_DIR . '/ticket_mail.php';
 
 $routes = [
@@ -184,6 +185,7 @@ $routes = [
     'doc_pdf'         => 'page_doc_pdf',
     'doc_templates'   => 'page_doc_templates',
     'doc_template_edit' => 'page_doc_template_edit',
+    'doc_file'        => 'page_doc_file',
 ];
 
 /**
@@ -232,7 +234,7 @@ const ROUTE_AREAS = [
     'docs' => ['docs', PERM_VIEW], 'doc_space' => ['docs', PERM_VIEW], 'doc' => ['docs', PERM_VIEW], 'doc_search' => ['docs', PERM_VIEW],
     'doc_edit' => ['docs', PERM_EDIT], 'doc_action' => ['docs', PERM_EDIT], 'doc_space_edit' => ['docs', PERM_EDIT], 'doc_settings' => ['docs', PERM_VIEW],
     'doc_history' => ['docs', PERM_VIEW], 'doc_version' => ['docs', PERM_VIEW], 'doc_diff' => ['docs', PERM_VIEW], 'doc_pdf' => ['docs', PERM_VIEW],
-    'doc_templates' => ['docs', PERM_VIEW], 'doc_template_edit' => ['docs', PERM_EDIT],
+    'doc_templates' => ['docs', PERM_VIEW], 'doc_template_edit' => ['docs', PERM_EDIT], 'doc_file' => ['docs', PERM_VIEW],
 ];
 
 /**
@@ -274,6 +276,7 @@ if (current_user()) register_shutdown_function(function () {
     tickets_timers_tick();
     inv_reminders_tick();
     ct_reminders_tick();
+    wk_reviews_tick();
 });
 
 try {

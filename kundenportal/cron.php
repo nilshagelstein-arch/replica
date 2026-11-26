@@ -33,6 +33,9 @@ require APP_DIR . '/pdf.php';
 require APP_DIR . '/pages/ct_deadlines.php';
 require APP_DIR . '/forms_lib.php';
 require APP_DIR . '/pages/ct_cancel.php';
+require APP_DIR . '/pages/docs.php';
+require APP_DIR . '/pages/docs_more.php';
+require APP_DIR . '/pages/docs_files.php';
 
 if (!$cli) {
     header('Content-Type: text/plain; charset=utf-8');
@@ -70,6 +73,14 @@ try {
     if ($cli && $ct) echo implode("\n", $ct) . "\n";
 } catch (Throwable $ex) {
     error_log('[kundenportal] Vertragsfristen: ' . $ex->getMessage());
+}
+// Dokumente & Anleitungen: fällige Prüfungen (je Fälligkeit eine E-Mail)
+try {
+    $wk = wk_reviews_run();
+    setting_set('wk_review_last', (string)time());
+    if ($cli && $wk) echo implode("\n", $wk) . "\n";
+} catch (Throwable $ex) {
+    error_log('[kundenportal] Wiki-Prüferinnerung: ' . $ex->getMessage());
 }
 $force = $cli ? in_array('--force', $argv ?? [], true) : !empty($_GET['force']);
 

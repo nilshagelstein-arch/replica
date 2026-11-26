@@ -30,6 +30,13 @@ const WK_MAX_DEPTH = 30;
 function wk_company_id(): int
 {
     $u = require_app(WK_APP);
+    // Seiten des Dienstleisters für alle Kunden (intern Firma 0): lesen alle Firmen mit der App, pflegen der Dienstleister
+    if ((string)($_GET['hub'] ?? '') === '1') {
+        if (!is_staff_role($u['role']) && !((int)($u['company_id'] ?? 0) > 0 && company_has_app((int)$u['company_id'], WK_APP))) abort(403);
+        $GLOBALS['wk_cid'] = 0;
+        $GLOBALS['wk_hub'] = true;
+        return 0;
+    }
     $cid = context_company_id();
     if (!$cid) abort(404, t('Es ist noch keine Firma angelegt.'));
     require_company_access($cid);
@@ -41,7 +48,8 @@ function wk_company_id(): int
 
 function wkurl(string $route, array $params = []): string
 {
-    if (is_admin() && !empty($GLOBALS['wk_cid'])) $params = ['company' => (int)$GLOBALS['wk_cid']] + $params;
+    if (!empty($GLOBALS['wk_hub'])) $params = ['hub' => 1] + $params;
+    elseif (is_admin() && !empty($GLOBALS['wk_cid'])) $params = ['company' => (int)$GLOBALS['wk_cid']] + $params;
     return url($route, $params);
 }
 
@@ -51,8 +59,21 @@ function wk_redirect(string $route, array $params = []): never
     exit;
 }
 
+/** Bereich „Für alle Kunden“ (Seiten des Dienstleisters) */
+function wk_is_hub(int $cid): bool
+{
+    return $cid === 0;
+}
+
+/** Firmenauswahl für den Dienstleister (nicht im Bereich „Für alle Kunden“) */
+function wk_switcher(int $cid, string $route): string
+{
+    return wk_is_hub($cid) ? '' : company_switcher($cid, $route);
+}
+
 function wk_company(int $cid): array
 {
+    if (wk_is_hub($cid)) return ['id' => 0, 'name' => t('Für alle Kunden'), 'wk_provider_access' => 1];
     static $cache = [];
     return $cache[$cid] ??= (row('SELECT id, name, wk_provider_access FROM companies WHERE id = ?', [$cid]) ?? []);
 }
@@ -69,6 +90,8 @@ function wk_staff_perm(int $cid, array $u): int
     if ((int)(wk_company($cid)['wk_provider_access'] ?? 0) !== 1) return WK_PERM_NONE;
     $p = admin_perm('docs', $u);
     $ids = admin_company_ids($u);
+    // Für alle Kunden: lesen mit Bereichsrecht, pflegen nur mit Zugriff auf alle Firmen
+    if (wk_is_hub($cid)) return $p >= PERM_EDIT && $ids === null ? WK_PERM_EDIT : ($p >= PERM_VIEW ? WK_PERM_VIEW : WK_PERM_NONE);
     if ($ids !== null && !in_array($cid, $ids, true)) $p = PERM_NONE;
     return $p >= PERM_EDIT ? WK_PERM_EDIT : ($p >= PERM_VIEW ? WK_PERM_VIEW : WK_PERM_NONE);
 }
@@ -89,6 +112,11 @@ function wk_space_perms(int $cid, ?array $u = null): array
     $out = [];
     if (is_staff_role($u['role'])) {
         $p = wk_staff_perm($cid, $u);
+        foreach ($spaces as $s) $out[(int)$s['id']] = $p;
+        return $cache[$key] = $out;
+    }
+    if (wk_is_hub($cid)) {
+        $p = (int)($u['company_id'] ?? 0) > 0 && company_has_app((int)$u['company_id'], WK_APP) ? WK_PERM_VIEW : WK_PERM_NONE;
         foreach ($spaces as $s) $out[(int)$s['id']] = $p;
         return $cache[$key] = $out;
     }
@@ -118,7 +146,7 @@ function wk_can_manage(int $cid): bool
 {
     $u = current_user();
     if (is_staff_role($u['role'])) return wk_staff_perm($cid, $u) === WK_PERM_EDIT;
-    return $u['role'] === 'firma_admin' && (int)$u['company_id'] === $cid;
+    return !wk_is_hub($cid) && $u['role'] === 'firma_admin' && (int)$u['company_id'] === $cid;
 }
 
 /** Bereich laden; null, wenn er nicht zur Firma gehört */
@@ -158,10 +186,22 @@ function wk_log(int $cid, string $action, string $details): void
 function wk_children_map(int $cid, int $spaceId): array
 {
     $map = [];
-    foreach (rows('SELECT id, parent_id, title, sort, updated_at FROM wk_pages WHERE company_id = ? AND space_id = ? ORDER BY sort, title, id', [$cid, $spaceId]) as $p) {
+    foreach (rows('SELECT id, parent_id, title, sort, status, updated_at FROM wk_pages WHERE company_id = ? AND space_id = ? ORDER BY sort, title, id', [$cid, $spaceId]) as $p) {
         $map[(int)($p['parent_id'] ?? 0)][] = $p;
     }
-    return $map;
+    if (wk_space_perm($cid, $spaceId) >= WK_PERM_EDIT) return $map;
+    // Leser: Entwürfe samt Unterseiten ausblenden
+    $out = [];
+    $stack = [0];
+    while ($stack) {
+        $parent = array_pop($stack);
+        foreach ($map[$parent] ?? [] as $p) {
+            if ($p['status'] !== 'published') continue;
+            $out[$parent][] = $p;
+            $stack[] = (int)$p['id'];
+        }
+    }
+    return $out;
 }
 
 /** Kette der übergeordneten Seiten (oberste zuerst), ohne die Seite selbst */
@@ -172,7 +212,7 @@ function wk_ancestors(int $cid, array $page): array
     $pid = (int)($page['parent_id'] ?? 0);
     while ($pid && !isset($seen[$pid]) && count($out) < WK_MAX_DEPTH) {
         $seen[$pid] = true;
-        $p = row('SELECT id, parent_id, title FROM wk_pages WHERE id = ? AND company_id = ?', [$pid, $cid]);
+        $p = row('SELECT id, parent_id, title, status FROM wk_pages WHERE id = ? AND company_id = ?', [$pid, $cid]);
         if (!$p) break;
         array_unshift($out, $p);
         $pid = (int)($p['parent_id'] ?? 0);
@@ -208,7 +248,7 @@ function wk_tree_html(array $map, int $parent, int $current, array $openIds, int
         $open = $hasKids && (in_array($id, $openIds, true) || $id === $current);
         $html .= '<li class="' . ($id === $current ? 'current ' : '') . ($hasKids ? ($open ? 'open' : 'closed') : 'leaf') . '">';
         if ($hasKids) $html .= '<button type="button" class="wk-twisty" aria-expanded="' . ($open ? 'true' : 'false') . '" aria-label="' . e(t('Unterseiten ein- oder ausklappen')) . '"></button>';
-        $html .= '<a href="' . e(wkurl('doc', ['id' => $id])) . '">' . e($p['title']) . '</a>';
+        $html .= '<a href="' . e(wkurl('doc', ['id' => $id])) . '">' . e($p['title']) . (($p['status'] ?? '') === 'draft' ? ' <span class="tag">' . e(t('Entwurf')) . '</span>' : '') . '</a>';
         if ($hasKids) $html .= wk_tree_html($map, $id, $current, $openIds, $depth + 1);
         $html .= '</li>';
     }
@@ -325,7 +365,7 @@ function wk_user_name(?int $id): string
 function wk_tabs(int $cid, string $active, string $search = ''): void
 {
     $tabs = ['docs' => t('Bereiche')];
-    if (wk_can_manage($cid)) { $tabs['doc_templates'] = t('Vorlagen'); $tabs['doc_settings'] = t('Einstellungen'); } ?>
+    if (wk_can_manage($cid)) { $tabs['doc_templates'] = t('Vorlagen'); if (!wk_is_hub($cid)) $tabs['doc_settings'] = t('Einstellungen'); } ?>
     <div class="wk-head">
         <nav class="type-tabs">
             <?php foreach ($tabs as $route => $label): ?><a class="<?= $route === $active ? 'active' : '' ?>" href="<?= e(wkurl($route)) ?>"><?= e($label) ?></a><?php endforeach; ?>
@@ -346,30 +386,82 @@ function wk_tabs(int $cid, string $active, string $search = ''): void
 function page_docs(): void
 {
     $cid = wk_company_id();
+    $hub = wk_is_hub($cid);
     $perms = wk_space_perms($cid);
     $readable = array_keys(array_filter($perms, fn($p) => $p > WK_PERM_NONE));
-    $spaces = $readable ? rows('SELECT s.*, (SELECT COUNT(*) FROM wk_pages p WHERE p.space_id = s.id) AS n FROM wk_spaces s
-        WHERE s.company_id = ? AND s.id IN (' . implode(',', array_map('intval', $readable)) . ') ORDER BY s.sort, s.name', [$cid]) : [];
-    $recent = $readable ? rows('SELECT p.id, p.title, p.updated_at, p.updated_by, s.name AS space_name, s.icon FROM wk_pages p JOIN wk_spaces s ON s.id = p.space_id
-        WHERE p.company_id = ? AND p.space_id IN (' . implode(',', array_map('intval', $readable)) . ') ORDER BY p.updated_at DESC, p.id DESC LIMIT 10', [$cid]) : [];
+    $editable = array_keys(array_filter($perms, fn($p) => $p >= WK_PERM_EDIT));
+    $vis = wk_visible_sql($cid, 'p');
+    $in = $readable ? implode(',', array_map('intval', $readable)) : '0';
+    $spaces = $readable ? rows("SELECT s.*, (SELECT COUNT(*) FROM wk_pages p WHERE p.space_id = s.id AND $vis) AS n FROM wk_spaces s
+        WHERE s.company_id = ? AND s.id IN ($in) ORDER BY s.sort, s.name", [$cid]) : [];
+    $recent = $readable ? rows("SELECT p.id, p.title, p.status, p.updated_at, p.updated_by, s.name AS space_name, s.icon FROM wk_pages p JOIN wk_spaces s ON s.id = p.space_id
+        WHERE p.company_id = ? AND p.space_id IN ($in) AND $vis ORDER BY p.updated_at DESC, p.id DESC LIMIT 10", [$cid]) : [];
+    $ein = $editable ? implode(',', array_map('intval', $editable)) : '0';
+    $soon = date('Y-m-d', strtotime('+14 days'));
+    $review = $editable ? rows("SELECT p.id, p.title, p.review_due, p.owner_id, s.name AS space_name FROM wk_pages p JOIN wk_spaces s ON s.id = p.space_id
+        WHERE p.company_id = ? AND p.space_id IN ($ein) AND p.status = 'published' AND p.review_due <> '' AND p.review_due <= ? ORDER BY p.review_due LIMIT 50", [$cid, $soon]) : [];
+    $drafts = $editable ? rows("SELECT p.id, p.title, p.updated_at, p.updated_by, s.name AS space_name FROM wk_pages p JOIN wk_spaces s ON s.id = p.space_id
+        WHERE p.company_id = ? AND p.space_id IN ($ein) AND p.status = 'draft' ORDER BY p.updated_at DESC LIMIT 50", [$cid]) : [];
     $manage = wk_can_manage($cid);
     $hasAny = (bool)row('SELECT id FROM wk_spaces WHERE company_id = ? LIMIT 1', [$cid]);
+    // Seiten des Dienstleisters für alle Kunden (nur außerhalb dieses Bereichs anzeigen)
+    $hubSpaces = [];
+    if (!$hub) {
+        $hp = wk_space_perms(0);
+        $hr = array_keys(array_filter($hp, fn($p) => $p > WK_PERM_NONE));
+        $hvis = wk_visible_sql(0, 'p');
+        if ($hr) $hubSpaces = rows("SELECT s.*, (SELECT COUNT(*) FROM wk_pages p WHERE p.space_id = s.id AND $hvis) AS n FROM wk_spaces s
+            WHERE s.company_id = 0 AND s.id IN (" . implode(',', array_map('intval', $hr)) . ') ORDER BY s.sort, s.name');
+        if (!is_staff_role(current_user()['role'])) $hubSpaces = array_values(array_filter($hubSpaces, fn($s) => (int)$s['n'] > 0));
+    }
+    $staffHub = !$hub && is_staff_role(current_user()['role']) && admin_perm('docs') >= PERM_VIEW;
 
-    render_page(t('Dokumente & Anleitungen'), function () use ($cid, $spaces, $recent, $manage, $hasAny, $perms) {
-        echo company_switcher($cid, 'docs');
-        if (wk_staff_blocked($cid)): ?>
+    render_page($hub ? t('Für alle Kunden') . ' · ' . t('Dokumente & Anleitungen') : t('Dokumente & Anleitungen'),
+        function () use ($cid, $hub, $spaces, $recent, $manage, $hasAny, $perms, $review, $drafts, $hubSpaces, $staffHub) {
+        echo wk_switcher($cid, 'docs');
+        $blocked = wk_staff_blocked($cid);
+        if ($blocked): ?>
             <div class="alert info"><?= e(t('Das Wiki dieser Firma ist nur intern sichtbar. Die Firma kann die Einsicht für den IT-Dienstleister unter Einstellungen einschalten.')) ?></div>
-            <?php return;
-        endif;
-        wk_tabs($cid, 'docs'); ?>
+        <?php else:
+        wk_tabs($cid, 'docs');
+        if ($hub): ?>
+            <div class="alert info"><?= e(t('Diese Seiten sehen alle Firmen, für die „Dokumente & Anleitungen“ freigeschaltet ist. Entwürfe sehen nur Sie und Ihre Admins. Firmen können eine Seite in ihr eigenes Wiki kopieren und anpassen.')) ?></div>
+        <?php endif; ?>
         <?php if ($manage): ?>
         <div class="toolbar">
             <a class="btn primary" href="<?= e(wkurl('doc_space_edit')) ?>"><?= e(t('+ Bereich')) ?></a>
         </div>
         <?php endif; ?>
+        <?php if ($review || $drafts): ?>
+        <div class="grid2 wk-todo">
+            <?php if ($review): ?>
+            <div class="card">
+                <h2><?= e(t('Zu prüfen')) ?></h2>
+                <ul class="wk-list">
+                    <?php foreach ($review as $r): $over = $r['review_due'] < date('Y-m-d'); ?>
+                        <li><a href="<?= e(wkurl('doc', ['id' => $r['id']])) ?>"><?= e($r['title']) ?></a>
+                            <span class="tag <?= $over ? 'warn' : '' ?>"><?= e($over ? t('überfällig seit {d}', ['d' => fmt_date($r['review_due'])]) : t('fällig am {d}', ['d' => fmt_date($r['review_due'])])) ?></span>
+                            <span class="muted small"><?= e($r['space_name']) ?><?= $r['owner_id'] ? ' · ' . e(wk_user_name((int)$r['owner_id'])) : '' ?></span></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
+            <?php if ($drafts): ?>
+            <div class="card">
+                <h2><?= e(t('Entwürfe')) ?></h2>
+                <ul class="wk-list">
+                    <?php foreach ($drafts as $d): ?>
+                        <li><a href="<?= e(wkurl('doc', ['id' => $d['id']])) ?>"><?= e($d['title']) ?></a>
+                            <span class="muted small"><?= e($d['space_name']) ?> · <?= fmt_dt($d['updated_at']) ?> · <?= e(wk_user_name((int)$d['updated_by'])) ?></span></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
         <?php if (!$spaces): ?>
             <div class="card">
-                <?php if ($manage && !$hasAny): ?>
+                <?php if ($manage && !$hasAny && !$hub): ?>
                     <h2><?= e(t('Willkommen im Wiki')) ?></h2>
                     <p><?= e(t('Legen Sie Bereiche an, zum Beispiel einen je Abteilung oder für „IT“, „Richtlinien“ und „Notfall“. In jedem Bereich entsteht ein Seitenbaum mit Anleitungen und Handbüchern.')) ?></p>
                     <div class="btn-row">
@@ -377,21 +469,15 @@ function page_docs(): void
                         <form method="post" action="<?= e(wkurl('doc_action')) ?>"><?= csrf_field() ?><input type="hidden" name="action" value="spaces_from_departments">
                             <button class="btn"><?= e(t('Bereiche aus den Abteilungen anlegen')) ?></button></form>
                     </div>
+                <?php elseif ($hub && $manage): ?>
+                    <p><?= e(t('Legen Sie einen Bereich an, zum Beispiel „Anleitungen“ oder „Sicherheit“. Seine veröffentlichten Seiten erscheinen bei allen Kunden.')) ?></p>
                 <?php else: ?>
                     <p class="muted"><?= e(t('Es gibt noch keine Bereiche, auf die Sie Zugriff haben.')) ?></p>
                 <?php endif; ?>
             </div>
         <?php else: ?>
             <div class="wk-spaces">
-                <?php foreach ($spaces as $s): ?>
-                    <a class="wk-space-tile" href="<?= e(wkurl('doc_space', ['id' => $s['id']])) ?>">
-                        <span class="wk-icon big"><?= e($s['icon'] ?: '📁') ?></span>
-                        <strong><?= e($s['name']) ?></strong>
-                        <?php if ($s['description'] !== ''): ?><span class="muted small"><?= e($s['description']) ?></span><?php endif; ?>
-                        <span class="muted small"><?= e((int)$s['n'] === 1 ? t('1 Seite') : t('{n} Seiten', ['n' => (int)$s['n']])) ?>
-                            <?php if (($perms[(int)$s['id']] ?? 0) === WK_PERM_VIEW): ?> · <?= e(t('nur lesen')) ?><?php endif; ?></span>
-                    </a>
-                <?php endforeach; ?>
+                <?php foreach ($spaces as $s) wk_space_tile($s, wkurl('doc_space', ['id' => $s['id']]), ($perms[(int)$s['id']] ?? 0) === WK_PERM_VIEW); ?>
             </div>
             <?php if ($recent): ?>
             <div class="card">
@@ -400,16 +486,58 @@ function page_docs(): void
                     <thead><tr><th><?= e(t('Seite')) ?></th><th><?= e(t('Bereich')) ?></th><th><?= e(t('Geändert')) ?></th></tr></thead>
                     <tbody>
                     <?php foreach ($recent as $p): ?>
-                        <tr><td><a href="<?= e(wkurl('doc', ['id' => $p['id']])) ?>"><?= e($p['title']) ?></a></td>
+                        <tr><td><a href="<?= e(wkurl('doc', ['id' => $p['id']])) ?>"><?= e($p['title']) ?></a><?= $p['status'] === 'draft' ? ' <span class="tag">' . e(t('Entwurf')) . '</span>' : '' ?></td>
                             <td><?= e(($p['icon'] ?: '📁') . ' ' . $p['space_name']) ?></td>
-                            <td class="nowrap"><?= (fmt_dt($p['updated_at'])) ?> · <?= e(wk_user_name((int)$p['updated_by'])) ?></td></tr>
+                            <td class="nowrap"><?= fmt_dt($p['updated_at']) ?> · <?= e(wk_user_name((int)$p['updated_by'])) ?></td></tr>
                     <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
             <?php endif; ?>
+        <?php endif; ?>
+        <?php endif; // blocked ?>
+        <?php if ($hubSpaces || $staffHub): ?>
+            <div class="card wk-hub">
+                <h2><?= e(is_staff_role(current_user()['role']) ? t('Für alle Kunden') : t('Anleitungen Ihres IT-Dienstleisters')) ?></h2>
+                <?php if (is_staff_role(current_user()['role'])): ?><p class="muted small"><?= e(t('Diese Seiten sehen alle Firmen mit „Dokumente & Anleitungen“.')) ?> <a href="<?= e(url('docs', ['hub' => 1])) ?>"><?= e(t('Öffnen und pflegen')) ?></a></p><?php endif; ?>
+                <?php if ($hubSpaces): ?><div class="wk-spaces">
+                    <?php foreach ($hubSpaces as $s) wk_space_tile($s, url('doc_space', ['hub' => 1, 'id' => $s['id']]), false); ?>
+                </div><?php endif; ?>
+            </div>
         <?php endif;
     });
+}
+
+/** Kachel eines Bereichs */
+function wk_space_tile(array $s, string $href, bool $readOnly): void
+{ ?>
+    <a class="wk-space-tile" href="<?= e($href) ?>">
+        <span class="wk-icon big"><?= e($s['icon'] ?: '📁') ?></span>
+        <strong><?= e($s['name']) ?></strong>
+        <?php if ($s['description'] !== ''): ?><span class="muted small"><?= e($s['description']) ?></span><?php endif; ?>
+        <span class="muted small"><?= e((int)$s['n'] === 1 ? t('1 Seite') : t('{n} Seiten', ['n' => (int)$s['n']])) ?><?php if ($readOnly): ?> · <?= e(t('nur lesen')) ?><?php endif; ?></span>
+    </a>
+<?php }
+
+/**
+ * SQL-Bedingung „Seite sichtbar“: veröffentlicht, oder Entwurf in einem Bereich, den der Benutzer bearbeiten darf.
+ * $alias = Tabellenkürzel von wk_pages.
+ */
+function wk_visible_sql(int $cid, string $alias = 'p'): string
+{
+    $edit = array_keys(array_filter(wk_space_perms($cid), fn($p) => $p >= WK_PERM_EDIT));
+    $a = preg_replace('/[^a-z]/', '', $alias);
+    return "($a.status = 'published'" . ($edit ? " OR $a.space_id IN (" . implode(',', array_map('intval', $edit)) . ')' : '') . ')';
+}
+
+/** Darf der Benutzer diese Seite sehen? (Entwürfe nur mit Bearbeiten-Recht im Bereich) */
+function wk_page_visible(int $cid, array $page): bool
+{
+    $p = wk_space_perm($cid, (int)$page['space_id']);
+    if ($p >= WK_PERM_EDIT) return true;
+    if ($p < WK_PERM_VIEW || ($page['status'] ?? 'published') !== 'published') return false;
+    foreach (wk_ancestors($cid, $page) as $a) if (($a['status'] ?? 'published') !== 'published') return false;
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -425,7 +553,7 @@ function page_doc_space(): void
     $top = $map[0] ?? [];
 
     render_page($space['name'] . ' · ' . t('Dokumente & Anleitungen'), function () use ($cid, $space, $perm, $map, $top) {
-        echo company_switcher($cid, 'docs');
+        echo wk_switcher($cid, 'docs');
         wk_tabs($cid, 'docs'); ?>
         <div class="wk-layout">
             <?php wk_sidebar($cid, $space, $map, 0, []); ?>
@@ -467,6 +595,7 @@ function page_doc(): void
     $page = wk_page($cid, query_int('id'));
     if (!$page) abort(404);
     $space = wk_require_space($cid, (int)$page['space_id'], WK_PERM_VIEW);
+    if (!wk_page_visible($cid, $page)) abort(404);
     $perm = wk_space_perm($cid, (int)$space['id']);
     $map = wk_children_map($cid, (int)$space['id']);
     $anc = wk_ancestors($cid, $page);
@@ -479,7 +608,7 @@ function page_doc(): void
     $versionCount = (int)(row('SELECT COUNT(*) AS n FROM wk_versions WHERE company_id = ? AND page_id = ?', [$cid, $page['id']])['n'] ?? 0);
 
     render_page($page['title'] . ' · ' . $space['name'], function () use ($cid, $space, $page, $perm, $map, $anc, $openIds, $kids, $siblings, $pos, $body, $watching, $versionCount) {
-        echo company_switcher($cid, 'docs');
+        echo wk_switcher($cid, 'docs');
         wk_tabs($cid, 'docs'); ?>
         <div class="wk-layout">
             <?php wk_sidebar($cid, $space, $map, (int)$page['id'], $openIds); ?>
@@ -489,7 +618,7 @@ function page_doc(): void
                     <?php foreach ($anc as $a): ?> › <a href="<?= e(wkurl('doc', ['id' => $a['id']])) ?>"><?= e($a['title']) ?></a><?php endforeach; ?></nav>
                 <article class="card wk-article">
                     <div class="wk-title-row">
-                        <h1><?= e($page['title']) ?></h1>
+                        <h1><?= e($page['title']) ?><?= $page['status'] === 'draft' ? ' <span class="tag warn">' . e(t('Entwurf')) . '</span>' : '' ?></h1>
                         <?php if ($perm >= WK_PERM_EDIT): ?>
                         <div class="btn-row">
                             <a class="btn primary" href="<?= e(wkurl('doc_edit', ['id' => $page['id']])) ?>"><?= e(t('Bearbeiten')) ?></a>
@@ -500,14 +629,15 @@ function page_doc(): void
                     <div class="wk-meta">
                         <span class="muted small"><?= e(t('Zuletzt geändert am {d} von {n}', ['d' => fmt_dt($page['updated_at']), 'n' => wk_user_name((int)$page['updated_by'])])) ?></span>
                         <span class="wk-meta-links">
-                            <a href="<?= e(wkurl('doc_history', ['id' => $page['id']])) ?>"><?= e($versionCount ? t('Verlauf ({n} Versionen)', ['n' => $versionCount]) : t('Verlauf')) ?></a>
+                            <a href="<?= e(wkurl('doc_history', ['id' => $page['id']])) ?>"><?= e($versionCount > 1 ? t('Verlauf ({n} Versionen)', ['n' => $versionCount]) : t('Verlauf')) ?></a>
                             <a href="<?= e(wkurl('doc_pdf', ['id' => $page['id']])) ?>"><?= e(t('PDF')) ?></a>
                             <?php if ($kids): ?><a href="<?= e(wkurl('doc_pdf', ['id' => $page['id'], 'tree' => 1])) ?>"><?= e(t('PDF mit Unterseiten')) ?></a><?php endif; ?>
-                            <a href="#kommentare"><?= e(t('Kommentare')) ?></a>
+                            <?php if (!wk_is_hub($cid)): ?><a href="#kommentare"><?= e(t('Kommentare')) ?></a><?php endif; ?>
                             <form method="post" action="<?= e(wkurl('doc_action')) ?>" class="inline"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$page['id'] ?>">
                                 <button class="btn small <?= $watching ? '' : 'primary' ?>" name="action" value="<?= $watching ? 'unwatch' : 'watch' ?>"><?= e($watching ? t('👁 Nicht mehr beobachten') : t('👁 Beobachten')) ?></button></form>
                         </span>
                     </div>
+                    <?php wk_status_bar($cid, $page, $perm); ?>
                     <div class="wk-body"><?= $body !== '' ? $body : '<p class="muted">' . e(t('Diese Seite ist noch leer.')) . '</p>' ?></div>
                     <?php if ($kids): ?>
                         <div class="wk-children">
@@ -516,7 +646,8 @@ function page_doc(): void
                         </div>
                     <?php endif; ?>
                 </article>
-                <?php wk_comments_card($cid, $page, $space); ?>
+                <?php wk_files_card($cid, $page, $perm); ?>
+                <?php if (wk_is_hub($cid)) wk_copy_card($page); else wk_comments_card($cid, $page, $space); ?>
                 <?php if ($perm >= WK_PERM_EDIT): ?>
                 <div class="card wk-tools">
                     <form method="post" action="<?= e(wkurl('doc_action')) ?>" class="btn-row">
@@ -626,7 +757,9 @@ function page_doc_edit(): void
         elseif (strlen($raw) > WK_BODY_MAX) $err = t('Die Seite ist zu groß (höchstens {n} MB inklusive Bilder). Bitte Bilder verkleinern oder auf mehrere Seiten verteilen.', ['n' => WK_BODY_MAX / 1048576]);
         if ($err === '') {
             $body = sanitize_html($raw);
-            $data = ['title' => $title, 'body' => $body, 'parent_id' => $parent ?: null, 'updated_by' => current_user()['id'], 'updated_at' => now()];
+            $data = ['title' => $title, 'body' => $body, 'parent_id' => $parent ?: null, 'updated_by' => current_user()['id'], 'updated_at' => now()]
+                + wk_review_post($cid, $sid, $page, post('publish') === '1');
+            if ($data['review_due'] !== ($page['review_due'] ?? '')) $data['review_notified'] = '';
             if ($page) {
                 if ((int)($page['parent_id'] ?? 0) !== $parent) {
                     $data['sort'] = (int)(row('SELECT MAX(sort) AS m FROM wk_pages WHERE company_id = ? AND space_id = ? AND ' . ($parent ? 'parent_id = ?' : 'parent_id IS NULL'),
@@ -645,7 +778,7 @@ function page_doc_edit(): void
                 wk_after_save($cid, null, $pid, $title, $body);
             }
             update('wk_spaces', $sid, ['updated_at' => now()]);
-            flash('success', t('Die Seite wurde gespeichert.'));
+            flash('success', $data['status'] === 'draft' ? t('Die Seite wurde als Entwurf gespeichert. Leser sehen sie erst nach dem Veröffentlichen.') : t('Die Seite wurde gespeichert.'));
             wk_redirect('doc', ['id' => $pid]);
         }
         $body = sanitize_html(substr($raw, 0, WK_BODY_MAX));
@@ -666,8 +799,14 @@ function page_doc_edit(): void
             </div>
             <?php wk_editor($body); ?>
             <p class="muted small"><?= e(t('Tipp: Bilder lassen sich auch per Kopieren und Einfügen oder Ziehen einfügen. Strg+S speichert.')) ?></p>
+            <?php wk_review_fields($cid, (int)$space['id'], $page); ?>
             <div class="btn-row">
-                <button class="btn primary"><?= e(t('Speichern')) ?></button>
+                <?php if (($page['status'] ?? 'draft') === 'published'): ?>
+                    <button class="btn primary"><?= e(t('Speichern')) ?></button>
+                <?php else: ?>
+                    <button class="btn primary" name="publish" value="1"><?= e(t('Speichern und veröffentlichen')) ?></button>
+                    <button class="btn" name="publish" value="0"><?= e(t('Als Entwurf speichern')) ?></button>
+                <?php endif; ?>
                 <a class="btn" href="<?= e($page ? wkurl('doc', ['id' => $page['id']]) : wkurl('doc_space', ['id' => $space['id']])) ?>"><?= e(t('Abbrechen')) ?></a>
             </div>
         </form>
@@ -686,7 +825,7 @@ function page_doc_action(): void
     $action = (string)post('action');
 
     if ($action === 'spaces_from_departments') {
-        if (!wk_can_manage($cid)) abort(403);
+        if (!wk_can_manage($cid) || wk_is_hub($cid)) abort(403);
         $n = 0;
         foreach (rows('SELECT id, name FROM departments WHERE company_id = ? AND active = 1 ORDER BY name', [$cid]) as $d) {
             if (row('SELECT id FROM wk_spaces WHERE company_id = ? AND name = ?', [$cid, $d['name']])) continue;
@@ -705,8 +844,10 @@ function page_doc_action(): void
     if (!$page) abort(404);
     $sid = (int)$page['space_id'];
     wk_require_space($cid, $sid, WK_PERM_VIEW);
-    // Kommentare, Beobachten, Wiederherstellen, Als Vorlage speichern (Rechte prüft wk_action_more selbst)
+    if (!wk_page_visible($cid, $page)) abort(404);
+    // Kommentare, Beobachten, Wiederherstellen, Als Vorlage speichern, Freigabe, Dateien (Rechte prüfen die Funktionen selbst)
     wk_action_more($cid, $page, $action);
+    wk_action_stage3($cid, $page, $action);
     wk_require_space($cid, $sid, WK_PERM_EDIT);
     switch ($action) {
         case 'move_up':
@@ -728,6 +869,7 @@ function page_doc_action(): void
             }
             q('DELETE FROM wk_pages WHERE id = ? AND company_id = ?', [$page['id'], $cid]);
             wk_page_cleanup($cid, (int)$page['id']);
+            foreach (rows('SELECT id FROM wk_files WHERE company_id = ? AND page_id = ?', [$cid, $page['id']]) as $f) wk_file_delete($cid, (int)$f['id']);
             wk_log($cid, 'page_delete', '#' . $page['id'] . ' ' . $page['title']);
             flash('success', t('Die Seite wurde gelöscht.'));
             if ($page['parent_id']) wk_redirect('doc', ['id' => $page['parent_id']]);
@@ -748,7 +890,7 @@ function page_doc_space_edit(): void
     $id = query_int('id');
     $space = $id ? wk_space($cid, $id) : null;
     if ($id && !$space) abort(404);
-    $deps = rows('SELECT id, name FROM departments WHERE company_id = ? AND active = 1 ORDER BY name', [$cid]);
+    $deps = wk_is_hub($cid) ? [] : rows('SELECT id, name FROM departments WHERE company_id = ? AND active = 1 ORDER BY name', [$cid]);
     $perms = [];
     if ($space) foreach (rows('SELECT department_id, perm FROM wk_space_perms WHERE space_id = ? AND company_id = ?', [$space['id'], $cid]) as $p) $perms[(int)$p['department_id']] = (int)$p['perm'];
 
@@ -797,7 +939,7 @@ function page_doc_space_edit(): void
 
     $heading = $space ? t('Bereich bearbeiten') : t('Neuer Bereich');
     render_page($heading . ' · ' . t('Dokumente & Anleitungen'), function () use ($cid, $space, $deps, $perms, $heading) {
-        echo company_switcher($cid, 'docs');
+        echo wk_switcher($cid, 'docs');
         wk_tabs($cid, 'docs'); ?>
         <form method="post" class="form card">
             <?= csrf_field() ?>
@@ -808,6 +950,9 @@ function page_doc_space_edit(): void
             </div>
             <label><?= e(t('Beschreibung')) ?> <textarea name="description" rows="2" maxlength="500"><?= e($space['description'] ?? '') ?></textarea></label>
             <label><?= e(t('Reihenfolge')) ?> <input type="number" name="sort" class="narrow-input" value="<?= (int)($space['sort'] ?? 0) ?>"></label>
+            <?php if (wk_is_hub($cid)): ?>
+            <p class="muted small"><?= e(t('Veröffentlichte Seiten dieses Bereichs sehen alle Firmen mit „Dokumente & Anleitungen“. Pflegen dürfen Superadmin und Verwaltungsadmins mit Zugriff auf alle Firmen.')) ?></p>
+            <?php else: ?>
             <h2><?= e(t('Wer darf was?')) ?></h2>
             <label class="check"><input type="checkbox" name="all_read" value="1" <?= (int)($space['all_read'] ?? 0) ? 'checked' : '' ?>> <?= e(t('Alle Mitarbeiter der Firma dürfen diesen Bereich lesen')) ?></label>
             <?php if ($deps): ?>
@@ -826,6 +971,7 @@ function page_doc_space_edit(): void
                 <p class="muted small"><?= e(t('Es gibt noch keine Abteilungen. Abteilungen pflegen Sie unter On- & Offboarding → Abteilungen & Positionen.')) ?></p>
             <?php endif; ?>
             <p class="muted small"><?= e(t('Firmen-Administratoren dürfen immer alles. Der IT-Dienstleister sieht das Wiki nur, wenn Sie das unter Einstellungen erlauben.')) ?></p>
+            <?php endif; ?>
             <div class="btn-row">
                 <button class="btn primary"><?= e(t('Speichern')) ?></button>
                 <a class="btn" href="<?= e($space ? wkurl('doc_space', ['id' => $space['id']]) : wkurl('docs')) ?>"><?= e(t('Abbrechen')) ?></a>
@@ -849,6 +995,7 @@ function page_doc_space_edit(): void
 function page_doc_settings(): void
 {
     $cid = wk_company_id();
+    if (wk_is_hub($cid)) abort(404);
     if (!wk_can_manage($cid)) abort(403, t('Die Einstellungen pflegen die Administratoren der Firma.'));
     $staff = is_staff_role(current_user()['role']);
     $co = wk_company($cid);
@@ -863,7 +1010,7 @@ function page_doc_settings(): void
         wk_redirect('doc_settings');
     }
     render_page(t('Einstellungen') . ' · ' . t('Dokumente & Anleitungen'), function () use ($cid, $co, $staff) {
-        echo company_switcher($cid, 'doc_settings');
+        echo wk_switcher($cid, 'doc_settings');
         wk_tabs($cid, 'doc_settings'); ?>
         <form method="post" class="form card">
             <?= csrf_field() ?>
@@ -887,33 +1034,47 @@ function page_doc_settings(): void
 // Suche
 // ---------------------------------------------------------------------------
 
+/** Treffer in einem Wiki (Firma oder „Für alle Kunden“): Titel, Text und Dateinamen sichtbarer Seiten */
+function wk_search_in(int $cid, string $q): array
+{
+    $readable = array_keys(array_filter(wk_space_perms($cid), fn($p) => $p > WK_PERM_NONE));
+    if (!$readable) return [];
+    // „!“ als Escape-Zeichen: funktioniert in MySQL und SQLite gleich (Backslash nicht)
+    $like = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $q) . '%';
+    $in = implode(',', array_map('intval', $readable));
+    $vis = wk_visible_sql($cid, 'p');
+    $cand = rows("SELECT p.*, s.name AS space_name, s.icon FROM wk_pages p JOIN wk_spaces s ON s.id = p.space_id
+        WHERE p.company_id = ? AND p.space_id IN ($in) AND $vis AND (p.title LIKE ? ESCAPE '!' OR p.body LIKE ? ESCAPE '!'
+            OR EXISTS (SELECT 1 FROM wk_files f WHERE f.page_id = p.id AND f.company_id = p.company_id AND f.name LIKE ? ESCAPE '!'))
+        ORDER BY p.updated_at DESC LIMIT 300", [$cid, $like, $like, $like]);
+    $hits = [];
+    foreach ($cand as $p) {
+        if (!wk_page_visible($cid, $p)) continue;
+        $inTitle = mb_stripos($p['title'], $q) !== false;
+        $text = wk_excerpt((string)$p['body'], $q, 100000);
+        $files = rows("SELECT name FROM wk_files WHERE company_id = ? AND page_id = ? AND name LIKE ? ESCAPE '!'", [$cid, $p['id'], $like]);
+        // Treffer nur im HTML (z. B. in Bilddaten) zählen nicht
+        if (!$inTitle && mb_stripos($text, $q) === false && !$files) continue;
+        $hits[] = ['id' => $p['id'], 'title' => $p['title'], 'status' => $p['status'], 'updated_at' => $p['updated_at'], 'space_name' => $p['space_name'], 'icon' => $p['icon'],
+            '_rank' => $inTitle ? 0 : 1, '_excerpt' => wk_excerpt((string)$p['body'], $q), '_files' => array_column($files, 'name'), '_hub' => wk_is_hub($cid)];
+        if (count($hits) >= 50) break;
+    }
+    return $hits;
+}
+
 function page_doc_search(): void
 {
     $cid = wk_company_id();
     $q = mb_substr(trim((string)($_GET['q'] ?? '')), 0, 100);
-    $readable = array_keys(array_filter(wk_space_perms($cid), fn($p) => $p > WK_PERM_NONE));
     $hits = [];
-    if ($q !== '' && mb_strlen($q) >= 2 && $readable) {
-        // „!“ als Escape-Zeichen: funktioniert in MySQL und SQLite gleich (Backslash nicht)
-        $like = '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $q) . '%';
-        $in = implode(',', array_map('intval', $readable));
-        $cand = rows("SELECT p.id, p.title, p.body, p.updated_at, s.name AS space_name, s.icon FROM wk_pages p JOIN wk_spaces s ON s.id = p.space_id
-            WHERE p.company_id = ? AND p.space_id IN ($in) AND (p.title LIKE ? ESCAPE '!' OR p.body LIKE ? ESCAPE '!') ORDER BY p.updated_at DESC LIMIT 300", [$cid, $like, $like]);
-        foreach ($cand as $p) {
-            $inTitle = mb_stripos($p['title'], $q) !== false;
-            $text = wk_excerpt((string)$p['body'], $q, 100000);
-            // Treffer nur im HTML (z. B. in Bilddaten) zählen nicht
-            if (!$inTitle && mb_stripos($text, $q) === false) continue;
-            $p['_rank'] = $inTitle ? 0 : 1;
-            $p['_excerpt'] = wk_excerpt((string)$p['body'], $q);
-            unset($p['body']);
-            $hits[] = $p;
-            if (count($hits) >= 50) break;
-        }
+    if ($q !== '' && mb_strlen($q) >= 2) {
+        $hits = wk_search_in($cid, $q);
+        // Firmen finden auch die Seiten ihres IT-Dienstleisters
+        if (!wk_is_hub($cid)) $hits = array_merge($hits, wk_search_in(0, $q));
         usort($hits, fn($a, $b) => [$a['_rank'], $b['updated_at']] <=> [$b['_rank'], $a['updated_at']]);
     }
     render_page(t('Suche') . ' · ' . t('Dokumente & Anleitungen'), function () use ($cid, $q, $hits) {
-        echo company_switcher($cid, 'docs');
+        echo wk_switcher($cid, 'docs');
         wk_tabs($cid, '', $q); ?>
         <div class="card">
             <h2><?= e(t('Suchergebnisse für „{q}“', ['q' => $q])) ?></h2>
@@ -922,9 +1083,11 @@ function page_doc_search(): void
             <?php else: ?>
                 <ul class="wk-hits">
                     <?php foreach ($hits as $h): ?>
-                        <li><a href="<?= e(wkurl('doc', ['id' => $h['id']])) ?>"><strong><?= e($h['title']) ?></strong></a>
-                            <span class="muted small"><?= e(($h['icon'] ?: '📁') . ' ' . $h['space_name']) ?> · <?= (fmt_dt($h['updated_at'])) ?></span>
-                            <?php if ($h['_excerpt'] !== ''): ?><br><span class="small"><?= e($h['_excerpt']) ?></span><?php endif; ?></li>
+                        <li><a href="<?= e($h['_hub'] ? url('doc', ['hub' => 1, 'id' => $h['id']]) : wkurl('doc', ['id' => $h['id']])) ?>"><strong><?= e($h['title']) ?></strong></a>
+                            <?= $h['status'] === 'draft' ? '<span class="tag">' . e(t('Entwurf')) . '</span>' : '' ?>
+                            <span class="muted small"><?= e(($h['_hub'] ? t('Für alle Kunden') . ' · ' : '') . ($h['icon'] ?: '📁') . ' ' . $h['space_name']) ?> · <?= fmt_dt($h['updated_at']) ?></span>
+                            <?php if ($h['_excerpt'] !== ''): ?><br><span class="small"><?= e($h['_excerpt']) ?></span><?php endif; ?>
+                            <?php if ($h['_files']): ?><br><span class="small">📎 <?= e(implode(', ', $h['_files'])) ?></span><?php endif; ?></li>
                     <?php endforeach; ?>
                 </ul>
             <?php endif; ?>

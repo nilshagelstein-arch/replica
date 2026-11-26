@@ -671,6 +671,8 @@ function cbackup_data(int $cid): array
         'wk_templates'   => rows('SELECT * FROM wk_templates WHERE company_id = ?', [$cid]),
         'wk_comments'    => rows('SELECT * FROM wk_comments WHERE company_id = ?', [$cid]),
         'wk_watch'       => rows('SELECT * FROM wk_watch WHERE company_id = ?', [$cid]),
+        'wk_files'       => rows('SELECT * FROM wk_files WHERE company_id = ?', [$cid]),
+        'wk_file_versions' => rows('SELECT * FROM wk_file_versions WHERE company_id = ?', [$cid]),
     ];
 }
 
@@ -704,6 +706,7 @@ function cbackup_create(int $cid, string $kind): string
     foreach (glob(APP_DIR . '/data/tickets/' . $cid . '/*.bin') ?: [] as $f) $zip->addFile($f, 'ticket-anhaenge/' . basename($f));
     foreach (glob(APP_DIR . '/data/inventory/' . $cid . '/*.bin') ?: [] as $f) $zip->addFile($f, 'inventar-anhaenge/' . basename($f));
     foreach (glob(APP_DIR . '/data/contracts/' . $cid . '/*.bin') ?: [] as $f) $zip->addFile($f, 'vertrags-dokumente/' . basename($f));
+    foreach (glob(APP_DIR . '/data/docs/' . $cid . '/*.bin') ?: [] as $f) $zip->addFile($f, 'wiki-dateien/' . basename($f));
     $zip->addFromString('kunden.csv', cbackup_csv(array_map(function ($r) { unset($r['company_id']); return $r; }, $data['customers'])));
     $zip->addFromString('LIESMICH.txt', "Datensicherung „{$co['name']}“ vom " . date('d.m.Y H:i') . "\r\n\r\n"
         . t("daten.json   alle Daten der Firma im Kundenportal: Firmenprofil, Benutzer (ohne Passwörter), Abteilungen,\n")
