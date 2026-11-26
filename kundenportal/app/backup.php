@@ -673,6 +673,14 @@ function cbackup_data(int $cid): array
         'wk_watch'       => rows('SELECT * FROM wk_watch WHERE company_id = ?', [$cid]),
         'wk_files'       => rows('SELECT * FROM wk_files WHERE company_id = ?', [$cid]),
         'wk_file_versions' => rows('SELECT * FROM wk_file_versions WHERE company_id = ?', [$cid]),
+        // Tresor: nur Chiffrate – ohne Tresor-Passwort, Notfallkit oder Firmen-Notfallkit nicht lesbar
+        'wk_vault_company' => rows('SELECT * FROM wk_vault_company WHERE company_id = ?', [$cid]),
+        'wk_vault_accounts' => rows('SELECT a.* FROM wk_vault_accounts a JOIN users u ON u.id = a.user_id WHERE u.company_id = ?', [$cid]),
+        'wk_vault_folders' => rows('SELECT * FROM wk_vault_folders WHERE company_id = ?', [$cid]),
+        'wk_vault_folder_perms' => rows('SELECT * FROM wk_vault_folder_perms WHERE company_id = ?', [$cid]),
+        'wk_vault_keys'  => rows('SELECT * FROM wk_vault_keys WHERE company_id = ?', [$cid]),
+        'wk_vault_entries' => rows('SELECT * FROM wk_vault_entries WHERE company_id = ?', [$cid]),
+        'wk_vault_log'   => rows('SELECT * FROM wk_vault_log WHERE company_id = ?', [$cid]),
     ];
 }
 

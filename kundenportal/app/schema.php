@@ -631,6 +631,85 @@ function schema_statements(string $driver): array
         created_at $ts NOT NULL
     )$tail";
 
+    // Dokumente & Anleitungen, Stufe 4 (ab Version 40): Passwort-Tresor (Zero-Knowledge, nur Chiffrate)
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_vault_accounts (
+        id $pk,
+        user_id $fk NOT NULL,
+        public_key TEXT NOT NULL,
+        priv_pw TEXT NOT NULL,
+        priv_kit TEXT NOT NULL,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_vault_company (
+        id $pk,
+        company_id $fk NOT NULL,
+        public_key TEXT NOT NULL,
+        priv_kit TEXT NOT NULL,
+        lock_minutes INT NOT NULL DEFAULT 15,
+        created_by $fk NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_vault_folders (
+        id $pk,
+        company_id $fk NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        sort INT NOT NULL DEFAULT 0,
+        key_version INT NOT NULL DEFAULT 1,
+        needs_rotation INT NOT NULL DEFAULT 0,
+        created_by $fk NULL,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_vault_folder_perms (
+        id $pk,
+        company_id $fk NOT NULL,
+        folder_id $fk NOT NULL,
+        department_id $fk NULL,
+        user_id $fk NULL,
+        perm INT NOT NULL DEFAULT 0
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_vault_keys (
+        id $pk,
+        company_id $fk NOT NULL,
+        folder_id $fk NOT NULL,
+        user_id $fk NOT NULL,
+        key_version INT NOT NULL,
+        wrapped TEXT NOT NULL,
+        created_by $fk NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_vault_entries (
+        id $pk,
+        company_id $fk NOT NULL,
+        folder_id $fk NOT NULL,
+        title VARCHAR(190) NOT NULL,
+        kind VARCHAR(20) NOT NULL DEFAULT 'login',
+        expires VARCHAR(10) NOT NULL DEFAULT '',
+        data $long,
+        key_version INT NOT NULL DEFAULT 1,
+        created_by $fk NULL,
+        updated_by $fk NULL,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_vault_log (
+        id $pk,
+        company_id $fk NOT NULL,
+        folder_id $fk NULL,
+        entry_id $fk NULL,
+        user_id $fk NULL,
+        action VARCHAR(30) NOT NULL,
+        detail VARCHAR(255) NOT NULL DEFAULT '',
+        created_at $ts NOT NULL
+    )$tail";
+
     // Verträge, Stufe 2 (ab Version 30): Preishistorie und Verknüpfung mit Geräten/Lizenzen des Inventars
     $tables[] = "CREATE TABLE IF NOT EXISTS ct_prices (
         id $pk,
@@ -993,6 +1072,12 @@ function schema_statements(string $driver): array
         'idx_wk_files'        => 'wk_files (company_id, page_id)',
         'idx_wk_fver'         => 'wk_file_versions (company_id, file_id, version_no)',
         'idx_wk_review'       => 'wk_pages (status, review_due)',
+        'idx_wkv_acc'         => 'wk_vault_accounts (user_id)',
+        'idx_wkv_co'          => 'wk_vault_company (company_id)',
+        'idx_wkv_keys'        => 'wk_vault_keys (company_id, folder_id, user_id, key_version)',
+        'idx_wkv_perms'       => 'wk_vault_folder_perms (company_id, folder_id)',
+        'idx_wkv_entries'     => 'wk_vault_entries (company_id, folder_id)',
+        'idx_wkv_log'         => 'wk_vault_log (company_id, entry_id)',
         'idx_tk_creator'      => 'tickets (company_id, created_by)',
         'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
         'idx_tkmsg_t'         => 'ticket_messages (ticket_id, id)',
@@ -1006,7 +1091,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 39;
+const SCHEMA_VERSION = 40;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -1273,6 +1358,7 @@ function ensure_schema(): void
         db()->query('SELECT status, review_months, review_due, review_notified, owner_id FROM wk_pages LIMIT 1');
         db()->query('SELECT id FROM wk_files LIMIT 1');
         db()->query('SELECT id FROM wk_file_versions LIMIT 1');
+        foreach (['wk_vault_accounts', 'wk_vault_company', 'wk_vault_folders', 'wk_vault_folder_perms', 'wk_vault_keys', 'wk_vault_entries', 'wk_vault_log'] as $tbl) db()->query("SELECT id FROM $tbl LIMIT 1");
     } catch (PDOException $ex) {
         run_migrations();
     }
