@@ -246,6 +246,7 @@ function wk_require_page(int $cid, int $id, int $need = WK_PERM_VIEW): array
     $page = wk_page($cid, $id);
     if (!$page) abort(404);
     $space = wk_require_space($cid, (int)$page['space_id'], $need);
+    if (!wk_page_visible($cid, $page)) abort(404);
     return [$page, $space];
 }
 
@@ -256,7 +257,7 @@ function page_doc_history(): void
     $versions = wk_versions($cid, (int)$page['id']);
     $canEdit = wk_space_perm($cid, (int)$space['id']) >= WK_PERM_EDIT;
     render_page(t('Verlauf') . ' · ' . $page['title'], function () use ($cid, $page, $space, $versions, $canEdit) {
-        echo company_switcher($cid, 'docs');
+        echo wk_switcher($cid, 'docs');
         wk_tabs($cid, 'docs'); ?>
         <nav class="wk-crumbs"><a href="<?= e(wkurl('docs')) ?>"><?= e(t('Bereiche')) ?></a> ›
             <a href="<?= e(wkurl('doc_space', ['id' => $space['id']])) ?>"><?= e($space['name']) ?></a> ›
@@ -303,7 +304,7 @@ function page_doc_version(): void
     $canEdit = wk_space_perm($cid, (int)$space['id']) >= WK_PERM_EDIT;
     $body = wk_render_body((string)$v['body']);
     render_page(t('Version {n}', ['n' => $v['version_no']]) . ' · ' . $page['title'], function () use ($cid, $page, $space, $v, $latest, $canEdit, $body) {
-        echo company_switcher($cid, 'docs');
+        echo wk_switcher($cid, 'docs');
         wk_tabs($cid, 'docs'); ?>
         <nav class="wk-crumbs"><a href="<?= e(wkurl('docs')) ?>"><?= e(t('Bereiche')) ?></a> ›
             <a href="<?= e(wkurl('doc_space', ['id' => $space['id']])) ?>"><?= e($space['name']) ?></a> ›
@@ -345,7 +346,7 @@ function page_doc_diff(): void
     $added = count(array_filter($diff, fn($d) => $d[0] === '+'));
     $removed = count(array_filter($diff, fn($d) => $d[0] === '-'));
     render_page(t('Vergleich') . ' · ' . $page['title'], function () use ($cid, $page, $space, $a, $b, $diff, $added, $removed) {
-        echo company_switcher($cid, 'docs');
+        echo wk_switcher($cid, 'docs');
         wk_tabs($cid, 'docs'); ?>
         <nav class="wk-crumbs"><a href="<?= e(wkurl('docs')) ?>"><?= e(t('Bereiche')) ?></a> ›
             <a href="<?= e(wkurl('doc_space', ['id' => $space['id']])) ?>"><?= e($space['name']) ?></a> ›
@@ -476,7 +477,7 @@ function page_doc_templates(): void
     if (!wk_can_manage($cid)) abort(403, t('Vorlagen pflegen die Administratoren der Firma.'));
     $list = rows('SELECT t.*, u.name AS user_name FROM wk_templates t LEFT JOIN users u ON u.id = t.created_by WHERE t.company_id = ? ORDER BY t.name', [$cid]);
     render_page(t('Vorlagen') . ' · ' . t('Dokumente & Anleitungen'), function () use ($cid, $list) {
-        echo company_switcher($cid, 'doc_templates');
+        echo wk_switcher($cid, 'doc_templates');
         wk_tabs($cid, 'doc_templates'); ?>
         <div class="toolbar"><a class="btn primary" href="<?= e(wkurl('doc_template_edit')) ?>"><?= e(t('+ Vorlage')) ?></a></div>
         <div class="card">
@@ -534,7 +535,7 @@ function page_doc_template_edit(): void
     }
     $heading = $tp ? t('Vorlage bearbeiten') : t('Neue Vorlage');
     render_page($heading . ' · ' . t('Dokumente & Anleitungen'), function () use ($cid, $tp, $name, $desc, $body, $err, $heading) {
-        echo company_switcher($cid, 'doc_templates');
+        echo wk_switcher($cid, 'doc_templates');
         wk_tabs($cid, 'doc_templates');
         if ($err !== ''): ?><div class="alert error"><?= e($err) ?></div><?php endif; ?>
         <form method="post" class="form card wk-edit" id="wk-form">
@@ -611,7 +612,7 @@ function wk_watch_set(int $cid, int $pageId, int $userId, bool $on): void
 
 function wk_page_link(int $pageId, int $cid): string
 {
-    return rtrim((string)cfg('base_url', ''), '/') . '/index.php?' . http_build_query(['r' => 'doc', 'id' => $pageId]);
+    return rtrim((string)cfg('base_url', ''), '/') . '/index.php?' . http_build_query(['r' => 'doc'] + (wk_is_hub($cid) ? ['hub' => 1] : []) + ['id' => $pageId]);
 }
 
 /**
@@ -627,12 +628,14 @@ function wk_notify(int $cid, array $page, string $kind, string $text = '', array
     $targets = [];
     foreach (rows('SELECT w.id AS watch_id, w.notified_at, u.* FROM wk_watch w JOIN users u ON u.id = w.user_id WHERE w.company_id = ? AND w.page_id = ? AND u.active = 1', [$cid, $pageId]) as $u) {
         if ((int)$u['id'] === (int)$actor['id']) continue;
-        if ((wk_space_perms($cid, $u)[$spaceId] ?? 0) === WK_PERM_NONE) continue;
+        $up = wk_space_perms($cid, $u)[$spaceId] ?? 0;
+        if ($up === WK_PERM_NONE || ($up < WK_PERM_EDIT && ($page['status'] ?? 'published') !== 'published')) continue;
         if ($kind === 'change' && $u['notified_at'] !== '' && $u['notified_at'] > $quietBefore) continue;
         $targets[(int)$u['id']] = ['u' => $u, 'why' => 'watch'];
     }
     foreach ($mentioned as $id => $u) {
         if ((int)$id === (int)$actor['id']) continue;
+        if (($page['status'] ?? 'published') !== 'published' && (wk_space_perms($cid, $u)[$spaceId] ?? 0) < WK_PERM_EDIT) continue;
         $targets[(int)$id] = ['u' => $u, 'why' => 'mention'];
     }
     if (!$targets) return;
@@ -713,6 +716,8 @@ function wk_action_more(int $cid, array $page, string $action): bool
             flash('success', $action === 'watch' ? t('Sie beobachten diese Seite und bekommen eine E-Mail bei Änderungen und Kommentaren.') : t('Sie beobachten diese Seite nicht mehr.'));
             wk_redirect('doc', ['id' => $page['id']]);
         case 'comment_add':
+            // Für alle Kunden: keine Kommentare (Namen wären für alle Firmen sichtbar)
+            if (wk_is_hub($cid)) abort(403);
             $body = trim(str_replace("\r", '', mb_substr((string)post('body'), 0, 5000)));
             if ($body === '') { flash('error', t('Bitte einen Kommentar eingeben.')); wk_redirect('doc', ['id' => $page['id']]); }
             $cmId = insert('wk_comments', ['company_id' => $cid, 'page_id' => $page['id'], 'user_id' => $me['id'], 'body' => $body, 'created_at' => now()]);

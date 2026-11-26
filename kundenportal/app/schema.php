@@ -606,6 +606,31 @@ function schema_statements(string $driver): array
         created_at $ts NOT NULL
     )$tail";
 
+    // Dokumente & Anleitungen, Stufe 3 (ab Version 39): Dateien mit Versionen
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_files (
+        id $pk,
+        company_id $fk NOT NULL,
+        page_id $fk NOT NULL,
+        name VARCHAR(190) NOT NULL,
+        created_by $fk NULL,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_file_versions (
+        id $pk,
+        company_id $fk NOT NULL,
+        file_id $fk NOT NULL,
+        version_no INT NOT NULL,
+        filename VARCHAR(190) NOT NULL,
+        mime VARCHAR(100) NOT NULL DEFAULT '',
+        size INT NOT NULL DEFAULT 0,
+        stored_name VARCHAR(120) NOT NULL,
+        note VARCHAR(255) NOT NULL DEFAULT '',
+        user_id $fk NULL,
+        created_at $ts NOT NULL
+    )$tail";
+
     // Verträge, Stufe 2 (ab Version 30): Preishistorie und Verknüpfung mit Geräten/Lizenzen des Inventars
     $tables[] = "CREATE TABLE IF NOT EXISTS ct_prices (
         id $pk,
@@ -965,6 +990,9 @@ function schema_statements(string $driver): array
         'idx_wk_versions'     => 'wk_versions (company_id, page_id, version_no)',
         'idx_wk_comments'     => 'wk_comments (company_id, page_id)',
         'idx_wk_watch'        => 'wk_watch (company_id, page_id, user_id)',
+        'idx_wk_files'        => 'wk_files (company_id, page_id)',
+        'idx_wk_fver'         => 'wk_file_versions (company_id, file_id, version_no)',
+        'idx_wk_review'       => 'wk_pages (status, review_due)',
         'idx_tk_creator'      => 'tickets (company_id, created_by)',
         'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
         'idx_tkmsg_t'         => 'ticket_messages (ticket_id, id)',
@@ -978,7 +1006,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 38;
+const SCHEMA_VERSION = 39;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -1130,6 +1158,12 @@ function run_migrations(): void
         ['companies', 'ct_ocr_confirmed_at', 'VARCHAR(19) NULL'],
         // Dokumente & Anleitungen (ab Version 37): Einsicht für den Dienstleister
         ['companies', 'wk_provider_access', 'INT NOT NULL DEFAULT 0'],
+        // Dokumente & Anleitungen, Stufe 3 (ab Version 39): Entwurf/veröffentlicht, Prüfdatum, Verantwortliche(r); bestehende Seiten gelten als veröffentlicht
+        ['wk_pages', 'status', "VARCHAR(10) NOT NULL DEFAULT 'published'"],
+        ['wk_pages', 'review_months', 'INT NOT NULL DEFAULT 0'],
+        ['wk_pages', 'review_due', "VARCHAR(10) NOT NULL DEFAULT ''"],
+        ['wk_pages', 'review_notified', "VARCHAR(10) NOT NULL DEFAULT ''"],
+        ['wk_pages', 'owner_id', 'INT NULL'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -1236,6 +1270,9 @@ function ensure_schema(): void
         db()->query('SELECT id FROM wk_templates LIMIT 1');
         db()->query('SELECT id FROM wk_comments LIMIT 1');
         db()->query('SELECT notified_at FROM wk_watch LIMIT 1');
+        db()->query('SELECT status, review_months, review_due, review_notified, owner_id FROM wk_pages LIMIT 1');
+        db()->query('SELECT id FROM wk_files LIMIT 1');
+        db()->query('SELECT id FROM wk_file_versions LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

@@ -97,7 +97,11 @@ Eingebaute Apps sind **On- & Offboarding**, **Formulare**, **Datensicherung** un
 - **Kommentare** unter jeder Seite für alle, die sie lesen dürfen; mit **@Name** (Vorschlagsliste beim Tippen) wird jemand erwähnt und per E-Mail benachrichtigt. Eigene Kommentare löscht man selbst, alle anderen nur Firmen-Admins.
 - **Beobachten:** Wer eine Seite anlegt, beobachtet sie automatisch; alle anderen per Knopf. Beobachter bekommen eine E-Mail bei Kommentaren und bei Änderungen (höchstens alle 30 Minuten je Seite), aber nur, solange sie die Seite lesen dürfen.
 - **PDF-Export** einer Seite oder einer Seite mit allen Unterseiten (je Seite ein neues Blatt, mit Überschriften, Listen, Tabellen, Bildern und Infoboxen).
-- Geplant (siehe Pflichtenheft): Freigabe mit Prüfdatum, Dateien mit Versionen, Seiten des Dienstleisters für alle Kunden und der Passwort-Tresor mit Zero-Knowledge-Verschlüsselung.
+- **Entwurf und Freigabe:** Neue Seiten speichert man als Entwurf oder „Speichern und veröffentlichen“. Entwürfe (und Seiten unter einem Entwurf) sehen nur Personen mit Bearbeiten-Recht im Bereich, auch nicht in Suche, Liste, PDF oder Verlauf. Veröffentlichte Seiten lassen sich „Zurück auf Entwurf“ setzen. Bestehende Seiten gelten als veröffentlicht.
+- **Prüfdatum:** Je Seite „Inhalt prüfen alle 3/6/12/24 Monate“ und eine verantwortliche Person. Fällige Seiten stehen auf der Übersicht unter „Zu prüfen“, auf der Seite mit „Als geprüft markieren“. Die verantwortliche Person (sonst die Firmen-Admins) bekommt je Fälligkeit eine E-Mail (`cron.php` oder höchstens stündlich bei Seitenaufrufen).
+- **Dateien mit Versionen** an jeder Seite (z. B. Handbücher, Netzwerkpläne, Notfallhandbuch; höchstens 10 MB je Datei, Dateitypen wie bei Tickets). Eine Datei mit gleichem Namen wird zur neuen Version; „Neue Version“ mit Änderungshinweis, ältere Versionen bleiben abrufbar. Gespeichert unter `app/data/docs/<Firma>/`, Teil der Firmensicherung. Die Suche findet auch Dateinamen.
+- **Für alle Kunden:** Superadmin und Verwaltungsadmins mit Zugriff auf alle Firmen pflegen eigene Bereiche (`index.php?r=docs&hub=1`). Veröffentlichte Seiten sehen alle Firmen mit der App unter „Anleitungen Ihres IT-Dienstleisters“ und in der Suche; Kommentare gibt es dort nicht. Wer in der Firma bearbeiten darf, kopiert eine Seite mit „In unser Wiki kopieren“ als Entwurf ins eigene Wiki.
+- Geplant (siehe Pflichtenheft): Passwort-Tresor mit Zero-Knowledge-Verschlüsselung, Verknüpfungen zu Inventar, Verträgen, Tickets und On-/Offboarding.
 
 ### API der Kundendatenbank
 

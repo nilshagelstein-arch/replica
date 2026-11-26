@@ -915,3 +915,23 @@ nav.wk-toc li.lvl4 { padding-left: 2rem; }
 .wk-mention-opt { display: block; width: 100%; text-align: left; border: 0; background: none; padding: .35rem .6rem; border-radius: 4px; cursor: pointer; font: inherit; }
 .wk-mention-opt:hover, .wk-mention-opt.active { background: #e3eefa; }
 @media print { .wk-comments, .wk-meta-links { display: none !important; } }
+
+/* Dokumente & Anleitungen, Stufe 3: Freigabe, Prüfung, Dateien, Für alle Kunden */
+.wk-status { display: flex; gap: .6rem 1rem; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: .55rem .8rem; margin-bottom: 1rem;
+  border-radius: 6px; background: #f1f4f7; border: 1px solid var(--line); font-size: .92rem; }
+.wk-status.draft { background: #fff6e0; border-color: #f0d08a; }
+.wk-status.over { background: #fdecea; border-color: #f4b4ad; }
+.wk-files table td { vertical-align: top; }
+.wk-file-versions { margin-top: .3rem; }
+.wk-file-versions ul { margin: .3rem 0 0; padding-left: 1.1rem; }
+.wk-file-new { display: inline-block; margin-right: .5rem; }
+.wk-file-new > summary { list-style: none; cursor: pointer; }
+.wk-file-new > summary::-webkit-details-marker { display: none; }
+.wk-file-new[open] form { margin-top: .4rem; display: flex; flex-direction: column; gap: .3rem; min-width: 240px; }
+.wk-file-add { display: flex; gap: .6rem; flex-wrap: wrap; align-items: flex-end; margin-top: .8rem; }
+.wk-file-add p { flex-basis: 100%; margin: 0; }
+.wk-copy { display: flex; gap: .6rem; flex-wrap: wrap; align-items: flex-end; }
+.wk-copy p { flex-basis: 100%; margin: 0; }
+.wk-hub { border-top: 4px solid #15803d; }
+.wk-todo { margin-bottom: 1.25rem; }
+.wk-todo .card { margin-bottom: 0; }

@@ -89,7 +89,7 @@ if ($user && !company_pending($user)) {
         'links'          => ['links', 'link_edit'],
         'tickets'        => ['tickets', 'ticket', 'ticket_new', 'ticket_settings', 'ticket_inbox'],
         'vertraege'      => ['contracts', 'contract', 'contract_settings', 'contract_deadlines', 'contract_costs', 'contract_import'],
-        'dokumente'      => ['docs', 'doc_space', 'doc', 'doc_edit', 'doc_space_edit', 'doc_settings', 'doc_search', 'doc_history', 'doc_version', 'doc_diff', 'doc_templates', 'doc_template_edit'],
+        'dokumente'      => ['docs', 'doc_space', 'doc', 'doc_edit', 'doc_space_edit', 'doc_settings', 'doc_search', 'doc_history', 'doc_version', 'doc_diff', 'doc_templates', 'doc_template_edit', 'doc_file'],
     ];
     foreach ($routeApps as $slug => $routes) {
         if (in_array($route, $routes, true)) {
