@@ -1091,7 +1091,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 40;
+const SCHEMA_VERSION = 41;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -1249,6 +1249,9 @@ function run_migrations(): void
         ['wk_pages', 'review_due', "VARCHAR(10) NOT NULL DEFAULT ''"],
         ['wk_pages', 'review_notified', "VARCHAR(10) NOT NULL DEFAULT ''"],
         ['wk_pages', 'owner_id', 'INT NULL'],
+        // Tresor, Stufe 5 (ab Version 41): Turnus für den Passwortwechsel, Erinnerung je „Ändern bis“ nur einmal
+        ['wk_vault_entries', 'change_months', 'INT NOT NULL DEFAULT 0'],
+        ['wk_vault_entries', 'expires_notified', "VARCHAR(10) NOT NULL DEFAULT ''"],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -1358,6 +1361,7 @@ function ensure_schema(): void
         db()->query('SELECT status, review_months, review_due, review_notified, owner_id FROM wk_pages LIMIT 1');
         db()->query('SELECT id FROM wk_files LIMIT 1');
         db()->query('SELECT id FROM wk_file_versions LIMIT 1');
+        db()->query('SELECT change_months, expires_notified FROM wk_vault_entries LIMIT 1');
         foreach (['wk_vault_accounts', 'wk_vault_company', 'wk_vault_folders', 'wk_vault_folder_perms', 'wk_vault_keys', 'wk_vault_entries', 'wk_vault_log'] as $tbl) db()->query("SELECT id FROM $tbl LIMIT 1");
     } catch (PDOException $ex) {
         run_migrations();

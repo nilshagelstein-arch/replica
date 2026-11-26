@@ -352,6 +352,8 @@ function wk_reviews_run(): array
         }
         $log[] = 'Wiki: Prüfung fällig – #' . $p['id'] . ' ' . $p['title'] . ' (' . count($to) . ' Empfänger)';
     }
+    // Tresor: „Ändern bis“ (Stufe 5)
+    if (function_exists('wkv_reminders_run')) $log = array_merge($log, wkv_reminders_run());
     return $log;
 }
 

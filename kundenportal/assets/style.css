@@ -965,3 +965,11 @@ pre.vault-val { margin: 0; white-space: pre-wrap; font-family: inherit; flex: 1 
   body.vault-print .vault-kit, body.vault-print .vault-kit * { visibility: visible; }
   body.vault-print .vault-kit { position: absolute; left: 0; top: 0; width: 100%; border: 2px dashed #000; }
 }
+
+/* Tresor, Stufe 5: Generator, 2FA-Code, Fälligkeiten */
+.vault-gen { border: 1px solid var(--line); border-radius: 6px; padding: .6rem .8rem; margin: -.3rem 0 .8rem; background: #f7f9fb; display: flex; flex-direction: column; gap: .5rem; }
+.vault-gen-opts { display: flex; flex-wrap: wrap; gap: .3rem 1rem; align-items: center; }
+.vault-gen input[type=range] { width: 180px; vertical-align: middle; }
+.vault-totp { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; padding: .5rem .8rem; background: #eef6ff; border: 1px solid #c4dbf5; border-radius: 6px; margin-bottom: .8rem; }
+.vault-code { font-size: 1.4rem; letter-spacing: .08em; }
+.vault-due { border-left: 4px solid var(--warn); }

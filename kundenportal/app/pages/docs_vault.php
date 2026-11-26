@@ -27,6 +27,9 @@ const WK_V_KINDS = ['login', 'wlan', 'netz', 'portal', 'server', 'notiz'];
 const WK_V_LOCK_DEFAULT = 15;
 const WK_V_BLOB_MAX = 200000;   // verschlüsselter Eintrag (Base64), reicht für lange Notizen
 const WK_V_KDF_ITER = 600000;
+const WK_V_CHANGE_MONTHS = [0, 3, 6, 12, 24];
+const WK_V_IMPORT_MAX = 500;      // Einträge je Import-Anfrage
+const WK_V_REMIND_DAYS = 14;      // so viele Tage vor „Ändern bis“ kommt die Erinnerung
 
 function wkv_company_id(): int
 {
@@ -216,7 +219,7 @@ function page_doc_vault_api(): void
                         if (!in_array($mid, $have, true)) $pending[] = ['user_id' => $mid, 'name' => $mu['name'], 'public_key' => $ma['public_key']];
                     }
                     if (!in_array(0, $have, true)) $pending[] = ['user_id' => 0, 'name' => t('Firmen-Notfallschlüssel'), 'public_key' => $co['public_key']];
-                    $entries = $perm > 0 ? rows('SELECT e.id, e.title, e.kind, e.expires, e.updated_at, u.name AS updated_by_name FROM wk_vault_entries e
+                    $entries = $perm > 0 ? rows('SELECT e.id, e.title, e.kind, e.expires, e.change_months, e.updated_at, u.name AS updated_by_name FROM wk_vault_entries e
                         LEFT JOIN users u ON u.id = e.updated_by WHERE e.company_id = ? AND e.folder_id = ? ORDER BY e.title', [$cid, $fid]) : [];
                     $row = ['id' => $fid, 'name' => $f['name'], 'perm' => $perm, 'key_version' => $ver, 'needs_rotation' => (int)$f['needs_rotation'],
                         'my_key' => $mine ? json_decode($mine['wrapped'], true) : null, 'pending' => $mine ? $pending : [], 'entries' => $entries,
@@ -394,9 +397,11 @@ function page_doc_vault_api(): void
             $e = row('SELECT * FROM wk_vault_entries WHERE id = ? AND company_id = ?', [(int)($p['id'] ?? 0), $cid]);
             if (!$e) wkv_fail('Eintrag nicht gefunden.', 404);
             $folder((int)$e['folder_id'], WK_V_PERM_VIEW);
-            // Schlüsselwechsel liest alle Einträge – im Protokoll eigens gekennzeichnet (Rechteprüfung wie bei „rotate“)
-            if (($p['purpose'] ?? '') === 'rotate') $folder((int)$e['folder_id'], WK_V_PERM_EDIT);
-            wkv_log($cid, (int)$e['folder_id'], (int)$e['id'], ($p['purpose'] ?? '') === 'rotate' ? 'rotate_read' : 'view', (string)$e['title']);
+            // Schlüsselwechsel und Export lesen alle Einträge – im Protokoll eigens gekennzeichnet
+            $purpose = (string)($p['purpose'] ?? '');
+            if ($purpose === 'rotate') $folder((int)$e['folder_id'], WK_V_PERM_EDIT);
+            if ($purpose === 'export' && !$admin) wkv_fail('Exportieren dürfen nur die Administratoren der Firma.', 403);
+            wkv_log($cid, (int)$e['folder_id'], (int)$e['id'], ['rotate' => 'rotate_read', 'export' => 'export_read'][$purpose] ?? 'view', (string)$e['title']);
             wkv_json(['ok' => true, 'data' => json_decode($e['data'], true), 'key_version' => (int)$e['key_version']]);
 
         case 'entry_save':
@@ -407,13 +412,15 @@ function page_doc_vault_api(): void
             $kind = in_array($p['kind'] ?? '', WK_V_KINDS, true) ? $p['kind'] : 'notiz';
             $exp = (string)($p['expires'] ?? '');
             if ($exp !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $exp)) $exp = '';
-            $data = ['title' => $title, 'kind' => $kind, 'expires' => $exp, 'data' => wkv_blob($p['data'] ?? null), 'key_version' => $f['key_version'],
-                'updated_by' => $u['id'], 'updated_at' => now()];
+            $cm = (int)($p['change_months'] ?? 0);
+            $data = ['title' => $title, 'kind' => $kind, 'expires' => $exp, 'change_months' => in_array($cm, WK_V_CHANGE_MONTHS, true) ? $cm : 0,
+                'data' => wkv_blob($p['data'] ?? null), 'key_version' => $f['key_version'], 'updated_by' => $u['id'], 'updated_at' => now()];
             $id = (int)($p['id'] ?? 0);
             if ($id) {
                 $e = row('SELECT * FROM wk_vault_entries WHERE id = ? AND company_id = ?', [$id, $cid]);
                 if (!$e) wkv_fail('Eintrag nicht gefunden.', 404);
                 $folder((int)$e['folder_id'], WK_V_PERM_EDIT);
+                if ($exp !== $e['expires']) $data['expires_notified'] = '';
                 update('wk_vault_entries', $id, $data + ['folder_id' => $f['id']]);
                 wkv_log($cid, (int)$f['id'], $id, 'update', $title);
             } else {
@@ -421,6 +428,41 @@ function page_doc_vault_api(): void
                 wkv_log($cid, (int)$f['id'], $id, 'create', $title);
             }
             wkv_json(['ok' => true, 'id' => $id]);
+
+        case 'entries_import':
+            // Import aus Bitwarden, KeePass, 1Password oder einer Tresor-Exportdatei: im Browser gelesen und verschlüsselt
+            $f = $folder((int)($p['folder_id'] ?? 0), WK_V_PERM_EDIT);
+            if ((int)($p['key_version'] ?? 0) !== (int)$f['key_version']) wkv_fail('Der Ordner wurde inzwischen neu verschlüsselt. Bitte laden Sie die Seite neu.', 409);
+            $items = is_array($p['items'] ?? null) ? $p['items'] : [];
+            if (!$items || count($items) > WK_V_IMPORT_MAX) wkv_fail('Bitte zwischen 1 und 500 Einträge auf einmal importieren.');
+            $rowsIn = [];
+            foreach ($items as $it) {
+                $title = mb_substr(trim((string)($it['title'] ?? '')), 0, 190);
+                if ($title === '') $title = t('Ohne Titel');
+                $exp = (string)($it['expires'] ?? '');
+                $cm = (int)($it['change_months'] ?? 0);
+                $rowsIn[] = ['title' => $title, 'kind' => in_array($it['kind'] ?? '', WK_V_KINDS, true) ? $it['kind'] : 'notiz',
+                    'expires' => preg_match('/^\d{4}-\d{2}-\d{2}$/', $exp) ? $exp : '', 'change_months' => in_array($cm, WK_V_CHANGE_MONTHS, true) ? $cm : 0,
+                    'data' => wkv_blob($it['data'] ?? null)];
+            }
+            db()->beginTransaction();
+            try {
+                foreach ($rowsIn as $r) insert('wk_vault_entries', $r + ['company_id' => $cid, 'folder_id' => $f['id'], 'key_version' => $f['key_version'],
+                    'created_by' => $u['id'], 'updated_by' => $u['id'], 'created_at' => now(), 'updated_at' => now()]);
+                db()->commit();
+            } catch (Throwable $ex) {
+                db()->rollBack();
+                throw $ex;
+            }
+            wkv_log($cid, (int)$f['id'], null, 'import', mb_substr((string)($p['source'] ?? ''), 0, 40) . ': ' . count($rowsIn));
+            wkv_json(['ok' => true, 'imported' => count($rowsIn)]);
+
+        case 'log_export':
+            if (!$admin) wkv_fail('Exportieren dürfen nur die Administratoren der Firma.', 403);
+            $f = $folder((int)($p['folder_id'] ?? 0), WK_V_PERM_VIEW);
+            $fmt = ($p['format'] ?? '') === 'csv' ? 'export_csv' : 'export_file';
+            wkv_log($cid, (int)$f['id'], null, $fmt, (string)(int)($p['count'] ?? 0));
+            wkv_json(['ok' => true]);
 
         case 'entry_delete':
             $e = row('SELECT * FROM wk_vault_entries WHERE id = ? AND company_id = ?', [(int)($p['id'] ?? 0), $cid]);
@@ -457,4 +499,46 @@ function page_doc_vault_api(): void
             wkv_json(['ok' => true]);
     }
     wkv_fail('Unbekannte Aktion.');
+}
+
+// ---------------------------------------------------------------------------
+// Erinnerung „Ändern bis“ (nur Titel und Datum, nie Inhalte)
+// ---------------------------------------------------------------------------
+
+/** Sammelmail je Person mit Bearbeiten-Recht für Einträge, deren „Ändern bis“ in 14 Tagen oder früher liegt */
+function wkv_reminders_run(): array
+{
+    $log = [];
+    $limit = date('Y-m-d', strtotime('+' . WK_V_REMIND_DAYS . ' days'));
+    $due = rows("SELECT e.id, e.company_id, e.folder_id, e.title, e.expires, f.name AS folder_name FROM wk_vault_entries e
+        JOIN wk_vault_folders f ON f.id = e.folder_id WHERE e.expires <> '' AND e.expires <= ? AND e.expires_notified <> e.expires LIMIT 1000", [$limit]);
+    $byUser = [];
+    foreach ($due as $e) {
+        $cid = (int)$e['company_id'];
+        q('UPDATE wk_vault_entries SET expires_notified = ? WHERE id = ?', [$e['expires'], $e['id']]);
+        if (!company_has_app($cid, WK_APP) || !wkv_company($cid)) continue;
+        foreach (wkv_members($cid, (int)$e['folder_id']) as $uid => [$mu, $mp]) {
+            if ($mp < WK_V_PERM_EDIT || !wkv_account((int)$uid)) continue;
+            $byUser[$cid . ':' . $uid]['u'] = $mu;
+            $byUser[$cid . ':' . $uid]['cid'] = $cid;
+            $byUser[$cid . ':' . $uid]['items'][] = $e;
+        }
+    }
+    foreach ($byUser as $b) {
+        $u = $b['u'];
+        $cid = $b['cid'];
+        try {
+            with_lang(user_lang($u), function () use ($u, $b, $cid) {
+                $lines = array_map(fn($e) => '- ' . $e['title'] . ' (' . t('Ordner') . ' „' . $e['folder_name'] . '“): ' . fmt_date($e['expires']), $b['items']);
+                $link = rtrim((string)cfg('base_url', ''), '/') . '/index.php?r=doc_vault';
+                send_mail([(string)$u['email']], t('Tresor: Zugangsdaten bald ändern'),
+                    t('Guten Tag {n},', ['n' => $u['name']]) . "\n\n" . t('für diese Einträge im Tresor ist bald oder bereits ein Passwortwechsel fällig:') . "\n\n"
+                    . implode("\n", $lines) . "\n\n" . t('Ändern Sie das Passwort beim Dienst, tragen Sie es im Tresor ein und setzen Sie „Ändern bis“ neu.') . "\n\n" . t('Zum Tresor:') . ' ' . $link, $cid);
+            });
+        } catch (Throwable $ex) {
+            error_log('[kundenportal] Tresor-Erinnerung: ' . $ex->getMessage());
+        }
+        $log[] = 'Tresor: Erinnerung an ' . $u['email'] . ' (' . count($b['items']) . ' Einträge)';
+    }
+    return $log;
 }
