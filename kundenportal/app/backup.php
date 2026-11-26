@@ -667,6 +667,10 @@ function cbackup_data(int $cid): array
         'wk_spaces'      => rows('SELECT * FROM wk_spaces WHERE company_id = ?', [$cid]),
         'wk_space_perms' => rows('SELECT * FROM wk_space_perms WHERE company_id = ?', [$cid]),
         'wk_pages'       => rows('SELECT * FROM wk_pages WHERE company_id = ?', [$cid]),
+        'wk_versions'    => rows('SELECT * FROM wk_versions WHERE company_id = ?', [$cid]),
+        'wk_templates'   => rows('SELECT * FROM wk_templates WHERE company_id = ?', [$cid]),
+        'wk_comments'    => rows('SELECT * FROM wk_comments WHERE company_id = ?', [$cid]),
+        'wk_watch'       => rows('SELECT * FROM wk_watch WHERE company_id = ?', [$cid]),
     ];
 }
 

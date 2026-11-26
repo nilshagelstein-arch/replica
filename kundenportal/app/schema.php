@@ -564,6 +564,48 @@ function schema_statements(string $driver): array
         updated_at $ts NOT NULL
     )$tail";
 
+    // Dokumente & Anleitungen, Stufe 2 (ab Version 38): Versionen, eigene Vorlagen, Kommentare, Beobachten
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_versions (
+        id $pk,
+        company_id $fk NOT NULL,
+        page_id $fk NOT NULL,
+        version_no INT NOT NULL,
+        title VARCHAR(190) NOT NULL,
+        body $long,
+        user_id $fk NULL,
+        note VARCHAR(190) NOT NULL DEFAULT '',
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_templates (
+        id $pk,
+        company_id $fk NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        description VARCHAR(255) NOT NULL DEFAULT '',
+        body $long,
+        created_by $fk NULL,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_comments (
+        id $pk,
+        company_id $fk NOT NULL,
+        page_id $fk NOT NULL,
+        user_id $fk NULL,
+        body TEXT,
+        created_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_watch (
+        id $pk,
+        company_id $fk NOT NULL,
+        page_id $fk NOT NULL,
+        user_id $fk NOT NULL,
+        notified_at VARCHAR(19) NOT NULL DEFAULT '',
+        created_at $ts NOT NULL
+    )$tail";
+
     // Verträge, Stufe 2 (ab Version 30): Preishistorie und Verknüpfung mit Geräten/Lizenzen des Inventars
     $tables[] = "CREATE TABLE IF NOT EXISTS ct_prices (
         id $pk,
@@ -920,6 +962,9 @@ function schema_statements(string $driver): array
         'idx_ct_offers'       => 'ct_offers (company_id, contract_id)',
         'idx_wk_pages'        => 'wk_pages (company_id, space_id, parent_id)',
         'idx_wk_perms'        => 'wk_space_perms (company_id, space_id)',
+        'idx_wk_versions'     => 'wk_versions (company_id, page_id, version_no)',
+        'idx_wk_comments'     => 'wk_comments (company_id, page_id)',
+        'idx_wk_watch'        => 'wk_watch (company_id, page_id, user_id)',
         'idx_tk_creator'      => 'tickets (company_id, created_by)',
         'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
         'idx_tkmsg_t'         => 'ticket_messages (ticket_id, id)',
@@ -933,7 +978,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 37;
+const SCHEMA_VERSION = 38;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -1187,6 +1232,10 @@ function ensure_schema(): void
         db()->query('SELECT id FROM wk_spaces LIMIT 1');
         db()->query('SELECT id FROM wk_space_perms LIMIT 1');
         db()->query('SELECT id FROM wk_pages LIMIT 1');
+        db()->query('SELECT id FROM wk_versions LIMIT 1');
+        db()->query('SELECT id FROM wk_templates LIMIT 1');
+        db()->query('SELECT id FROM wk_comments LIMIT 1');
+        db()->query('SELECT notified_at FROM wk_watch LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }

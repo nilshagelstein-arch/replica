@@ -15,6 +15,60 @@
     tw.setAttribute('aria-expanded', open ? 'true' : 'false');
   });
 
+  // --- Kommentare: @-Erwähnung mit Vorschlagsliste ----------------------------
+  (function () {
+    var ta = document.getElementById('wk-comment-text');
+    var box = document.getElementById('wk-mention-list');
+    if (!ta || !box) return;
+    var names = [];
+    try { names = JSON.parse(ta.getAttribute('data-names') || '[]'); } catch (e) { names = []; }
+    var active = -1, matches = [], start = -1;
+    function close() { box.hidden = true; active = -1; matches = []; }
+    function query() {
+      var pos = ta.selectionStart, before = ta.value.slice(0, pos);
+      var m = /(^|\s)@([^\s@]{0,30}(?: [^\s@]{0,30})?)$/.exec(before);
+      if (!m) { close(); return; }
+      start = pos - m[2].length - 1;
+      var q = m[2].toLowerCase();
+      matches = names.filter(function (n) { return n.toLowerCase().indexOf(q) === 0 || n.toLowerCase().indexOf(' ' + q) !== -1; }).slice(0, 8);
+      if (!matches.length) { close(); return; }
+      box.innerHTML = '';
+      matches.forEach(function (n, i) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'wk-mention-opt' + (i === active ? ' active' : '');
+        b.setAttribute('role', 'option');
+        b.textContent = n;
+        b.addEventListener('mousedown', function (ev) { ev.preventDefault(); pick(n); });
+        box.appendChild(b);
+      });
+      box.hidden = false;
+    }
+    function pick(n) {
+      var pos = ta.selectionStart;
+      ta.value = ta.value.slice(0, start) + '@' + n + ' ' + ta.value.slice(pos);
+      var c = start + n.length + 2;
+      ta.setSelectionRange(c, c);
+      ta.focus();
+      close();
+    }
+    ta.addEventListener('input', function () { active = -1; query(); });
+    ta.addEventListener('blur', function () { setTimeout(close, 150); });
+    ta.addEventListener('keydown', function (ev) {
+      if (box.hidden) return;
+      if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        active = (active + (ev.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length;
+        Array.prototype.forEach.call(box.children, function (b, i) { b.classList.toggle('active', i === active); });
+      } else if ((ev.key === 'Enter' || ev.key === 'Tab') && active >= 0) {
+        ev.preventDefault();
+        pick(matches[active]);
+      } else if (ev.key === 'Escape') {
+        close();
+      }
+    });
+  })();
+
   // --- Editor ----------------------------------------------------------------
   var form = document.getElementById('wk-form');
   var ed = document.getElementById('wk-editor');
@@ -38,7 +92,9 @@
 
   var dirty = false;
   ed.addEventListener('input', function () { dirty = true; });
-  form.querySelector('[name=title]').addEventListener('input', function () { dirty = true; });
+  Array.prototype.forEach.call(form.querySelectorAll('input[name=title],input[name=name],input[name=description],select[name=parent_id]'), function (f) {
+    f.addEventListener('input', function () { dirty = true; });
+  });
   form.addEventListener('submit', function () {
     ta.value = ed.innerHTML;
     dirty = false;
