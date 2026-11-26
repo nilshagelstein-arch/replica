@@ -63,6 +63,7 @@ require APP_DIR . '/pages/docs.php';
 require APP_DIR . '/pages/docs_more.php';
 require APP_DIR . '/pages/docs_files.php';
 require APP_DIR . '/pages/docs_vault.php';
+require APP_DIR . '/pages/docs_links.php';
 require APP_DIR . '/ticket_mail.php';
 
 $routes = [
@@ -189,6 +190,9 @@ $routes = [
     'doc_file'        => 'page_doc_file',
     'doc_vault'       => 'page_doc_vault',
     'doc_vault_api'   => 'page_doc_vault_api',
+    'doc_link_action' => 'page_doc_link_action',
+    'doc_from_ticket' => 'page_doc_from_ticket',
+    'doc_offboard_check' => 'page_doc_offboard_check',
 ];
 
 /**
@@ -239,6 +243,7 @@ const ROUTE_AREAS = [
     'doc_history' => ['docs', PERM_VIEW], 'doc_version' => ['docs', PERM_VIEW], 'doc_diff' => ['docs', PERM_VIEW], 'doc_pdf' => ['docs', PERM_VIEW],
     'doc_templates' => ['docs', PERM_VIEW], 'doc_template_edit' => ['docs', PERM_EDIT], 'doc_file' => ['docs', PERM_VIEW],
     'doc_vault' => ['docs', PERM_VIEW], 'doc_vault_api' => ['docs', PERM_EDIT],
+    'doc_link_action' => ['docs', PERM_EDIT], 'doc_from_ticket' => ['docs', PERM_EDIT], 'doc_offboard_check' => ['docs', PERM_EDIT],
 ];
 
 /**

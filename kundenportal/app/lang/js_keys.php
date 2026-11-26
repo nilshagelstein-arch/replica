@@ -290,4 +290,5 @@ return [
     'Der Export wird im Browser erzeugt. Jeder gelesene Eintrag und der Export selbst stehen im Protokoll.',
     'Ordner „{n}“ exportieren',
     'exportiert',
+    'Der verknüpfte Eintrag ist für Sie nicht freigegeben.',
 ];

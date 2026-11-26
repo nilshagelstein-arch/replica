@@ -681,6 +681,8 @@ function cbackup_data(int $cid): array
         'wk_vault_keys'  => rows('SELECT * FROM wk_vault_keys WHERE company_id = ?', [$cid]),
         'wk_vault_entries' => rows('SELECT * FROM wk_vault_entries WHERE company_id = ?', [$cid]),
         'wk_vault_log'   => rows('SELECT * FROM wk_vault_log WHERE company_id = ?', [$cid]),
+        'wk_links'       => rows('SELECT * FROM wk_links WHERE company_id = ?', [$cid]),
+        'wk_offboard_checks' => rows('SELECT * FROM wk_offboard_checks WHERE company_id = ?', [$cid]),
     ];
 }
 

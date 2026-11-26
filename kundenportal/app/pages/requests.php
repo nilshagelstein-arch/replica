@@ -560,6 +560,7 @@ function page_request_detail(): void
         </div>
 
         <?php if (function_exists('inv_request_card')) inv_request_card($r); ?>
+        <?php if (function_exists('wkl_offboarding_card')) { wkl_offboarding_card($r); wkl_card((int)$r['company_id'], 'request', (int)$r['id']); } ?>
 
         <?php if (request_change_open($r)): ?>
         <div class="card">

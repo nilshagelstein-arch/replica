@@ -600,6 +600,7 @@ function page_contract(): void
             <?php ct_offer_card($cid, $c, $edit, $costs); ?>
             <?php if ($costs) ct_prices_card($c, $prices, $edit); ?>
             <?php ct_links_card($cid, $c, $edit); ?>
+            <?php if (function_exists('wkl_card')) wkl_card($cid, 'contract', (int)$c['id']); ?>
             <div class="card">
                 <h3><?= e(t('Dokumente')) ?></h3>
                 <?php if ($files): ?><ul class="file-list">

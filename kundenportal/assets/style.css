@@ -973,3 +973,7 @@ pre.vault-val { margin: 0; white-space: pre-wrap; font-family: inherit; flex: 1 
 .vault-totp { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; padding: .5rem .8rem; background: #eef6ff; border: 1px solid #c4dbf5; border-radius: 6px; margin-bottom: .8rem; }
 .vault-code { font-size: 1.4rem; letter-spacing: .08em; }
 .vault-due { border-left: 4px solid var(--warn); }
+
+/* Dokumente & Anleitungen, Stufe 6: Verknüpfungen */
+.wkl-add { display: flex; flex-direction: column; gap: .4rem; margin-top: .6rem; }
+.wkl-add select { max-width: 100%; }

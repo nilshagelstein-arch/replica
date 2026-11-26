@@ -1007,6 +1007,7 @@ function page_ticket(): void
             </div>
 
             <aside class="ticket-side">
+                <?php if (function_exists('wkl_card')) { wkl_card((int)$tk['company_id'], 'ticket', (int)$tk['id']); wkl_ticket_to_doc_card($tk); } ?>
                 <div class="card">
                     <dl class="facts">
                         <dt><?= e(t('Status')) ?></dt><dd><?= ticket_status_badge($tk['status']) ?><?= $tk['status'] === 'zurueckgestellt' && $tk['follow_up_at'] ? '<br><span class="small">' . e(t('Wiedervorlage')) . ' ' . fmt_date($tk['follow_up_at']) . '</span>' : '' ?></dd>

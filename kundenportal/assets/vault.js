@@ -327,7 +327,7 @@
       S.state = j;
       S.lockMin = j.company && j.company.lock_minutes || 15;
       return S.priv ? processFolders() : null;
-    }).then(render).catch(function (e) { render(); msg(e.message, 'error'); });
+    }).then(function () { render(); deepLink(); }).catch(function (e) { render(); msg(e.message, 'error'); });
   }
 
   function processFolders() {
@@ -349,6 +349,18 @@
       if (notes.length) S.note = notes.join(' ');
       if (res.indexOf('reload') !== -1) return api('state').then(function (j) { S.state = j; return processFolders(); });
     });
+  }
+
+  /** Direktlink aus anderen Apps: …#entry=ID öffnet den Eintrag, sobald der Tresor entsperrt ist */
+  function deepLink() {
+    var m = /entry=(\d+)/.exec(location.hash || '');
+    if (!m || !S.priv || !S.state) return;
+    var id = +m[1], hit = null;
+    S.state.folders.forEach(function (f) { (f.entries || []).forEach(function (e) { if (e.id === id && S.raw[f.id]) hit = [f, e]; }); });
+    if (!hit) { msg(T('Der verknüpfte Eintrag ist für Sie nicht freigegeben.'), 'info'); return; }
+    if (history.replaceState) history.replaceState(null, '', location.pathname + location.search);
+    S.folder = hit[0].id;
+    viewEntry(hit[0], hit[1]);
   }
 
   /** Schlüsselwechsel: neuer Ordnerschlüssel, alle Einträge neu verschlüsseln, für alle Mitglieder verpacken */
