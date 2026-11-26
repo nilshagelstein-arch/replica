@@ -6,7 +6,7 @@ Statische Dateien, die der Browser direkt lädt. Dazu gehören fünf JavaScript-
 
 Welche Seite welches Skript lädt:
 
-- `../app/views/layout.php`: `app.js` überall; `links.js` auf `link_edit`; `calc.js` und `forms.js` auf `form_layouts`
+- `../app/views/layout.php`: `app.js` überall; `links.js` auf `link_edit`; `wiki.js` auf `doc`, `doc_space` und `doc_edit`; `calc.js` und `forms.js` auf `form_layouts`
 - `render_app_shell()` in `../app/pages/form_editor.php`:
   - `form_edit`: `calc.js` und `forms.js`
   - `form_use`: `calc.js` und `fill.js`
@@ -40,6 +40,7 @@ Welche Seite welches Skript lädt:
   - Felder `[data-key]`: `.fill`, `.fill-multi`, `.fill-check`, `.fill-select` und `.fill-date`
   - Eingabezellen `td[data-input]` und erweiterbare Tabellen `table[data-grow]`
   - Kundenauswahl `[data-apply-customers]` und Zurücksetzen `[data-fill-reset]`
+- **`wiki.js`**: Seitenbaum ein-/ausklappen (`.wk-twisty`) und Seiten-Editor (`#wk-editor`, Werkzeugleiste `#wk-toolbar`; beim Absenden wird der Inhalt in `#wk-body` geschrieben, ohne JavaScript bleibt das Textfeld). Bilder werden im Browser verkleinert und als `data:`-Bild eingefügt; kein Serveraufruf.
 - **`links.js`**: Bildvorschläge im Linkeditor. Startet, sobald `#link-url` vorhanden ist. `data-suggest` liest es erst beim Abruf.
   - Ruft `GET <data-suggest>&url=…` auf (Route `link_suggest`).
   - Die JSON-Antwort hat die Form `{ok, error, title, description, images[]}` `[links.js:load]`.

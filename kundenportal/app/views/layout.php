@@ -52,6 +52,9 @@ if ($user && company_pending($user)) {
     if (isset($myApps['vertraege'])) {
         $nav[] = ['contracts', t($myApps['vertraege']['name']), str_starts_with($route, 'contract')];
     }
+    if (isset($myApps['dokumente'])) {
+        $nav[] = ['docs', t($myApps['dokumente']['name']), str_starts_with($route, 'doc')];
+    }
     if (isset($myApps['links'])) {
         $nav[] = ['links', t($myApps['links']['name']), in_array($route, ['links', 'link_edit'], true)];
     }
@@ -86,6 +89,7 @@ if ($user && !company_pending($user)) {
         'links'          => ['links', 'link_edit'],
         'tickets'        => ['tickets', 'ticket', 'ticket_new', 'ticket_settings', 'ticket_inbox'],
         'vertraege'      => ['contracts', 'contract', 'contract_settings', 'contract_deadlines', 'contract_costs', 'contract_import'],
+        'dokumente'      => ['docs', 'doc_space', 'doc', 'doc_edit', 'doc_space_edit', 'doc_settings', 'doc_search'],
     ];
     foreach ($routeApps as $slug => $routes) {
         if (in_array($route, $routes, true)) {
@@ -159,6 +163,7 @@ if ($user && $user['company_id']) {
 <script src="index.php?r=i18n_js&amp;l=<?= e(current_lang()) ?>"></script>
 <script src="assets/app.js"></script>
 <?php if ($user && $route === 'link_edit'): ?><script src="assets/links.js"></script><?php endif; ?>
+<?php if ($user && in_array($route, ['doc', 'doc_space', 'doc_edit'], true)): ?><script src="assets/wiki.js"></script><?php endif; ?>
 <?php if ($user && $route === 'form_layouts'): ?><script src="assets/calc.js"></script><script src="assets/forms.js"></script><?php endif; ?>
 </body>
 </html>

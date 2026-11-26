@@ -528,6 +528,42 @@ function schema_statements(string $driver): array
         approve_cancel INT NOT NULL DEFAULT 0
     )$tail";
 
+    // App „Dokumente & Anleitungen“, Stufe 1 (ab Version 37): Wiki mit Bereichen, Rechten je Gruppe und Seitenbaum
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_spaces (
+        id $pk,
+        company_id $fk NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        description VARCHAR(500) NOT NULL DEFAULT '',
+        icon VARCHAR(16) NOT NULL DEFAULT '',
+        all_read INT NOT NULL DEFAULT 0,
+        sort INT NOT NULL DEFAULT 0,
+        created_by $fk NULL,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_space_perms (
+        id $pk,
+        company_id $fk NOT NULL,
+        space_id $fk NOT NULL,
+        department_id $fk NOT NULL,
+        perm INT NOT NULL DEFAULT 0
+    )$tail";
+
+    $tables[] = "CREATE TABLE IF NOT EXISTS wk_pages (
+        id $pk,
+        company_id $fk NOT NULL,
+        space_id $fk NOT NULL,
+        parent_id $fk NULL,
+        title VARCHAR(190) NOT NULL,
+        body $long,
+        sort INT NOT NULL DEFAULT 0,
+        created_by $fk NULL,
+        updated_by $fk NULL,
+        created_at $ts NOT NULL,
+        updated_at $ts NOT NULL
+    )$tail";
+
     // Verträge, Stufe 2 (ab Version 30): Preishistorie und Verknüpfung mit Geräten/Lizenzen des Inventars
     $tables[] = "CREATE TABLE IF NOT EXISTS ct_prices (
         id $pk,
@@ -882,6 +918,8 @@ function schema_statements(string $driver): array
         'idx_ct_feed'         => 'ct_feeds (token_hash)',
         'idx_ct_cancel'       => 'ct_cancellations (company_id, contract_id, status)',
         'idx_ct_offers'       => 'ct_offers (company_id, contract_id)',
+        'idx_wk_pages'        => 'wk_pages (company_id, space_id, parent_id)',
+        'idx_wk_perms'        => 'wk_space_perms (company_id, space_id)',
         'idx_tk_creator'      => 'tickets (company_id, created_by)',
         'idx_tk_assigned'     => 'tickets (company_id, assigned_to)',
         'idx_tkmsg_t'         => 'ticket_messages (ticket_id, id)',
@@ -895,7 +933,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 36;
+const SCHEMA_VERSION = 37;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -913,6 +951,8 @@ const BUILTIN_APPS = [
         'target' => 'inventory', 'icon' => '💻', 'color' => '#0e7490', 'sort' => 17],
     'vertraege' => ['name' => 'Verträge & Laufzeiten', 'description' => 'Alle Verträge der Firma an einem Ort: Laufzeiten, Kündigungsfristen, Kosten und Dokumente – damit sich nichts unbemerkt verlängert.',
         'target' => 'contracts', 'icon' => '📄', 'color' => '#7c3aed', 'sort' => 18],
+    'dokumente' => ['name' => 'Dokumente & Anleitungen', 'description' => 'Wiki der Firma: Handbücher, Richtlinien und Anleitungen in Bereichen mit Seitenbaum – mit Rechten je Abteilung.',
+        'target' => 'docs', 'icon' => '📚', 'color' => '#15803d', 'sort' => 19],
 ];
 
 /**
@@ -1043,6 +1083,8 @@ function run_migrations(): void
         ['companies', 'ct_ocr_key', "TEXT NULL"],
         ['companies', 'ct_ocr_confirmed_by', 'INT NULL'],
         ['companies', 'ct_ocr_confirmed_at', 'VARCHAR(19) NULL'],
+        // Dokumente & Anleitungen (ab Version 37): Einsicht für den Dienstleister
+        ['companies', 'wk_provider_access', 'INT NOT NULL DEFAULT 0'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
@@ -1141,6 +1183,10 @@ function ensure_schema(): void
         db()->query('SELECT id FROM ct_offers LIMIT 1');
         db()->query('SELECT scope, see_costs FROM api_tokens LIMIT 1');
         db()->query('SELECT ct_ocr_enabled, ct_ocr_key, ct_ocr_confirmed_by, ct_ocr_confirmed_at FROM companies LIMIT 1');
+        db()->query('SELECT wk_provider_access FROM companies LIMIT 1');
+        db()->query('SELECT id FROM wk_spaces LIMIT 1');
+        db()->query('SELECT id FROM wk_space_perms LIMIT 1');
+        db()->query('SELECT id FROM wk_pages LIMIT 1');
     } catch (PDOException $ex) {
         run_migrations();
     }
