@@ -105,7 +105,9 @@ const HTML_RENAME = ['b' => 'strong', 'i' => 'em', 'strike' => 's', 'del' => 's'
 const HTML_DROP = ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'select', 'textarea',
     'svg', 'math', 'link', 'meta', 'base', 'noscript', 'template', 'video', 'audio', 'canvas', 'head', 'title'];
 const HTML_CLASSES = ['al-left', 'al-center', 'al-right', 'al-justify', 'fs-small', 'fs-large', 'fs-xlarge',
-    'ph', 'ph-f', 'page-break', 'tbl-grid', 'tbl-plain', 'sig', 'img-s', 'img-m', 'img-l', 'c-muted', 'c-accent', 'v-top', 'v-bottom', 'w-50'];
+    'ph', 'ph-f', 'page-break', 'tbl-grid', 'tbl-plain', 'sig', 'img-s', 'img-m', 'img-l', 'c-muted', 'c-accent', 'v-top', 'v-bottom', 'w-50',
+    // Wiki (Dokumente & Anleitungen): Infoboxen, Inhaltsverzeichnis, Statusmarker
+    'wk-info', 'wk-warn', 'wk-ok', 'wk-note', 'wk-toc', 'wk-st', 'wk-st-grey', 'wk-st-blue', 'wk-st-green', 'wk-st-yellow', 'wk-st-red'];
 
 /** Schriftarten, die der Editor anbietet (überall vorhandene Systemschriften) */
 const DOC_FONTS = ['Arial', 'Calibri', 'Cambria', 'Georgia', 'Helvetica', 'Segoe UI', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana', 'Courier New'];

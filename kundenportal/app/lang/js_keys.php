@@ -65,4 +65,13 @@ return [
     '{n} Einträge aus den Vorlagen für Abteilung/Position vorausgewählt. Sie können die Auswahl anpassen.',
     'Änderungen am Inhalt gelten für alle Formulare mit dieser Vorlage.',
     'Bitte im Feld unterschreiben.',
+    'Inhaltsverzeichnis',
+    'Text der Infobox',
+    'Text des Statusmarkers (z. B. ERLEDIGT, IN ARBEIT)',
+    'IN ARBEIT',
+    'Bitte eine Adresse mit https://, mailto: oder tel: angeben.',
+    'Tabelle: Spalten × Zeilen (z. B. 3x4)',
+    'Spalte',
+    'Die Seite hat schon ein Inhaltsverzeichnis.',
+    'Das Bild ist zu groß (höchstens 8 MB).',
 ];

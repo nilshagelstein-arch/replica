@@ -664,6 +664,9 @@ function cbackup_data(int $cid): array
         'ct_notices'     => rows('SELECT * FROM ct_notices WHERE company_id = ?', [$cid]),
         'ct_cancellations' => rows('SELECT * FROM ct_cancellations WHERE company_id = ?', [$cid]),
         'ct_offers'      => rows('SELECT * FROM ct_offers WHERE company_id = ?', [$cid]),
+        'wk_spaces'      => rows('SELECT * FROM wk_spaces WHERE company_id = ?', [$cid]),
+        'wk_space_perms' => rows('SELECT * FROM wk_space_perms WHERE company_id = ?', [$cid]),
+        'wk_pages'       => rows('SELECT * FROM wk_pages WHERE company_id = ?', [$cid]),
     ];
 }
 

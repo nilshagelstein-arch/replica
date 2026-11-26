@@ -86,6 +86,14 @@ Eingebaute Apps sind **On- & Offboarding**, **Formulare**, **Datensicherung** un
 - **Mitarbeiterliste:** beim Mitarbeiter stehen seine Geräte, Lizenzen und offenen Protokolle (mit Einsicht ins Inventar).
 - **Lizenzschlüssel in „Meine Geräte“** (Einstellung je Firma, Standard aus): Mitarbeiter können die Schlüssel ihrer eigenen Lizenzen per „Schlüssel anzeigen“ sehen; jedes Anzeigen steht im Verlauf der Lizenz.
 
+### App „Dokumente & Anleitungen“ (Wiki)
+
+- **Bereiche** je Firma (z. B. je Abteilung oder „IT“, „Richtlinien“, „Notfall“) mit Symbol, Beschreibung und einem beliebig tief verschachtelten **Seitenbaum** (links als Navigation, ein- und ausklappbar). Seiten lassen sich über „Übergeordnete Seite“ verschieben und mit ↑/↓ sortieren. „Bereiche aus den Abteilungen anlegen“ legt je Abteilung einen Bereich an, den diese Abteilung bearbeiten darf.
+- **Editor** im Browser: Überschriften, Fett/Kursiv/Unterstrichen/Durchgestrichen, Listen, Einzüge, Links, Bilder (Einfügen, Kopieren/Einfügen oder Ziehen; werden auf 1600 px Breite verkleinert und in die Seite eingebettet), Tabellen (Zeilen/Spalten einfügen und löschen, Tab springt zur nächsten Zelle), Trennlinie, **Infoboxen** (Info, Hinweis, Warnung, Erledigt/Tipp), **Statusmarker** und **Inhaltsverzeichnis**, das bei der Anzeige aus den Überschriften entsteht. Strg+S speichert. Alles läuft serverseitig durch dieselbe HTML-Bereinigung wie die Formulare; eine Seite ist höchstens 6 MB groß.
+- **Rechte je Bereich:** Firmen-Administratoren dürfen alles; sonst „ansehen“ oder „bearbeiten“ je Gruppe (Abteilung) und der Schalter „Alle Mitarbeiter dürfen diesen Bereich lesen“. Der Dienstleister sieht das Wiki nur, wenn die Firma die Einsicht unter Einstellungen einschaltet, und dann nach seinem Bereichsrecht „Dokumente & Anleitungen“.
+- **Suche** über Titel und Text aller lesbaren Bereiche; **Zuletzt geändert** auf der Übersicht.
+- Geplant (siehe Pflichtenheft): Vorlagen, Versionsverlauf, Kommentare, PDF-Export, Freigabe mit Prüfdatum, Dateien mit Versionen, Seiten des Dienstleisters für alle Kunden und der Passwort-Tresor mit Zero-Knowledge-Verschlüsselung.
+
 ### API der Kundendatenbank
 
 Schlüssel werden in der App unter **Logo, Briefpapier & API** erzeugt (nur einmal angezeigt, gespeichert wird nur ein Hash). Aufruf mit `Authorization: Bearer kp_…` oder `X-API-Key: kp_…`.
