@@ -2650,6 +2650,7 @@ Lors de votre première connexion, vous configurez l\'authentification à deux f
     'Anhang gelöscht' => 'Pièce jointe supprimée',
     'SIM-Nummer' => 'Numéro SIM',
     'Inventar der Firma: Geräte mit Standort, Zuordnung und Verlauf, Lager mit Bestand – Lizenzen folgen.' => 'Inventaire de l\'entreprise : appareils avec site, attribution et historique, entrepôts avec stock – licences à venir.',
+    'Inventar der Firma: Geräte und Lizenzen mit Standort, Zuordnung und Verlauf, Lager mit Bestand und Erinnerungen an Garantie und Laufzeit.' => 'Inventaire de l\'entreprise : appareils et licences avec site, attribution et historique, entrepôts avec stock et rappels de garantie et d\'échéance.',
     'Inventar der Firmen; nur mit Einsicht-Freigabe der Firma' => 'Inventaire des entreprises ; uniquement avec l\'autorisation d\'accès de l\'entreprise',
     // Inventar: Lizenzen (Stufe 2)
     '+ Lizenz erfassen' => '+ Saisir une licence',
