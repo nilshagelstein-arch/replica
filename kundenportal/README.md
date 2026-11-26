@@ -13,6 +13,7 @@ Eingebaute Apps sind **On- & Offboarding**, **Formulare**, **Datensicherung** un
 
 ### Portal
 - **Startseite mit App-Kacheln**, abhängig von den Freigaben der Firma
+- **Zentrale Einstellungen** (Zahnrad oben rechts): alle Einstellungen einer Firma auf einer Seite, links die Kategorien (Firma: Firmenprofil, Benutzer, Abteilungen & Positionen, E-Mail-Versand; darunter je freigeschalteter App), rechts der Inhalt. Die bisherigen Einstellungsseiten behalten ihre Adresse und Rechteprüfung und erscheinen nur in diesem Rahmen; `index.php?r=settings&cat=<Kategorie>` führt direkt zu einer Kategorie. Firmen-Administratoren sehen alle Kategorien ihrer Firma, Administratoren des Betreibers nach ihren Bereichsrechten mit Firmenauswahl; Firmen-Benutzer haben keine Einstellungen. Firmenprofil, Benutzer und E-Mail-Versand stehen für Firmen nicht mehr im Hauptmenü.
 - **Apps & Freigaben** (nur Administratoren): eine Übersicht, welche Firma welche App nutzen darf, mit Häkchen pro Firma und App. Die Freigaben lassen sich auch im Firmenprofil setzen.
 - **Externe Apps:** Links zu anderen Anwendungen (z. B. Ticketsystem, Wissensdatenbank) mit Name, Symbol, Farbe und Beschreibung. Diese Anwendungen haben ihre eigene Anmeldung.
 - **Rollen:**

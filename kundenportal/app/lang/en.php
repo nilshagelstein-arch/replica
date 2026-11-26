@@ -4060,4 +4060,6 @@ From: {name} ({email})
     'Passwort geändert' => 'Password changed',
     'Der Zugriff auf den Tresor endet automatisch, sobald das Konto deaktiviert oder aus den Gruppen entfernt wird; die betroffenen Ordner werden dann neu verschlüsselt.' => 'Vault access ends automatically as soon as the account is deactivated or removed from the groups; the affected folders are then re-encrypted.',
     'Der verknüpfte Eintrag ist für Sie nicht freigegeben.' => 'The linked entry has not been shared with you.',
+    // Zentrale Einstellungen
+    'Mitarbeiter-Onboarding' => 'Employee onboarding',
 ];

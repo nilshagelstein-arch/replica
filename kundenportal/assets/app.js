@@ -204,3 +204,12 @@
   }
   suggest();
 })();
+
+// Auswahllisten, die beim Ändern sofort wechseln (Firmenauswahl, Kategorie der Einstellungen)
+(function () {
+  var sel = document.querySelectorAll('.company-switch select, select.js-autosubmit');
+  Array.prototype.forEach.call(sel, function (s) {
+    s.removeAttribute('onchange');
+    s.addEventListener('change', function () { if (s.form) s.form.submit(); });
+  });
+})();

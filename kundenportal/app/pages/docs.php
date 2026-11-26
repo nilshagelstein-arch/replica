@@ -364,6 +364,7 @@ function wk_user_name(?int $id): string
 /** Kopf der App: Reiter und Suche */
 function wk_tabs(int $cid, string $active, string $search = ''): void
 {
+    if (!empty($GLOBALS['in_settings'])) return; // im Rahmen der Einstellungen ohne App-Reiter
     $tabs = ['docs' => t('Bereiche')];
     if (!wk_is_hub($cid)) $tabs['doc_vault'] = t('Tresor');
     if (wk_can_manage($cid)) { $tabs['doc_templates'] = t('Vorlagen'); if (!wk_is_hub($cid)) $tabs['doc_settings'] = t('Einstellungen'); } ?>
