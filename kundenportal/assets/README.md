@@ -40,7 +40,7 @@ Welche Seite welches Skript lädt:
   - Felder `[data-key]`: `.fill`, `.fill-multi`, `.fill-check`, `.fill-select` und `.fill-date`
   - Eingabezellen `td[data-input]` und erweiterbare Tabellen `table[data-grow]`
   - Kundenauswahl `[data-apply-customers]` und Zurücksetzen `[data-fill-reset]`
-- **`vault.js`**: Passwort-Tresor (nur auf `doc_vault`): komplette Oberfläche und Kryptografie mit Web Crypto (ECDH P-256, HKDF, PBKDF2, AES-256-GCM). Spricht ausschließlich mit `doc_vault_api` (POST mit `_csrf`, `action`, `p` als JSON). Schlüssel nur im Arbeitsspeicher; automatische Sperre nach `lock_minutes`.
+- **`vault.js`**: Passwort-Tresor (nur auf `doc_vault`): komplette Oberfläche und Kryptografie mit Web Crypto (ECDH P-256, HKDF, PBKDF2, AES-256-GCM). Spricht ausschließlich mit `doc_vault_api` (POST mit `_csrf`, `action`, `p` als JSON). Schlüssel nur im Arbeitsspeicher; automatische Sperre nach `lock_minutes`. Dazu Passwort-Generator, TOTP (RFC 6238, HMAC über Web Crypto), CSV-Leser für Bitwarden/KeePass/KeePassXC/1Password und Export/Import `.kpvault` – alles ohne Klartext an den Server.
 - **`wiki.js`**: Seitenbaum ein-/ausklappen (`.wk-twisty`) und Seiten-Editor (`#wk-editor`, Werkzeugleiste `#wk-toolbar`; beim Absenden wird der Inhalt in `#wk-body` geschrieben, ohne JavaScript bleibt das Textfeld). Bilder werden im Browser verkleinert und als `data:`-Bild eingefügt; kein Serveraufruf. Dazu die @-Vorschlagsliste im Kommentarfeld (`#wk-comment-text`, Namen aus `data-names`).
 - **`links.js`**: Bildvorschläge im Linkeditor. Startet, sobald `#link-url` vorhanden ist. `data-suggest` liest es erst beim Abruf.
   - Ruft `GET <data-suggest>&url=…` auf (Route `link_suggest`).

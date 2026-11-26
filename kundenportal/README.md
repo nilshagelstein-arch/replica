@@ -109,7 +109,12 @@ Eingebaute Apps sind **On- & Offboarding**, **Formulare**, **Datensicherung** un
   - **Protokoll:** Jedes Abrufen eines Eintrags (und jedes Kopieren) steht im Protokoll des Eintrags. Kopierte Werte werden nach 30 Sekunden aus der Zwischenablage gelöscht.
   - **Automatische Sperre** nach 15 Minuten ohne Aktivität (je Firma einstellbar); Neuladen sperrt ebenfalls.
   - **Grenzen:** Sind Tresor-Passwort, Notfallkit und Firmen-Notfallkit verloren, sind die Daten nicht wiederherstellbar. Wie bei jedem browserbasierten Tresor muss man dem ausgelieferten JavaScript vertrauen; die Prüfwerte der Schlüssel lassen sich zum Abgleich vergleichen.
-- Geplant (siehe Pflichtenheft): Passwort-Generator, TOTP-Anzeige, Ablauf-Erinnerung, CSV-Import aus Bitwarden/KeePass/1Password; Verknüpfungen zu Inventar, Verträgen, Tickets und On-/Offboarding.
+  - **Passwort-Generator** im Eintrag: zufällige Zeichen (Länge 8–64, Zeichengruppen, ohne verwechselbare Zeichen) oder Passphrase aus Wörtern; Zufall über `crypto.getRandomValues` ohne Verzerrung.
+  - **2FA-Code:** Ist ein TOTP-Geheimnis hinterlegt (Base32 oder `otpauth://`-Adresse), zeigt der Eintrag nach „Anzeigen“ den aktuellen Code mit Restzeit; berechnet im Browser (RFC 6238).
+  - **Passwortwechsel:** Turnus je Eintrag (3/6/12/24 Monate); beim Speichern eines neuen Passworts wird „Ändern bis“ automatisch gesetzt. „Bald zu ändern“ oben im Tresor; 14 Tage vorher eine Sammelmail an alle mit Bearbeiten-Recht im Ordner – nur Titel, Ordner und Datum (`cron.php` oder höchstens stündlich bei Seitenaufrufen).
+  - **Import** in einen Ordner (Bearbeiten-Recht): CSV aus Bitwarden, KeePass, KeePassXC und 1Password (Spalten werden erkannt, Vorschau vor dem Import) sowie eigene verschlüsselte Exportdateien. Die Datei wird nur im Browser gelesen und verschlüsselt.
+  - **Export** (nur Firmen-Admins): verschlüsselte Datei `.kpvault` (PBKDF2 + AES-256-GCM mit eigenem Export-Passwort, wieder importierbar) oder nach ausdrücklicher Bestätigung CSV im Bitwarden-Format. Jeder gelesene Eintrag und der Export stehen im Protokoll.
+- Geplant (siehe Pflichtenheft): Verknüpfungen zu Inventar, Verträgen, Tickets und On-/Offboarding (inkl. Liste „Passwort ändern“ beim Offboarding).
 
 ### API der Kundendatenbank
 

@@ -36,6 +36,7 @@ require APP_DIR . '/pages/ct_cancel.php';
 require APP_DIR . '/pages/docs.php';
 require APP_DIR . '/pages/docs_more.php';
 require APP_DIR . '/pages/docs_files.php';
+require APP_DIR . '/pages/docs_vault.php';
 
 if (!$cli) {
     header('Content-Type: text/plain; charset=utf-8');
