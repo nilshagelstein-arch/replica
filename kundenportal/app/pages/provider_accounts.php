@@ -1,7 +1,7 @@
 <?php
 /**
  * Administration → Externe Dienstleister: Verwaltungsadmins legen Dienstleister-Zugänge (Rolle „dienstleister“)
- * an und ordnen sie Firmen mit der App „Tickets“ zu. Ein Zugang kann für mehrere Firmen arbeiten;
+ * an und ordnen sie Firmen zu (unabhängig von der App „Tickets“; die Rechte richten sich nach den Apps der Firma). Ein Zugang kann für mehrere Firmen arbeiten;
  * je Firma entsteht ein Eintrag in ticket_providers (wie bei der Anlage durch die Firma selbst).
  * Dürfen: Superadmin und Verwaltungsadmins mit Bearbeiten-Recht für „Benutzer“ oder „Tickets“, jeweils nur für Firmen,
  * auf die sie Zugriff haben UND die das unter „Einsicht für den IT-Dienstleister“ freigegeben haben (companies.staff_provider_admin).
@@ -15,15 +15,14 @@ function provider_admin_can(): bool
 /** Darf der angemeldete Betreiber die externen Dienstleister dieser Firma verwalten? Nur mit Freigabe der Firma. */
 function staff_may_manage_providers(int $cid): bool
 {
-    return provider_admin_can() && can_access_company($cid) && company_has_app($cid, TICKETS_APP)
+    return provider_admin_can() && can_access_company($cid)
         && (int)(row('SELECT staff_provider_admin FROM companies WHERE id = ?', [$cid])['staff_provider_admin'] ?? 0) === 1;
 }
 
-/** Firmen mit App „Tickets“, auf die der Admin zugreifen darf: [freigegeben, ohne Freigabe] */
+/** Firmen, auf die der Admin zugreifen darf: [freigegeben, ohne Freigabe] */
 function provider_admin_companies(): array
 {
-    $all = array_values(array_filter(rows('SELECT id, name, staff_provider_admin FROM companies WHERE active = 1' . company_scope_sql('id') . ' ORDER BY name'),
-        fn ($c) => company_has_app((int)$c['id'], TICKETS_APP)));
+    $all = rows('SELECT id, name, staff_provider_admin FROM companies WHERE active = 1' . company_scope_sql('id') . ' ORDER BY name');
     return [array_values(array_filter($all, fn ($c) => (int)$c['staff_provider_admin'] === 1)), array_values(array_filter($all, fn ($c) => (int)$c['staff_provider_admin'] !== 1))];
 }
 
@@ -162,7 +161,7 @@ function page_provider_account(): void
             <?php if ($acct): ?><label class="check"><input type="checkbox" name="active" value="1" <?= (int)$data['active'] ? 'checked' : '' ?>> <?= e(t('Zugang aktiv')) ?></label><?php endif; ?>
             <h3><?= e(t('Firmen und Rechte')) ?></h3>
             <p class="muted small"><?= e(t('Haken Sie die Firmen an, für die der Dienstleister arbeiten soll, und wählen Sie je Firma seine Rechte. Hat die Firma Ihnen „Externe Dienstleister verwalten“ freigegeben, gilt die Zuordnung sofort; sonst wartet sie auf die Bestätigung der Firma (die Firmen-Administratoren bekommen eine E-Mail).')) ?></p>
-            <?php if (!$companies): ?><p class="muted"><?= e(t('Keine Firma mit der App „Tickets“ freigeschaltet.')) ?></p><?php endif; ?>
+            <?php if (!$companies): ?><p class="muted"><?= e(t('Es ist noch keine Firma angelegt.')) ?></p><?php endif; ?>
             <?php foreach ($companies as $c): $cid = (int)$c['id']; $r = $rows[$cid] ?? null;
                 $active = $r && (int)$r['active']; $pending = $r && (int)$r['pending'];
                 $lockRights = !$consent[$cid] && $active; ?>

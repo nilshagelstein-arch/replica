@@ -198,12 +198,12 @@ function provider_access_rows(int $cid): array
             'hint' => 'Ihr IT-Dienstleister sieht und pflegt Ihre Verträge und bekommt die Fristen der Verträge, die er betreut.', 'extra' => [
                 ['ct_provider_costs', '… und dabei auch die Kosten sehen'],
                 ['ct_provider_all', '… und in seiner Vertriebsübersicht auch Verträge sehen, die andere Dienstleister oder wir selbst betreuen']]],
-        ['key' => 'dienstleister', 'app' => 'tickets', 'column' => 'staff_provider_admin', 'label' => 'Externe Dienstleister verwalten',
+        ['key' => 'dienstleister', 'app' => '', 'column' => 'staff_provider_admin', 'label' => 'Externe Dienstleister verwalten',
             'hint' => 'Ihr IT-Dienstleister darf für Sie wie ein Firmen-Administrator externe Dienstleister (z. B. den Kopierer-Service) anlegen, Ihrer Firma zuordnen und ihre Rechte anpassen.', 'extra' => []],
         ['key' => 'dokumente', 'app' => 'dokumente', 'column' => 'wk_provider_access', 'label' => 'Dokumente & Anleitungen',
             'hint' => 'Ihr IT-Dienstleister sieht und pflegt Ihr Wiki. Den Passwort-Tresor sieht er nur in Ordnern, in die Sie ihn ausdrücklich aufnehmen.', 'extra' => []],
     ];
-    return array_values(array_filter($all, fn ($r) => company_has_app($cid, $r['app'])));
+    return array_values(array_filter($all, fn ($r) => $r['app'] === '' || company_has_app($cid, $r['app'])));
 }
 
 /** Letzte Änderung je Schalter aus dem Protokoll: key => [Zeitpunkt, Name] */
@@ -295,7 +295,7 @@ function page_provider_access(): void
             <?php if ($staff): ?><p class="muted small"><?= e(t('Diese Einsicht kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p>
             <?php else: ?><button class="btn primary"><?= e(t('Speichern')) ?></button><?php endif; ?>
         </form>
-        <?php if (company_has_app($cid, TICKETS_APP)) provider_access_providers_card($cid, $staff); ?>
+        <?php provider_access_providers_card($cid, $staff); ?>
     <?php });
 }
 

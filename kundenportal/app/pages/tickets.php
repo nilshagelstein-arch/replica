@@ -1662,7 +1662,7 @@ function page_ticket_settings(): void
 function ticket_provider_invite(array $user, string $company): void
 {
     $token = create_user_token((int)$user['id'], 'reset', 7 * 24 * 60);
-    send_mail_t([$user['email']], fn() => [t('Zugang zum Kundenportal'), t('Guten Tag ') . $user['name'] . t(",\n\n{company} hat Sie im Kundenportal als Dienstleister eingetragen. Dort sehen Sie die Tickets, die Ihnen übergeben werden, und können direkt antworten.\n\nÜber diesen Link vergeben Sie Ihr Passwort (7 Tage gültig, nur einmal verwendbar):\n\n", ['company' => $company])
+    send_mail_t([$user['email']], fn() => [t('Zugang zum Kundenportal'), t('Guten Tag ') . $user['name'] . t(",\n\n{company} hat Sie im Kundenportal als externen Dienstleister eingetragen. Dort sehen Sie die Bereiche, die Ihnen freigegeben sind, zum Beispiel übergebene Tickets.\n\nÜber diesen Link vergeben Sie Ihr Passwort (7 Tage gültig, nur einmal verwendbar):\n\n", ['company' => $company])
         . portal_link('reset_password', ['token' => $token])
         . t("\n\nBei der ersten Anmeldung richten Sie die Zwei-Faktor-Anmeldung mit einer Authenticator-App ein.")], null);
 }

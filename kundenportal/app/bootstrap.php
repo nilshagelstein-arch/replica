@@ -620,11 +620,10 @@ function provider_company_ids(?array $u = null, ?string $app = null): array
     $app ??= $GLOBALS['provider_app'] ?? 'tickets';
     if (!isset(PROVIDER_APP_RIGHT[$app])) return [];
     $uid = (int)$u['id'];
-    // Zuordnung gilt nur mit App „Tickets“; die weitere App muss die Firma ebenfalls haben
+    // Zuordnung je Firma (unabhängig von einer App); die jeweilige App muss die Firma haben
     $sql = "SELECT DISTINCT c.id, c.name FROM ticket_providers p JOIN companies c ON c.id = p.company_id
-        JOIN company_apps ca ON ca.company_id = c.id JOIN apps a ON a.id = ca.app_id
-        WHERE p.user_id = ? AND p.active = 1 AND c.active = 1 AND a.slug = 'tickets' AND a.active = 1 AND " . PROVIDER_APP_RIGHT[$app];
-    if ($app !== 'tickets') $sql .= " AND EXISTS (SELECT 1 FROM company_apps ca2 JOIN apps a2 ON a2.id = ca2.app_id WHERE ca2.company_id = c.id AND a2.slug = '$app' AND a2.active = 1)";
+        WHERE p.user_id = ? AND p.active = 1 AND c.active = 1 AND " . PROVIDER_APP_RIGHT[$app];
+    $sql .= " AND EXISTS (SELECT 1 FROM company_apps ca2 JOIN apps a2 ON a2.id = ca2.app_id WHERE ca2.company_id = c.id AND a2.slug = '$app' AND a2.active = 1)";
     return $cache[$uid . ':' . $app] ??= array_map('intval', array_column(rows($sql . ' ORDER BY c.name', [$uid]), 'id'));
 }
 

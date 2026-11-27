@@ -4231,4 +4231,18 @@ Veuillez vérifier les droits proposés puis confirmer ou refuser :
     'Zugriff' => 'Accès',
     'Hier entscheidet die Firma. Sie selbst ordnen Dienstleister unter Administration → Externe Dienstleister zu.' => 'C’est l’entreprise qui décide ici. Vous affectez les prestataires sous Administration → Prestataires externes.',
     'Die Dienstleister wurden gespeichert.' => 'Les prestataires ont été enregistrés.',
+    // Einladung externer Dienstleister (ohne Bezug auf Tickets)
+    ',
+
+{company} hat Sie im Kundenportal als externen Dienstleister eingetragen. Dort sehen Sie die Bereiche, die Ihnen freigegeben sind, zum Beispiel übergebene Tickets.
+
+Über diesen Link vergeben Sie Ihr Passwort (7 Tage gültig, nur einmal verwendbar):
+
+' => ',
+
+{company} vous a inscrit comme prestataire externe sur le portail client. Vous y voyez les espaces qui vous sont partagés, par exemple les tickets transmis.
+
+Utilisez ce lien pour définir votre mot de passe (valable 7 jours, à usage unique) :
+
+',
 ];
