@@ -4245,4 +4245,9 @@ Please check the proposed permissions and confirm or decline:
 Use this link to set your password (valid for 7 days, single use):
 
 ',
+    // Einsicht: Portal-Betreiber als erster Dienstleister
+    'Hier legen Sie fest, welche Dienstleister Zugriff auf Ihre Firma haben und was sie dürfen. Ihr IT-Dienstleister (Betreiber des Portals) steht immer an erster Stelle und muss nur aktiviert werden. Ausschalten wirkt sofort.' => 'Here you decide which service providers have access to your company and what they may do. Your IT service provider (the portal operator) is always listed first and only needs to be activated. Switching off takes effect immediately.',
+    'Was Ihr IT-Dienstleister im Einzelnen darf, regeln seine eigenen Rechte; die Häkchen sind Ihre Freigabe. Zusatzfreigaben gelten nur zusammen mit der App.' => 'What your IT service provider may do in detail is governed by their own permissions; the ticks are your approval. Additional approvals only apply together with the app.',
+    'Weitere externe Dienstleister unter Benutzer anlegen' => 'Create further external service providers under Users',
+    'Dienstleister-Zugänge (z. B. Kopierer-Service, Telefonanlage) mit eigenem Portal-Login. Ein Zugang kann für mehrere Firmen arbeiten; was er dort sieht und darf, legen Sie je Firma über seine Rechte fest. Dienstleister ohne Portal-Zugang (nur per E-Mail) legen die Firmen unter Einstellungen → Benutzer an.' => 'Service provider logins (e.g. copier service, phone system) with their own portal login. One login can work for several companies; what it sees and may do there is set per company through its permissions. Providers without portal access (email only) are created by the companies under Settings → Users.',
 ];

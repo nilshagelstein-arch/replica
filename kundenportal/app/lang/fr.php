@@ -4245,4 +4245,9 @@ Veuillez vérifier les droits proposés puis confirmer ou refuser :
 Utilisez ce lien pour définir votre mot de passe (valable 7 jours, à usage unique) :
 
 ',
+    // Einsicht: Portal-Betreiber als erster Dienstleister
+    'Hier legen Sie fest, welche Dienstleister Zugriff auf Ihre Firma haben und was sie dürfen. Ihr IT-Dienstleister (Betreiber des Portals) steht immer an erster Stelle und muss nur aktiviert werden. Ausschalten wirkt sofort.' => 'Vous définissez ici quels prestataires ont accès à votre entreprise et ce qu’ils peuvent faire. Votre prestataire informatique (exploitant du portail) figure toujours en premier et doit seulement être activé. La désactivation prend effet immédiatement.',
+    'Was Ihr IT-Dienstleister im Einzelnen darf, regeln seine eigenen Rechte; die Häkchen sind Ihre Freigabe. Zusatzfreigaben gelten nur zusammen mit der App.' => 'Ce que votre prestataire informatique peut faire en détail dépend de ses propres droits ; les cases cochées sont votre autorisation. Les autorisations supplémentaires ne valent qu’avec l’application.',
+    'Weitere externe Dienstleister unter Benutzer anlegen' => 'Créer d’autres prestataires externes sous Utilisateurs',
+    'Dienstleister-Zugänge (z. B. Kopierer-Service, Telefonanlage) mit eigenem Portal-Login. Ein Zugang kann für mehrere Firmen arbeiten; was er dort sieht und darf, legen Sie je Firma über seine Rechte fest. Dienstleister ohne Portal-Zugang (nur per E-Mail) legen die Firmen unter Einstellungen → Benutzer an.' => 'Accès prestataires (par ex. service copieurs, téléphonie) avec leur propre connexion au portail. Un accès peut travailler pour plusieurs entreprises ; ce qu’il y voit et peut faire se règle par entreprise via ses droits. Les prestataires sans accès au portail (e-mail uniquement) sont créés par les entreprises sous Paramètres → Utilisateurs.',
 ];
