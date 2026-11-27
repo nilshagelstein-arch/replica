@@ -998,3 +998,7 @@ pre.vault-val { margin: 0; white-space: pre-wrap; font-family: inherit; flex: 1 
     .set-side .set-group, .set-side > ul { display: none; }
     .set-side .set-pick { display: block; }
 }
+
+/* Einsicht: Portal-Betreiber als erster Dienstleister */
+.provider-operator { border-left: 4px solid var(--accent); }
+.check.indent { margin-left: 1.6rem; }

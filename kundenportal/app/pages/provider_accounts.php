@@ -35,7 +35,7 @@ function page_provider_accounts(): void
     foreach (rows('SELECT p.user_id, p.active, p.pending, p.see_all, c.name AS company FROM ticket_providers p JOIN companies c ON c.id = p.company_id
         WHERE p.user_id IS NOT NULL' . company_scope_sql('p.company_id') . ' ORDER BY c.name') as $r) $links[(int)$r['user_id']][] = $r;
     render_page(t('Externe Dienstleister'), function () use ($list, $links) { ?>
-        <p class="muted"><?= e(t('Dienstleister-Zugänge (z. B. Kopierer-Service, Telefonanlage) mit eigenem Portal-Login. Ein Zugang kann für mehrere Firmen arbeiten und sieht dort die Tickets, die ihm übergeben werden. Dienstleister ohne Portal-Zugang (nur per E-Mail) legen die Firmen unter Einstellungen → Benutzer an.')) ?></p>
+        <p class="muted"><?= e(t('Dienstleister-Zugänge (z. B. Kopierer-Service, Telefonanlage) mit eigenem Portal-Login. Ein Zugang kann für mehrere Firmen arbeiten; was er dort sieht und darf, legen Sie je Firma über seine Rechte fest. Dienstleister ohne Portal-Zugang (nur per E-Mail) legen die Firmen unter Einstellungen → Benutzer an.')) ?></p>
         <p><a class="btn primary" href="<?= e(url('provider_account', ['new' => 1])) ?>"><?= e(t('+ Externen Dienstleister anlegen')) ?></a></p>
         <div class="card">
             <table class="table">

@@ -240,89 +240,81 @@ function page_provider_access(): void
         require_post_csrf();
         // Die Einsicht für den Dienstleister schaltet nur die Firma selbst
         if ($staff) abort(403, t('Diese Einsicht kann nur ein Administrator der Firma ein- oder ausschalten.'));
-        if (post('action') === 'providers') {
-            provider_access_save_providers($cid);
-            redirect('provider_access');
-        }
-        $on = (array)($_POST['access'] ?? []);
-        $data = [];
-        $changed = [];
-        foreach ($rows as $r) {
-            $v = !empty($on[$r['key']]) ? 1 : 0;
-            $data[$r['column']] = $v;
-            if ((int)$co[$r['column']] !== $v) $changed[$r['key']] = $v;
-            foreach ($r['extra'] as [$col]) {
-                $x = $v && !empty(($_POST['extra'] ?? [])[$col]) ? 1 : 0;
-                $data[$col] = $x;
-                if ((int)$co[$col] !== $x) $changed[$r['key'] . '.' . $col] = $x;
-            }
-        }
-        if ($changed) {
-            update('companies', $cid, $data);
-            audit('settings.provider_access', json_encode($changed), $cid);
-            flash('success', t('Die Einstellungen wurden gespeichert.'));
-        } else {
-            flash('success', t('Es gab keine Änderungen.'));
-        }
+        $n = provider_access_save_operator($cid, $co, $rows);
+        $m = provider_access_save_providers($cid);
+        flash('success', $n + $m ? t('Die Einstellungen wurden gespeichert.') : t('Es gab keine Änderungen.'));
         redirect('provider_access');
     }
 
     $changes = provider_access_changes($cid);
     render_page(t('Einsicht für den IT-Dienstleister'), function () use ($cid, $co, $rows, $staff, $changes) {
-        echo company_switcher($cid, 'provider_access'); ?>
-        <form method="post" class="form card">
-            <?= csrf_field() ?>
-            <h2><?= e(t('Einsicht für den IT-Dienstleister')) ?></h2>
-            <p class="muted"><?= e(t('Hier legen Sie fest, in welche Apps Ihr IT-Dienstleister Einblick bekommt. Ausschalten wirkt sofort. Was er im Einzelnen darf, regeln seine eigenen Rechte; der Schalter ist Ihre Freigabe.')) ?></p>
-            <table class="table access-table">
-                <thead><tr><th><?= e(t('App')) ?></th><th><?= e(t('Einsicht')) ?></th><th><?= e(t('wenn eingeschaltet')) ?></th><th><?= e(t('zuletzt geändert')) ?></th></tr></thead>
-                <tbody>
-                <?php foreach ($rows as $r): $v = (int)$co[$r['column']]; $ch = $changes[$r['key']] ?? null; ?>
-                    <tr>
-                        <td><strong><?= e(t($r['label'])) ?></strong></td>
-                        <td><label class="check"><input type="checkbox" name="access[<?= e($r['key']) ?>]" value="1" <?= $v ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
-                            <?= e($v ? t('eingeschaltet') : t('aus')) ?></label></td>
-                        <td><?= e(t($r['hint'])) ?>
-                            <?php foreach ($r['extra'] as [$col, $lbl]): ?>
-                                <label class="check small"><input type="checkbox" name="extra[<?= e($col) ?>]" value="1" <?= (int)$co[$col] ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>> <?= e(t($lbl)) ?></label>
-                            <?php endforeach; ?></td>
-                        <td class="muted small"><?= $ch ? e(fmt_dt($ch[0]) . ($ch[1] !== '' ? ' · ' . $ch[1] : '')) : '–' ?></td>
-                    </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
-            <p class="muted small"><?= e(t('Zusatzfreigaben gelten nur, solange die Einsicht für die App eingeschaltet ist. Ihre eigenen Rechte über Gruppen gelten unabhängig davon.')) ?></p>
-            <?php if ($staff): ?><p class="muted small"><?= e(t('Diese Einsicht kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p>
-            <?php else: ?><button class="btn primary"><?= e(t('Speichern')) ?></button><?php endif; ?>
-        </form>
-        <?php provider_access_providers_card($cid, $staff); ?>
-    <?php });
-}
+        echo company_switcher($cid, 'provider_access');
+        $list = rows('SELECT p.*, u.last_login FROM ticket_providers p LEFT JOIN users u ON u.id = p.user_id
+            WHERE p.company_id = ? ORDER BY p.pending DESC, p.active DESC, p.name', [$cid]);
+        $operator = row("SELECT name, email FROM users WHERE role = 'superadmin' AND active = 1 ORDER BY id LIMIT 1");
+        $opOn = (bool)array_filter($rows, fn ($r) => (int)$co[$r['column']] === 1);
+        $dis = $staff ? ' disabled' : ''; ?>
+        <form method="post" class="form card"><?= csrf_field() ?>
+            <h2><?= e(t('Externe Dienstleister')) ?></h2>
+            <p class="muted"><?= e(t('Hier legen Sie fest, welche Dienstleister Zugriff auf Ihre Firma haben und was sie dürfen. Ihr IT-Dienstleister (Betreiber des Portals) steht immer an erster Stelle und muss nur aktiviert werden. Ausschalten wirkt sofort.')) ?></p>
 
-/** Externe Dienstleister der Firma mit ihren Rechten; wartende Zuordnungen bestätigen oder ablehnen */
-function provider_access_providers_card(int $cid, bool $staff): void
-{
-    $list = rows('SELECT p.*, u.last_login FROM ticket_providers p LEFT JOIN users u ON u.id = p.user_id
-        WHERE p.company_id = ? ORDER BY p.pending DESC, p.active DESC, p.name', [$cid]); ?>
-    <form method="post" class="form card"><?= csrf_field() ?><input type="hidden" name="action" value="providers">
-        <h2><?= e(t('Externe Dienstleister')) ?></h2>
-        <p class="muted"><?= e(t('Hier sehen Sie alle externen Dienstleister Ihrer Firma und legen fest, ob und mit welchen Rechten sie Zugriff haben. Zuordnungen, die Ihr IT-Dienstleister vorgeschlagen hat, gelten erst, wenn Sie „Zugriff“ anhaken und speichern.')) ?></p>
-        <?php if (!$list): ?><p class="muted"><?= e(t('Noch keine externen Dienstleister.')) ?> <a href="<?= e(url('users', $staff ? ['company' => $cid] : [])) ?>"><?= e(t('Unter Benutzer anlegen')) ?></a></p><?php endif; ?>
-        <?php foreach ($list as $p): $pid = (int)$p['id']; ?>
+            <div class="queue-box provider-operator">
+                <label class="check"><input type="checkbox" name="op_on" value="1" <?= $opOn ? 'checked' : '' ?><?= $dis ?>>
+                    <strong><?= e(t('IT-Dienstleister (Portal-Betreiber)')) ?></strong>
+                    <?php if ($operator): ?><span class="muted small">· <?= e($operator['name']) ?> · <?= e($operator['email']) ?></span><?php endif; ?>
+                    <?= $opOn ? '' : ' <span class="tag">' . e(t('kein Zugriff')) . '</span>' ?> <?= e(t('Zugriff')) ?></label>
+                <div class="checks">
+                <?php foreach ($rows as $r): $v = (int)$co[$r['column']]; $ch = $changes[$r['key']] ?? null; ?>
+                    <label class="check small" title="<?= e(t($r['hint'])) ?>"><input type="checkbox" name="access[<?= e($r['key']) ?>]" value="1" <?= $v ? 'checked' : '' ?><?= $dis ?>>
+                        <?= e(t($r['label'])) ?><?php if ($ch): ?> <span class="muted">(<?= e(fmt_dt($ch[0]) . ($ch[1] !== '' ? ' · ' . $ch[1] : '')) ?>)</span><?php endif; ?></label>
+                    <?php foreach ($r['extra'] as [$col, $lbl]): ?>
+                        <label class="check small indent"><input type="checkbox" name="extra[<?= e($col) ?>]" value="1" <?= (int)$co[$col] ? 'checked' : '' ?><?= $dis ?>> <?= e(t($lbl)) ?></label>
+                    <?php endforeach; ?>
+                <?php endforeach; ?>
+                </div>
+                <p class="muted small"><?= e(t('Was Ihr IT-Dienstleister im Einzelnen darf, regeln seine eigenen Rechte; die Häkchen sind Ihre Freigabe. Zusatzfreigaben gelten nur zusammen mit der App.')) ?></p>
+            </div>
+
+            <?php foreach ($list as $p): $pid = (int)$p['id']; ?>
             <div class="queue-box">
-                <label class="check"><input type="checkbox" name="pa[<?= $pid ?>]" value="1" <?= (int)$p['active'] ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
+                <label class="check"><input type="checkbox" name="pa[<?= $pid ?>]" value="1" <?= (int)$p['active'] ? 'checked' : '' ?><?= $dis ?>>
                     <strong><?= e($p['name']) ?></strong> <span class="muted small">· <?= e($p['email']) ?> · <?= $p['user_id'] ? e(t('Portal-Zugang')) : e(t('nur per E-Mail')) ?></span>
                     <?php if ((int)$p['pending']): ?> <span class="badge st-rueckfrage"><?= e(t('wartet auf Ihre Bestätigung')) ?></span><?php elseif (!(int)$p['active']): ?> <span class="tag"><?= e(t('kein Zugriff')) ?></span><?php endif; ?>
                     <?= ' ' . e(t('Zugriff')) ?></label>
                 <div class="checks"><?= provider_rights_fields("pr[$pid]", $p, $cid, $staff) ?></div>
             </div>
-        <?php endforeach; ?>
-        <?php if ($list && !$staff): ?><button class="btn primary"><?= e(t('Dienstleister speichern')) ?></button><?php endif; ?>
-        <?php if ($staff): ?><p class="muted small"><?= e(t('Hier entscheidet die Firma. Sie selbst ordnen Dienstleister unter Administration → Externe Dienstleister zu.')) ?></p><?php endif; ?>
-    </form>
-<?php }
+            <?php endforeach; ?>
+            <p class="muted small"><a href="<?= e(url('users', $staff ? ['company' => $cid] : [])) ?>"><?= e(t('Weitere externe Dienstleister unter Benutzer anlegen')) ?></a></p>
+            <?php if ($staff): ?><p class="muted small"><?= e(t('Hier entscheidet die Firma. Sie selbst ordnen Dienstleister unter Administration → Externe Dienstleister zu.')) ?></p>
+            <?php else: ?><button class="btn primary"><?= e(t('Speichern')) ?></button><?php endif; ?>
+        </form>
+    <?php });
+}
 
-function provider_access_save_providers(int $cid): void
+/** Freigaben für den Portal-Betreiber (Spalten in companies); „Zugriff“ aus schaltet alle ab. Liefert die Zahl der Änderungen. */
+function provider_access_save_operator(int $cid, array $co, array $rows): int
+{
+    $master = post('op_on') === '1';
+    $on = (array)($_POST['access'] ?? []);
+    $data = [];
+    $changed = [];
+    foreach ($rows as $r) {
+        $v = $master && !empty($on[$r['key']]) ? 1 : 0;
+        $data[$r['column']] = $v;
+        if ((int)$co[$r['column']] !== $v) $changed[$r['key']] = $v;
+        foreach ($r['extra'] as [$col]) {
+            $x = $v && !empty(($_POST['extra'] ?? [])[$col]) ? 1 : 0;
+            $data[$col] = $x;
+            if ((int)$co[$col] !== $x) $changed[$r['key'] . '.' . $col] = $x;
+        }
+    }
+    if (!$changed) return 0;
+    update('companies', $cid, $data);
+    audit('settings.provider_access', json_encode($changed), $cid);
+    return count($changed);
+}
+
+function provider_access_save_providers(int $cid): int
 {
     $on = (array)($_POST['pa'] ?? []);
     $rin = is_array($_POST['pr'] ?? null) ? $_POST['pr'] : [];
@@ -338,12 +330,8 @@ function provider_access_save_providers(int $cid): void
         update('ticket_providers', $pid, $vals);
         $log[] = $p['name'] . ((int)$p['pending'] ? ($active ? ' bestätigt' : ' abgelehnt') : '') . ': ' . implode(',', $diff);
     }
-    if ($log) {
-        foreach (array_chunk($log, 6) as $chunk) audit('settings.providers', mb_substr(implode('; ', $chunk), 0, 500), $cid);
-        flash('success', t('Die Dienstleister wurden gespeichert.'));
-    } else {
-        flash('success', t('Es gab keine Änderungen.'));
-    }
+    foreach (array_chunk($log, 6) as $chunk) audit('settings.providers', mb_substr(implode('; ', $chunk), 0, 500), $cid);
+    return count($log);
 }
 
 /** Kurzer Hinweis in einer App: Einsicht an/aus mit Link zur Kategorie (ersetzt die früheren Einzelschalter) */
