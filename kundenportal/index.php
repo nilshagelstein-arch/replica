@@ -66,6 +66,7 @@ require APP_DIR . '/pages/docs_vault.php';
 require APP_DIR . '/pages/docs_links.php';
 require APP_DIR . '/ticket_mail.php';
 require APP_DIR . '/pages/settings.php';
+require APP_DIR . '/pages/settings_rights.php';
 
 $routes = [
     'login'          => 'page_login',
@@ -80,6 +81,7 @@ $routes = [
     'home'           => 'page_home',
     'settings'       => 'page_central_settings',
     'provider_access' => 'page_provider_access',
+    'rights'         => 'page_rights',
     'backup_settings' => 'page_backup_settings',
     'apps'           => 'page_apps',
     'app_css'        => 'page_app_css',
@@ -213,6 +215,7 @@ const ROUTE_AREAS = [
     'backups' => ['backups', PERM_VIEW], 'backup_download' => ['backups', PERM_VIEW],
     'company_backups' => ['backups', PERM_VIEW], 'company_backup_download' => ['backups', PERM_VIEW],
     'backup_settings' => ['backups', PERM_VIEW], 'provider_access' => ['companies', PERM_VIEW],
+    'rights' => ['companies', PERM_VIEW],
     'dashboard' => ['onboarding', PERM_VIEW], 'request' => ['onboarding', PERM_VIEW], 'request_print' => ['onboarding', PERM_VIEW],
     'request_new' => ['onboarding', PERM_EDIT], 'change_new' => ['onboarding', PERM_EDIT], 'request_edit' => ['onboarding', PERM_EDIT],
     'request_action' => ['onboarding', PERM_EDIT],
