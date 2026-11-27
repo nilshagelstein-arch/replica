@@ -1,6 +1,6 @@
 <?php
 /**
- * Zentrale Einstellungen, Stufe 3: Kategorie „Gruppen & Rechte“.
+ * Zentrale Einstellungen, Stufe 3: Kategorie „Gruppenrechte“ (früher „Gruppen & Rechte“).
  *
  * Eine Tabelle Abteilung × App liest und schreibt die vorhandenen Rechte-Tabellen der Apps:
  *   inv_group_perms (Geräte & Lizenzen), ct_group_perms (Verträge, Kosten sehen, Kündigungen freigeben),
@@ -207,7 +207,7 @@ function page_rights(): void
         $person = ['id' => $pid, 'deps' => $mine];
     }
 
-    render_page(t('Gruppen & Rechte'), function () use ($cid, $acc, $s, $admins, $log, $people, $person, $params) {
+    render_page(t('Gruppenrechte'), function () use ($cid, $acc, $s, $admins, $log, $people, $person, $params) {
         echo company_switcher($cid, 'rights');
         $levels = array_map('t', RIGHTS_LEVELS);
         $sel = function (string $name, int $val, bool $on, string $label) use ($levels) {
@@ -221,8 +221,9 @@ function page_rights(): void
         $deps = $s['deps']; $a = $acc['apps']; $ed = $acc['edit'];
         $canSave = (bool)array_filter($ed); ?>
         <div class="card">
-            <h2><?= e(t('Gruppen & Rechte')) ?></h2>
+            <h2><?= e(t('Gruppenrechte')) ?></h2>
             <p class="muted"><?= e(t('Rechte vergeben Sie je Abteilung. Wer in mehreren Abteilungen ist, bekommt jeweils das höchste Recht. Gespeichert wird die ganze Tabelle auf einmal.')) ?></p>
+            <p class="muted small"><?= e(t('Wer in welcher Gruppe ist, legen Sie unter „Gruppen“ fest.')) ?> <a href="<?= e(url('group_members', $params)) ?>"><?= e(t('Gruppen öffnen')) ?></a></p>
             <p class="muted small"><?= e(t('Firmen-Administratoren dürfen immer alles:')) ?> <?= e($admins ? implode(', ', $admins) : '–') ?></p>
             <p class="tabs"><a href="<?= e(url('rights', $params)) ?>" class="<?= $person ? '' : 'active' ?>"><?= e(t('Nach Abteilung')) ?></a>
                 <a href="<?= e(url('rights', $params + ['view' => 'person'])) ?>" class="<?= $person || isset($_GET['view']) ? 'active' : '' ?>"><?= e(t('Nach Person')) ?></a></p>
@@ -338,6 +339,99 @@ function page_rights(): void
             <table class="table compact"><thead><tr><th><?= e(t('Zeitpunkt')) ?></th><th><?= e(t('Von')) ?></th><th><?= e(t('Änderung (vorher → nachher; 0 = –, 1 = Ansehen/ja, 2 = Bearbeiten)')) ?></th></tr></thead><tbody>
             <?php foreach ($log as $l): ?><tr><td><?= e(fmt_dt($l['created_at'])) ?></td><td><?= e((string)($l['name'] ?? '–')) ?></td><td class="small"><?= e($l['details']) ?></td></tr><?php endforeach; ?>
             </tbody></table>
+            <?php endif; ?>
+        </div>
+    <?php });
+}
+
+// ---------------------------------------------------------------------------
+// Kategorie „Gruppen“: wer in welcher Abteilung (Gruppe) ist – ersetzt die Gruppen im Benutzerformular
+// und den Abschnitt „Gruppen“ in den Ticket-Einstellungen
+// ---------------------------------------------------------------------------
+
+/** Darf die Mitgliedschaften sehen [, ändern]? */
+function groups_access(int $cid): ?array
+{
+    $u = current_user();
+    if (!$u || !$cid) return null;
+    $own = $u['role'] === 'firma_admin' && (int)$u['company_id'] === $cid;
+    if ($own) return ['edit' => true, 'staff' => false];
+    if (is_staff_role($u['role']) && can_access_company($cid) && admin_can('users')) return ['edit' => admin_can('users', true), 'staff' => true];
+    return null;
+}
+
+function page_group_members(): void
+{
+    $u = require_login();
+    $cid = is_staff_role($u['role']) ? (query_int('company') ?: (int)context_company_id()) : (int)$u['company_id'];
+    $acc = groups_access($cid);
+    if (!$acc) abort(403, t('Die Einstellungen pflegen die Administratoren der Firma.'));
+    $params = $acc['staff'] ? ['company' => $cid] : [];
+    $deps = departments_of($cid);
+    $people = rows("SELECT id, name, role, active FROM users WHERE company_id = ? AND role IN ('firma_admin', 'firma_user') ORDER BY active DESC, name", [$cid]);
+    $depIds = array_map(fn ($d) => (int)$d['id'], $deps);
+    $member = [];
+    if ($depIds) {
+        foreach (rows('SELECT user_id, department_id FROM user_departments WHERE department_id IN (' . implode(',', $depIds) . ')') as $r) {
+            $member[(int)$r['user_id']][(int)$r['department_id']] = 1;
+        }
+    }
+
+    if (is_post()) {
+        require_post_csrf();
+        if (!$acc['edit']) abort(403);
+        $sel = is_array($_POST['m'] ?? null) ? $_POST['m'] : [];
+        $depNames = array_column($deps, 'name', 'id');
+        $changes = [];
+        db()->beginTransaction();
+        foreach ($people as $p) {
+            $pid = (int)$p['id'];
+            $want = array_keys(array_filter((array)($sel[$pid] ?? [])));
+            $want = array_values(array_intersect(array_map('intval', $want), $depIds));
+            $had = array_keys($member[$pid] ?? []);
+            $add = array_diff($want, $had);
+            $del = array_diff($had, $want);
+            if (!$add && !$del) continue;
+            user_departments_set_for_user($pid, $want, $depIds);
+            foreach ($add as $d) $changes[] = $p['name'] . ' +' . ($depNames[$d] ?? $d);
+            foreach ($del as $d) $changes[] = $p['name'] . ' −' . ($depNames[$d] ?? $d);
+        }
+        db()->commit();
+        if ($changes) {
+            foreach (array_chunk($changes, 12) as $chunk) audit('settings.groups', mb_substr(implode('; ', $chunk), 0, 500), $cid);
+            flash('success', t('Die Gruppen wurden gespeichert ({n} Änderungen).', ['n' => count($changes)]));
+        } else {
+            flash('success', t('Es gab keine Änderungen.'));
+        }
+        redirect('group_members', $params);
+    }
+
+    render_page(t('Gruppen'), function () use ($cid, $acc, $deps, $people, $member, $params) {
+        echo company_switcher($cid, 'group_members'); ?>
+        <div class="card">
+            <h2><?= e(t('Gruppen')) ?></h2>
+            <p class="muted"><?= e(t('Gruppen sind die Abteilungen der Firma. Hier legen Sie fest, wer in welcher Gruppe ist; ein Konto kann in mehreren Gruppen sein. Was eine Gruppe in den Apps darf, steht unter „Gruppenrechte“.')) ?>
+                <a href="<?= e(url('rights', $params)) ?>"><?= e(t('Gruppenrechte öffnen')) ?></a></p>
+            <?php if (!$deps): ?>
+                <p class="muted"><?= e(t('Es sind noch keine Abteilungen angelegt.')) ?>
+                <?php if (company_has_app($cid, 'onboarding')): ?><a href="<?= e(url('structure', $params)) ?>"><?= e(t('Abteilungen anlegen')) ?></a><?php endif; ?></p>
+            <?php elseif (!$people): ?>
+                <p class="muted"><?= e(t('Noch keine Benutzer.')) ?></p>
+            <?php else: ?>
+            <form method="post" class="form"><?= csrf_field() ?>
+                <div class="table-scroll rights-scroll"><table class="table rights-table">
+                    <thead><tr><th><?= e(t('Benutzer')) ?></th><?php foreach ($deps as $d): ?><th><?= e($d['name']) ?></th><?php endforeach; ?></tr></thead>
+                    <tbody>
+                    <?php foreach ($people as $p): $pid = (int)$p['id']; ?>
+                        <tr class="<?= (int)$p['active'] ? '' : 'inactive' ?>"><th scope="row"><?= e($p['name']) ?><br><span class="muted small"><?= e(role_label($p['role'])) ?></span></th>
+                        <?php foreach ($deps as $d): $did = (int)$d['id']; ?>
+                            <td><input type="checkbox" name="m[<?= $pid ?>][<?= $did ?>]" value="1" <?= !empty($member[$pid][$did]) ? 'checked' : '' ?> <?= $acc['edit'] ? '' : 'disabled' ?> aria-label="<?= e($d['name'] . ' · ' . $p['name']) ?>"></td>
+                        <?php endforeach; ?></tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table></div>
+                <?php if ($acc['edit']): ?><button class="btn primary"><?= e(t('Gruppen speichern')) ?></button><?php endif; ?>
+            </form>
             <?php endif; ?>
         </div>
     <?php });

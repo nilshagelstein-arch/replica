@@ -115,7 +115,8 @@ function page_user_edit(): void
     if ($providerRole) $allowedRoles[] = 'dienstleister';
     $data = $target ?? ['name' => '', 'email' => '', 'role' => $allowedRoles[0], 'active' => 1, 'lang' => ''];
     // Gruppen (Abteilungen) des Kontos, z. B. für die Ticket-Queues
-    $groupDeps = $companyId ? departments_of($companyId) : [];
+    // Gruppen (Abteilungen) pflegt man unter Einstellungen → Gruppen; das Formular ändert sie nicht mehr
+    $groupDeps = [];
     $groupIds = array_map('intval', array_column($groupDeps, 'id'));
     $userGroups = $target && $groupDeps ? array_map('intval', array_column(rows('SELECT department_id FROM user_departments WHERE user_id = ?', [$target['id']]), 'department_id')) : [];
     $errors = [];
@@ -289,16 +290,7 @@ function page_user_edit(): void
                 <label><?= e(t('Notiz')) ?> <input name="notes" maxlength="500" placeholder="<?= e(t('z. B. Vertragsnummer, Telefon')) ?>"></label>
             </fieldset>
             <?php endif; ?>
-            <?php if ($groupDeps): ?>
-            <fieldset data-show-if="role!=dienstleister"><legend><?= e(t('Gruppen (Abteilungen)')) ?></legend>
-                <div class="checks">
-                <?php foreach ($groupDeps as $d): ?>
-                    <label class="check"><input type="checkbox" name="groups[]" value="<?= (int)$d['id'] ?>" <?= in_array((int)$d['id'], $userGroups, true) ? 'checked' : '' ?>> <?= e($d['name']) ?></label>
-                <?php endforeach; ?>
-                </div>
-                <span class="muted small"><?= e(t('Ein Konto kann in mehreren Gruppen sein. Gruppen legen z. B. fest, wer Tickets einer Queue bearbeitet.')) ?></span>
-            </fieldset>
-            <?php endif; ?>
+            <p class="muted small" data-show-if="role!=dienstleister"><?= e(t('Gruppen (Abteilungen) legen Sie unter Einstellungen → Gruppen fest.')) ?></p>
             <?php endif; ?>
             <label class="check"><input type="checkbox" name="active" value="1" <?= (int)$data['active'] ? 'checked' : '' ?> <?= $isSelf || ($data['role'] ?? '') === 'superadmin' ? 'disabled' : '' ?>> <?= e(t('Zugang aktiv')) ?></label>
             <div class="buttons">

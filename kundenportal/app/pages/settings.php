@@ -36,8 +36,11 @@ function settings_categories(int $cid): array
         $cats[] = ['key' => 'abteilungen', 'label' => t('Abteilungen & Positionen'), 'group' => 'firma',
             'pages' => [['structure', t('Abteilungen & Positionen'), $p]]];
     }
+    if (groups_access($cid)) {
+        $cats[] = ['key' => 'gruppen', 'label' => t('Gruppen'), 'group' => 'firma', 'pages' => [['group_members', t('Gruppen'), $p]]];
+    }
     if (rights_access($cid)) {
-        $cats[] = ['key' => 'rechte', 'label' => t('Gruppen & Rechte'), 'group' => 'firma', 'pages' => [['rights', t('Gruppen & Rechte'), $p]]];
+        $cats[] = ['key' => 'rechte', 'label' => t('Gruppenrechte'), 'group' => 'firma', 'pages' => [['rights', t('Gruppenrechte'), $p]]];
     }
     if ($own || admin_can('mail')) {
         $cats[] = ['key' => 'email', 'label' => t('E-Mail-Versand'), 'group' => 'firma', 'pages' => [['mail_settings', t('E-Mail-Versand'), $p]]];
@@ -83,7 +86,7 @@ function settings_categories(int $cid): array
 /** Alle Routen, die im Rahmen der Einstellungen erscheinen können. */
 const SETTINGS_ROUTES = ['company_edit', 'users', 'structure', 'mail_settings', 'catalog', 'templates', 'ticket_settings',
     'inv_settings', 'inv_integrations', 'contract_settings', 'form_settings', 'form_layouts', 'doc_settings',
-    'provider_access', 'backup_settings', 'rights'];
+    'provider_access', 'backup_settings', 'rights', 'group_members'];
 
 /** Firma, deren Einstellungen die aktuelle Seite zeigt (0 = nicht im Rahmen der Einstellungen). */
 function settings_frame_company(string $route): int
