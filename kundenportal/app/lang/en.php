@@ -4160,4 +4160,12 @@ Enable:
     'Archiv' => 'Archive',
     '{n} ältere Updates' => '{n} older updates',
     'Die letzten {n} Updates; ältere stehen unter „Archiv“.' => 'The last {n} updates; older ones are under “Archive”.',
+    // Benutzer: externe Dienstleister als Rolle
+    'Externe Dienstleister (z. B. den Kopierer-Service) legen Sie jetzt wie alle Konten unter Einstellungen → Benutzer an, mit der Rolle „Externer Dienstleister“.' => 'External service providers (e.g. the copier service) are now created like all accounts under Settings → Users, with the role “External service provider”.',
+    'Zu den Benutzern' => 'Go to users',
+    'Benutzer arbeiten mit den freigeschalteten Apps nach den Rechten ihrer Abteilungen. Administratoren pflegen zusätzlich Firmenprofil, Benutzer, Rechte und die Einstellungen der Firma.' => 'Users work with the enabled apps according to their departments’ permissions. Administrators also maintain the company profile, users, permissions and the company’s settings.',
+    'Z. B. der Kopierer-Service. Bearbeiter können ihm Tickets übergeben; er sieht die Beschreibung und die öffentlichen Nachrichten, nie interne Notizen. Mit Portal-Zugang arbeitet er im Portal (auch für mehrere Firmen mit einem Zugang), sonst nur per E-Mail.' => 'E.g. the copier service. Handlers can hand tickets over to them; they see the description and public messages, never internal notes. With portal access they work in the portal (also for several companies with one login), otherwise only by email.',
+    'Externer Dienstleister: {x}' => 'External service provider: {x}',
+    'Administrator' => 'Administrator',
+    'Benutzer (Rolle)' => 'User',
 ];

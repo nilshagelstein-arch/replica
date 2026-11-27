@@ -84,6 +84,7 @@ $routes = [
     'provider_access' => 'page_provider_access',
     'rights'         => 'page_rights',
     'administration' => 'page_administration',
+    'provider_edit'  => 'page_provider_edit',
     'backup_settings' => 'page_backup_settings',
     'apps'           => 'page_apps',
     'app_css'        => 'page_app_css',
@@ -209,7 +210,7 @@ $routes = [
  */
 const ROUTE_AREAS = [
     'companies' => ['companies', PERM_VIEW], 'company_edit' => ['companies', PERM_VIEW],
-    'users' => ['users', PERM_VIEW], 'user_edit' => ['users', PERM_VIEW],
+    'users' => ['users', PERM_VIEW], 'user_edit' => ['users', PERM_VIEW], 'provider_edit' => ['users', PERM_VIEW],
     'apps' => ['apps', PERM_VIEW],
     'mail_settings' => ['mail', PERM_VIEW], 'oauth_start' => ['mail', PERM_EDIT], 'oauth_callback' => ['mail', PERM_EDIT],
     'audit' => ['audit', PERM_VIEW],

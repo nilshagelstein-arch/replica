@@ -49,9 +49,11 @@
     window.addEventListener('load', function () { window.print(); });
   }
 
-  // Felder nur bei bestimmter Auswahl anzeigen: data-show-if="feldname=wert"
+  // Felder nur bei bestimmter Auswahl anzeigen: data-show-if="feldname=wert" (oder "feldname!=wert")
   Array.prototype.forEach.call(document.querySelectorAll('[data-show-if]'), function (el) {
-    var parts = el.getAttribute('data-show-if').split('=');
+    var spec = el.getAttribute('data-show-if');
+    var neg = spec.indexOf('!=') !== -1;
+    var parts = spec.split(neg ? '!=' : '=');
     var ctrls = document.querySelectorAll('[name="' + parts[0] + '"]');
     if (!ctrls.length) return;
     function current() {
@@ -59,7 +61,7 @@
       var on = Array.prototype.filter.call(ctrls, function (c) { return c.checked; })[0];
       return on ? on.value : '';
     }
-    function upd() { el.hidden = current() !== parts[1]; }
+    function upd() { el.hidden = neg ? current() === parts[1] : current() !== parts[1]; }
     Array.prototype.forEach.call(ctrls, function (c) { c.addEventListener('change', upd); });
     upd();
   });
