@@ -669,16 +669,6 @@ function page_inv_settings(): void
                 audit('inventory.min_stock', '', $cid);
                 flash('success', t('Der Mindestbestand wurde gespeichert.'));
                 break;
-            case 'perms':
-                $deps = rows('SELECT id FROM departments WHERE company_id = ?', [$cid]);
-                q('DELETE FROM inv_group_perms WHERE company_id = ?', [$cid]);
-                foreach ($deps as $dp) {
-                    $p = (int)(($_POST['perm'] ?? [])[$dp['id']] ?? 0);
-                    if ($p > 0) insert('inv_group_perms', ['company_id' => $cid, 'department_id' => $dp['id'], 'perm' => min(INV_PERM_EDIT, $p)]);
-                }
-                audit('inventory.perms', json_encode($_POST['perm'] ?? []), $cid);
-                flash('success', t('Die Rechte wurden gespeichert.'));
-                break;
             default:
                 abort(400);
         }
@@ -714,17 +704,7 @@ function page_inv_settings(): void
 
         <div class="card">
             <h2><?= e(t('Rechte je Gruppe')) ?></h2>
-            <p class="muted"><?= e(t('Firmen-Administratoren dürfen immer alles. Weitere Rechte vergeben Sie je Gruppe (Abteilung); wer mehreren Gruppen angehört, bekommt das höchste Recht.')) ?></p>
-            <?php if (!$deps): ?><p class="muted"><?= e(t('Es sind noch keine Abteilungen angelegt (App On- & Offboarding → Struktur).')) ?></p><?php else: ?>
-            <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="action" value="perms">
-                <table class="table"><thead><tr><th><?= e(t('Gruppe')) ?></th><th><?= e(t('Recht')) ?></th></tr></thead><tbody>
-                <?php foreach ($deps as $dp): ?><tr><td><?= e($dp['name']) ?></td><td><select name="perm[<?= (int)$dp['id'] ?>]">
-                    <?php foreach ([0 => t('kein Zugriff'), 1 => t('ansehen'), 2 => t('bearbeiten')] as $k => $l): ?><option value="<?= $k ?>" <?= (int)$dp['perm'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?>
-                </select></td></tr><?php endforeach; ?>
-                </tbody></table>
-                <button class="btn primary"><?= e(t('Rechte speichern')) ?></button>
-            </form>
-            <?php endif; ?>
+            <p class="muted"><?= e(t('Die Rechte der Abteilungen für alle Apps stehen gesammelt in den Einstellungen.')) ?> <a href="<?= e(url('rights', is_admin() ? ['company' => $cid] : [])) ?>"><?= e(t('Gruppen & Rechte öffnen')) ?></a></p>
         </div>
 
         <div class="card">

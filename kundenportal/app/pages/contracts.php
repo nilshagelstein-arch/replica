@@ -904,23 +904,6 @@ function page_contract_settings(): void
                 audit('contract.type', $name, $cid);
                 flash('success', t('Die Vertragsart wurde gespeichert.'));
                 break;
-            case 'perms':
-                $deps = rows('SELECT id FROM departments WHERE company_id = ?', [$cid]);
-                q('DELETE FROM ct_group_perms WHERE company_id = ?', [$cid]);
-                $saved = [];
-                foreach ($deps as $dp) {
-                    $id = (int)$dp['id'];
-                    $p = min(CT_PERM_EDIT, max(0, (int)(($_POST['perm'] ?? [])[$id] ?? 0)));
-                    $costsOk = $p > 0 && !empty(($_POST['costs'] ?? [])[$id]) ? 1 : 0;
-                    $approve = $p > 0 && !empty(($_POST['approve'] ?? [])[$id]) ? 1 : 0;
-                    if ($p > 0) {
-                        insert('ct_group_perms', ['company_id' => $cid, 'department_id' => $id, 'perm' => $p, 'see_costs' => $costsOk, 'approve_cancel' => $approve]);
-                        $saved[$id] = [$p, $costsOk, $approve];
-                    }
-                }
-                audit('contract.perms', json_encode($saved), $cid);
-                flash('success', t('Die Rechte wurden gespeichert.'));
-                break;
             default:
                 abort(400);
         }
@@ -980,20 +963,7 @@ function page_contract_settings(): void
 
         <div class="card">
             <h2><?= e(t('Rechte je Gruppe')) ?></h2>
-            <p class="muted"><?= e(t('Firmen-Administratoren dürfen immer alles. Weitere Rechte vergeben Sie je Gruppe (Abteilung); wer mehreren Gruppen angehört, bekommt das höchste Recht. Preise sieht nur, wer „Kosten sehen“ hat.')) ?></p>
-            <?php if (!$deps): ?><p class="muted"><?= e(t('Es sind noch keine Abteilungen angelegt (App On- & Offboarding → Struktur).')) ?></p><?php else: ?>
-            <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="action" value="perms">
-                <div class="table-scroll"><table class="table"><thead><tr><th><?= e(t('Gruppe')) ?></th><th><?= e(t('Recht')) ?></th><th><?= e(t('Kosten sehen')) ?></th><th><?= e(t('Freigabe Kündigung')) ?></th></tr></thead><tbody>
-                <?php foreach ($deps as $dp): $id = (int)$dp['id']; ?><tr><td><?= e($dp['name']) ?></td><td><select name="perm[<?= $id ?>]" aria-label="<?= e(t('Recht') . ' · ' . $dp['name']) ?>">
-                    <?php foreach ([0 => t('kein Zugriff'), 1 => t('ansehen'), 2 => t('bearbeiten')] as $k => $l): ?><option value="<?= $k ?>" <?= (int)$dp['perm'] === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?>
-                    </select></td>
-                    <td><input type="checkbox" name="costs[<?= $id ?>]" value="1" <?= (int)$dp['see_costs'] ? 'checked' : '' ?> aria-label="<?= e(t('Kosten sehen') . ' · ' . $dp['name']) ?>"></td>
-                    <td><input type="checkbox" name="approve[<?= $id ?>]" value="1" <?= (int)$dp['approve_cancel'] ? 'checked' : '' ?> aria-label="<?= e(t('Freigabe Kündigung') . ' · ' . $dp['name']) ?>"></td></tr><?php endforeach; ?>
-                </tbody></table></div>
-                <p class="muted small"><?= e(t('„Kosten sehen“ und „Freigabe Kündigung“ wirken nur zusammen mit „ansehen“ oder „bearbeiten“.')) ?></p>
-                <button class="btn primary"><?= e(t('Rechte speichern')) ?></button>
-            </form>
-            <?php endif; ?>
+            <p class="muted"><?= e(t('Die Rechte der Abteilungen für alle Apps stehen gesammelt in den Einstellungen.')) ?> <a href="<?= e(url('rights', is_admin() ? ['company' => $cid] : [])) ?>"><?= e(t('Gruppen & Rechte öffnen')) ?></a></p>
         </div>
 
         <?php ct_api_settings_card($cid); ?>
