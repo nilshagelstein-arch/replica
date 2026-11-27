@@ -167,7 +167,7 @@ const PROVIDER_RIGHTS = [
     'wk_perm'        => ['level', 'Dokumente & Anleitungen', 'dokumente'],
 ];
 /** Rechte, die erst mit dem nächsten Update wirken (Anzeige „folgt“) */
-const PROVIDER_RIGHTS_SOON = ['inv_view', 'inv_lic_create', 'ct_perm', 'wk_perm'];
+const PROVIDER_RIGHTS_SOON = [];
 
 /** Rechte für eine Firma (nur Apps, die sie hat) */
 function provider_rights_for(int $cid): array
@@ -740,7 +740,7 @@ function page_tickets(): void
             . ($extern ? 'provider_id = ' . (int)$myProvider['id'] : 'provider_internal = 1'), [$cid])['n'];
     }
 
-    render_page(tickets_app_name(), function () use ($cid, $u, $staff, $extern, $queues, $views, $view, $state, $queueFilter, $search, $list, $counts, $processor) {
+    render_page(tickets_app_name(), function () use ($cid, $u, $staff, $extern, $queues, $views, $view, $state, $queueFilter, $search, $list, $counts, $processor, $myProvider) {
         echo company_switcher($cid, 'tickets');
         if ($staff && !tickets_staff_may_see($cid)): ?>
             <div class="alert info"><?= e(t('Die Tickets dieser Firma sind nur intern sichtbar. Die Firma kann die Einsicht für den IT-Dienstleister unter Einstellungen einschalten. Tickets, die die Firma an Sie übergibt, sehen Sie unter „An uns übergeben“. Queues und Einstellungen können Sie trotzdem pflegen.')) ?></div>

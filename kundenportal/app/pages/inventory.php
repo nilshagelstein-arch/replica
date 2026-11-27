@@ -30,6 +30,7 @@ function inv_company_id(): int
     require_company_access($cid);
     if (!row('SELECT id FROM companies WHERE id = ?', [$cid])) abort(404);
     if (!is_staff_role($u['role']) && !company_has_app($cid, INV_APP)) abort(403);
+    if ($u['role'] === 'dienstleister' && inv_perm($cid) === INV_PERM_NONE) abort(403);
     $GLOBALS['inv_cid'] = $cid;
     inv_seed($cid);
     return $cid;
@@ -37,7 +38,7 @@ function inv_company_id(): int
 
 function iurl(string $route, array $params = []): string
 {
-    if (is_admin() && !empty($GLOBALS['inv_cid'])) $params = ['company' => (int)$GLOBALS['inv_cid']] + $params;
+    if ((is_admin() || is_provider_user()) && !empty($GLOBALS['inv_cid'])) $params = ['company' => (int)$GLOBALS['inv_cid']] + $params;
     return url($route, $params);
 }
 
@@ -75,11 +76,19 @@ function inv_perm(int $cid): int
         if ($ids !== null && !in_array($cid, $ids, true)) $p = PERM_NONE;
         return $cache[$key] = $p >= PERM_EDIT ? INV_PERM_EDIT : ($p >= PERM_VIEW ? INV_PERM_VIEW : INV_PERM_NONE);
     }
+    // externer Dienstleister: nur ansehen, mit Recht der Firma
+    if ($u['role'] === 'dienstleister') return $cache[$key] = (int)(provider_row($cid, $u)['inv_view'] ?? 0) === 1 && company_has_app($cid, INV_APP) ? INV_PERM_VIEW : INV_PERM_NONE;
     if ((int)($u['company_id'] ?? 0) !== $cid) return $cache[$key] = INV_PERM_NONE;
     if ($u['role'] === 'firma_admin') return $cache[$key] = INV_PERM_EDIT;
     $p = row('SELECT MAX(g.perm) AS p FROM inv_group_perms g JOIN user_departments ud ON ud.department_id = g.department_id
         WHERE g.company_id = ? AND ud.user_id = ?', [$cid, $u['id']]);
     return $cache[$key] = min(INV_PERM_EDIT, (int)($p['p'] ?? 0));
+}
+
+/** Externer Dienstleister mit Recht „Lizenzen anlegen“ (nur neue Lizenzen, sonst nur ansehen) */
+function inv_provider_lic_create(int $cid): bool
+{
+    return (int)(provider_row($cid)['inv_lic_create'] ?? 0) === 1 && inv_perm($cid) >= INV_PERM_VIEW;
 }
 
 /** Einstellungen (Standorte, Typen, Rechte) pflegen: Firmen-Admins und der Dienstleister mit Bearbeiten-Recht */
