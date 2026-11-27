@@ -4189,4 +4189,12 @@ Enable:
     'Darf alle Tickets der Firma sehen' => 'May see all of the company’s tickets',
     'Ohne „alle Tickets“ sieht der Dienstleister nur die Tickets, die ihm übergeben werden. Die Firma sieht ihn danach in ihrer Benutzerliste und kann ihn dort ebenfalls anpassen.' => 'Without “all tickets” the provider only sees the tickets handed over to them. The company then sees the provider in its user list and can adjust it there too.',
     'Anlegen und einladen' => 'Create and invite',
+    // Freigabe: externe Dienstleister durch den IT-Dienstleister verwalten
+    'Externe Dienstleister verwalten' => 'Manage external service providers',
+    'Ihr IT-Dienstleister darf für Sie wie ein Firmen-Administrator externe Dienstleister (z. B. den Kopierer-Service) anlegen, Ihrer Firma zuordnen und ihre Rechte anpassen.' => 'Your IT service provider may, like a company administrator, create external service providers (e.g. the copier service), assign them to your company and adjust their permissions.',
+    'Keine Firma hat Ihnen die Verwaltung externer Dienstleister freigegeben.' => 'No company has allowed you to manage external service providers.',
+    'Ohne Freigabe (die Firma schaltet sie unter Einstellungen → Einsicht für den IT-Dienstleister → „Externe Dienstleister verwalten“ ein):' => 'Without approval (the company enables it under Settings → Access for the IT service provider → “Manage external service providers”):',
+    'Zugeordnet, aber nicht von Ihnen änderbar:' => 'Assigned, but not changeable by you:',
+    'Die Firma hat Ihnen die Verwaltung externer Dienstleister nicht freigegeben.' => 'The company has not allowed you to manage external service providers.',
+    'Die Firma hat Ihnen die Verwaltung externer Dienstleister nicht freigegeben (Einstellungen → Einsicht für den IT-Dienstleister).' => 'The company has not allowed you to manage external service providers (Settings → Access for the IT service provider).',
 ];

@@ -3,8 +3,8 @@
  * Administration → Externe Dienstleister: Verwaltungsadmins legen Dienstleister-Zugänge (Rolle „dienstleister“)
  * an und ordnen sie Firmen mit der App „Tickets“ zu. Ein Zugang kann für mehrere Firmen arbeiten;
  * je Firma entsteht ein Eintrag in ticket_providers (wie bei der Anlage durch die Firma selbst).
- * Dürfen: Superadmin und Verwaltungsadmins mit Bearbeiten-Recht für „Benutzer“ oder „Tickets“,
- * jeweils nur für Firmen, auf die sie Zugriff haben.
+ * Dürfen: Superadmin und Verwaltungsadmins mit Bearbeiten-Recht für „Benutzer“ oder „Tickets“, jeweils nur für Firmen,
+ * auf die sie Zugriff haben UND die das unter „Einsicht für den IT-Dienstleister“ freigegeben haben (companies.staff_provider_admin).
  */
 
 function provider_admin_can(): bool
@@ -12,11 +12,19 @@ function provider_admin_can(): bool
     return is_admin() && (admin_can('users', true) || admin_can('tickets', true));
 }
 
-/** Firmen mit App „Tickets“, auf die der Admin zugreifen darf */
+/** Darf der angemeldete Betreiber die externen Dienstleister dieser Firma verwalten? Nur mit Freigabe der Firma. */
+function staff_may_manage_providers(int $cid): bool
+{
+    return provider_admin_can() && can_access_company($cid) && company_has_app($cid, TICKETS_APP)
+        && (int)(row('SELECT staff_provider_admin FROM companies WHERE id = ?', [$cid])['staff_provider_admin'] ?? 0) === 1;
+}
+
+/** Firmen mit App „Tickets“, auf die der Admin zugreifen darf: [freigegeben, ohne Freigabe] */
 function provider_admin_companies(): array
 {
-    return array_values(array_filter(rows('SELECT id, name FROM companies WHERE active = 1' . company_scope_sql('id') . ' ORDER BY name'),
+    $all = array_values(array_filter(rows('SELECT id, name, staff_provider_admin FROM companies WHERE active = 1' . company_scope_sql('id') . ' ORDER BY name'),
         fn ($c) => company_has_app((int)$c['id'], TICKETS_APP)));
+    return [array_values(array_filter($all, fn ($c) => (int)$c['staff_provider_admin'] === 1)), array_values(array_filter($all, fn ($c) => (int)$c['staff_provider_admin'] !== 1))];
 }
 
 function page_provider_accounts(): void
@@ -58,7 +66,7 @@ function page_provider_account(): void
     $id = query_int('id');
     $acct = $id ? row("SELECT * FROM users WHERE id = ? AND role = 'dienstleister'", [$id]) : null;
     if ($id && !$acct) abort(404);
-    $companies = provider_admin_companies();
+    [$companies, $blocked] = provider_admin_companies();
     $cids = array_map(fn ($c) => (int)$c['id'], $companies);
     $cnames = array_column($companies, 'name', 'id');
     $rows = [];
@@ -124,7 +132,7 @@ function page_provider_account(): void
     }
 
     render_page($acct ? t('Externer Dienstleister: {x}', ['x' => $acct['name']]) : t('Externen Dienstleister anlegen'),
-        function () use ($acct, $data, $errors, $companies, $rows) {
+        function () use ($acct, $data, $errors, $companies, $rows, $blocked) {
         foreach ($errors as $err) echo '<div class="alert error">' . e($err) . '</div>'; ?>
         <p><a href="<?= e(url('provider_accounts')) ?>"><?= e(t('Zurück zur Liste')) ?></a></p>
         <form method="post" class="card form"><?= csrf_field() ?><input type="hidden" name="action" value="save">
@@ -134,7 +142,7 @@ function page_provider_account(): void
             </div>
             <?php if ($acct): ?><label class="check"><input type="checkbox" name="active" value="1" <?= (int)$data['active'] ? 'checked' : '' ?>> <?= e(t('Zugang aktiv')) ?></label><?php endif; ?>
             <h3><?= e(t('Firmen')) ?></h3>
-            <?php if (!$companies): ?><p class="muted"><?= e(t('Keine Firma mit der App „Tickets“ freigeschaltet.')) ?></p><?php else: ?>
+            <?php if (!$companies): ?><p class="muted"><?= e(t('Keine Firma hat Ihnen die Verwaltung externer Dienstleister freigegeben.')) ?></p><?php else: ?>
             <table class="table compact"><thead><tr><th><?= e(t('Firma')) ?></th><th><?= e(t('Zugeordnet')) ?></th><th><?= e(t('Darf alle Tickets der Firma sehen')) ?></th></tr></thead><tbody>
             <?php foreach ($companies as $c): $cid = (int)$c['id']; $r = $rows[$cid] ?? null; $on = $r && (int)$r['active']; ?>
                 <tr><td><?= e($c['name']) ?></td>
@@ -144,6 +152,10 @@ function page_provider_account(): void
             </tbody></table>
             <p class="muted small"><?= e(t('Ohne „alle Tickets“ sieht der Dienstleister nur die Tickets, die ihm übergeben werden. Die Firma sieht ihn danach in ihrer Benutzerliste und kann ihn dort ebenfalls anpassen.')) ?></p>
             <?php endif; ?>
+            <?php if ($blocked): ?><p class="muted small"><?= e(t('Ohne Freigabe (die Firma schaltet sie unter Einstellungen → Einsicht für den IT-Dienstleister → „Externe Dienstleister verwalten“ ein):')) ?>
+                <?= e(implode(', ', array_map(fn ($c) => $c['name'], $blocked))) ?>
+                <?php $other = array_filter($blocked, fn ($c) => isset($rows[(int)$c['id']]) && (int)$rows[(int)$c['id']]['active']); if ($other): ?>
+                    <br><?= e(t('Zugeordnet, aber nicht von Ihnen änderbar:')) ?> <?= e(implode(', ', array_map(fn ($c) => $c['name'], $other))) ?><?php endif; ?></p><?php endif; ?>
             <button class="btn primary"><?= $acct ? e(t('Speichern')) : e(t('Anlegen und einladen')) ?></button>
         </form>
         <?php if ($acct && !$acct['last_login'] && (int)$acct['active']): ?>

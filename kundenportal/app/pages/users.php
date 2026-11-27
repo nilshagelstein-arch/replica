@@ -111,7 +111,7 @@ function page_user_edit(): void
     $allowedRoles = $companyId === null ? ['admin'] : ['firma_user', 'firma_admin'];
     if ($target && $target['role'] === 'superadmin') $allowedRoles = ['superadmin'];
     // Externe Dienstleister (App „Tickets“): beim Anlegen als Rolle wählbar, gespeichert als Dienstleister der Firma
-    $providerRole = !$target && $companyId && company_has_app($companyId, TICKETS_APP);
+    $providerRole = !$target && $companyId && company_has_app($companyId, TICKETS_APP) && (!is_staff_role($me['role']) || staff_may_manage_providers($companyId));
     if ($providerRole) $allowedRoles[] = 'dienstleister';
     $data = $target ?? ['name' => '', 'email' => '', 'role' => $allowedRoles[0], 'active' => 1, 'lang' => ''];
     // Gruppen (Abteilungen) des Kontos, z. B. für die Ticket-Queues
@@ -434,20 +434,26 @@ function page_provider_edit(): void
     $cid = (int)$p['company_id'];
     if (!is_staff_role($me['role']) && $cid !== (int)$me['company_id']) abort(403);
     require_company_access($cid);
+    // Betreiber nur mit Freigabe der Firma; ohne sie nur ansehen
+    $canEdit = !is_staff_role($me['role']) || staff_may_manage_providers($cid);
     $list = is_staff_role($me['role']) ? ['company' => $cid] : [];
     if (is_post()) {
         require_post_csrf();
+        if (!$canEdit) abort(403, t('Die Firma hat Ihnen die Verwaltung externer Dienstleister nicht freigegeben.'));
         $action = (string)post('action');
         $_POST['provider_id'] = (string)$id;
         $back = $action === 'provider_delete' ? fn () => redirect('users', $list) : fn () => redirect('provider_edit', ['id' => $id] + $list);
         if (!ticket_providers_post($cid, $action, $back)) abort(400);
     }
     $open = (int)(row("SELECT COUNT(*) AS n FROM tickets WHERE provider_id = ? AND status = 'beim_dienstleister'", [$id])['n'] ?? 0);
-    render_page(t('Externer Dienstleister: {x}', ['x' => $p['name']]), function () use ($p, $list, $open) { ?>
+    render_page(t('Externer Dienstleister: {x}', ['x' => $p['name']]), function () use ($p, $list, $open, $canEdit) { ?>
         <p><a href="<?= e(url('users', $list)) ?>"><?= e(t('Zurück zur Liste')) ?></a></p>
         <div class="card">
             <p class="muted small"><?= $p['user_id'] ? e(t('Portal-Zugang')) . ($p['last_login'] ? '' : ' (' . e(t('noch nicht angemeldet')) . ')') : e(t('nur per E-Mail')) ?>
                 <?php if ($open): ?> · <?= e(t('{n} Tickets offen', ['n' => $open])) ?><?php endif; ?></p>
+            <?php if (!$canEdit): ?><p class="alert info small"><?= e(t('Die Firma hat Ihnen die Verwaltung externer Dienstleister nicht freigegeben (Einstellungen → Einsicht für den IT-Dienstleister).')) ?></p>
+            <p><?= e($p['name']) ?> · <?= e($p['email']) ?> · <?= e((int)$p['see_all'] ? t('sieht alle Tickets') : t('sieht übergebene Tickets')) ?></p>
+            </div><?php return; endif; ?>
             <?php ticket_provider_form($p); ?>
             <div class="btn-row">
             <?php if ($p['user_id'] && !$p['last_login'] && (int)$p['user_active']): ?>

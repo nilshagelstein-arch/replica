@@ -198,6 +198,8 @@ function provider_access_rows(int $cid): array
             'hint' => 'Ihr IT-Dienstleister sieht und pflegt Ihre Verträge und bekommt die Fristen der Verträge, die er betreut.', 'extra' => [
                 ['ct_provider_costs', '… und dabei auch die Kosten sehen'],
                 ['ct_provider_all', '… und in seiner Vertriebsübersicht auch Verträge sehen, die andere Dienstleister oder wir selbst betreuen']]],
+        ['key' => 'dienstleister', 'app' => 'tickets', 'column' => 'staff_provider_admin', 'label' => 'Externe Dienstleister verwalten',
+            'hint' => 'Ihr IT-Dienstleister darf für Sie wie ein Firmen-Administrator externe Dienstleister (z. B. den Kopierer-Service) anlegen, Ihrer Firma zuordnen und ihre Rechte anpassen.', 'extra' => []],
         ['key' => 'dokumente', 'app' => 'dokumente', 'column' => 'wk_provider_access', 'label' => 'Dokumente & Anleitungen',
             'hint' => 'Ihr IT-Dienstleister sieht und pflegt Ihr Wiki. Den Passwort-Tresor sieht er nur in Ordnern, in die Sie ihn ausdrücklich aufnehmen.', 'extra' => []],
     ];

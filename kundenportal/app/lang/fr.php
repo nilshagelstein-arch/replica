@@ -4189,4 +4189,12 @@ Activer :
     'Darf alle Tickets der Firma sehen' => 'Peut voir tous les tickets de l’entreprise',
     'Ohne „alle Tickets“ sieht der Dienstleister nur die Tickets, die ihm übergeben werden. Die Firma sieht ihn danach in ihrer Benutzerliste und kann ihn dort ebenfalls anpassen.' => 'Sans « tous les tickets », le prestataire ne voit que les tickets qui lui sont transmis. L’entreprise le voit ensuite dans sa liste d’utilisateurs et peut aussi l’y modifier.',
     'Anlegen und einladen' => 'Créer et inviter',
+    // Freigabe: externe Dienstleister durch den IT-Dienstleister verwalten
+    'Externe Dienstleister verwalten' => 'Gérer les prestataires externes',
+    'Ihr IT-Dienstleister darf für Sie wie ein Firmen-Administrator externe Dienstleister (z. B. den Kopierer-Service) anlegen, Ihrer Firma zuordnen und ihre Rechte anpassen.' => 'Votre prestataire informatique peut, comme un administrateur de l’entreprise, créer des prestataires externes (par ex. le service copieurs), les affecter à votre entreprise et ajuster leurs droits.',
+    'Keine Firma hat Ihnen die Verwaltung externer Dienstleister freigegeben.' => 'Aucune entreprise ne vous a autorisé à gérer les prestataires externes.',
+    'Ohne Freigabe (die Firma schaltet sie unter Einstellungen → Einsicht für den IT-Dienstleister → „Externe Dienstleister verwalten“ ein):' => 'Sans autorisation (l’entreprise l’active sous Paramètres → Accès pour le prestataire informatique → « Gérer les prestataires externes ») :',
+    'Zugeordnet, aber nicht von Ihnen änderbar:' => 'Affecté, mais non modifiable par vous :',
+    'Die Firma hat Ihnen die Verwaltung externer Dienstleister nicht freigegeben.' => 'L’entreprise ne vous a pas autorisé à gérer les prestataires externes.',
+    'Die Firma hat Ihnen die Verwaltung externer Dienstleister nicht freigegeben (Einstellungen → Einsicht für den IT-Dienstleister).' => 'L’entreprise ne vous a pas autorisé à gérer les prestataires externes (Paramètres → Accès pour le prestataire informatique).',
 ];

@@ -1117,7 +1117,7 @@ function schema_statements(string $driver): array
     return $tables;
 }
 
-const SCHEMA_VERSION = 42;
+const SCHEMA_VERSION = 43;
 
 /** Im Portal eingebaute Apps (kind = intern, target = Startseite der App) */
 const BUILTIN_APPS = [
@@ -1278,6 +1278,8 @@ function run_migrations(): void
         // Tresor, Stufe 5 (ab Version 41): Turnus für den Passwortwechsel, Erinnerung je „Ändern bis“ nur einmal
         ['wk_vault_entries', 'change_months', 'INT NOT NULL DEFAULT 0'],
         ['wk_vault_entries', 'expires_notified', "VARCHAR(10) NOT NULL DEFAULT ''"],
+        // Freigabe der Firma (ab Version 43): der IT-Dienstleister darf externe Dienstleister anlegen, zuordnen und ihre Rechte anpassen
+        ['companies', 'staff_provider_admin', 'INT NOT NULL DEFAULT 0'],
     ];
     foreach ($columns as [$table, $col, $ddl]) {
         try {
