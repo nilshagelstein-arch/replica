@@ -4156,4 +4156,8 @@ Enable:
     'Für Ihr Konto sind keine Verwaltungsbereiche freigegeben.' => 'No administration areas are enabled for your account.',
     'Übersicht' => 'Overview',
     'Firmen-Einstellungen' => 'Company settings',
+    // Updates: Archiv
+    'Archiv' => 'Archive',
+    '{n} ältere Updates' => '{n} older updates',
+    'Die letzten {n} Updates; ältere stehen unter „Archiv“.' => 'The last {n} updates; older ones are under “Archive”.',
 ];

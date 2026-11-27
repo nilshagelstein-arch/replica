@@ -4156,4 +4156,8 @@ Activer :
     'Für Ihr Konto sind keine Verwaltungsbereiche freigegeben.' => 'Aucun domaine d’administration n’est activé pour votre compte.',
     'Übersicht' => 'Vue d’ensemble',
     'Firmen-Einstellungen' => 'Paramètres de l’entreprise',
+    // Updates: Archiv
+    'Archiv' => 'Archives',
+    '{n} ältere Updates' => '{n} mises à jour plus anciennes',
+    'Die letzten {n} Updates; ältere stehen unter „Archiv“.' => 'Les {n} dernières mises à jour ; les plus anciennes se trouvent sous « Archives ».',
 ];
