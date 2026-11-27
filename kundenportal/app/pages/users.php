@@ -110,8 +110,8 @@ function page_user_edit(): void
     // Es gibt genau einen Superadmin: die Rolle wird nicht vergeben, sondern nur übertragen
     $allowedRoles = $companyId === null ? ['admin'] : ['firma_user', 'firma_admin'];
     if ($target && $target['role'] === 'superadmin') $allowedRoles = ['superadmin'];
-    // Externe Dienstleister (App „Tickets“): beim Anlegen als Rolle wählbar, gespeichert als Dienstleister der Firma
-    $providerRole = !$target && $companyId && company_has_app($companyId, TICKETS_APP) && (!is_staff_role($me['role']) || staff_may_manage_providers($companyId));
+    // Externe Dienstleister: beim Anlegen als Rolle wählbar, gespeichert als Dienstleister der Firma (Rechte je nach Apps der Firma)
+    $providerRole = !$target && $companyId && (!is_staff_role($me['role']) || staff_may_manage_providers($companyId));
     if ($providerRole) $allowedRoles[] = 'dienstleister';
     $data = $target ?? ['name' => '', 'email' => '', 'role' => $allowedRoles[0], 'active' => 1, 'lang' => ''];
     // Gruppen (Abteilungen) des Kontos, z. B. für die Ticket-Queues
@@ -417,10 +417,9 @@ function render_admin_rights_fields(array $data): void
 // Externe Dienstleister in der Benutzerverwaltung (Daten: ticket_providers, App „Tickets“)
 // ---------------------------------------------------------------------------
 
-/** Dienstleister einer Firma mit Angaben zum Portal-Zugang; leer ohne App „Tickets“ */
+/** Dienstleister einer Firma mit Angaben zum Portal-Zugang */
 function users_company_providers(int $cid): array
 {
-    if (!company_has_app($cid, TICKETS_APP)) return [];
     return rows('SELECT p.*, u.last_login, u.totp_enabled, u.active AS user_active FROM ticket_providers p LEFT JOIN users u ON u.id = p.user_id
         WHERE p.company_id = ? ORDER BY p.active DESC, p.name', [$cid]);
 }

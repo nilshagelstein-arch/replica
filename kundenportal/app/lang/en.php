@@ -4231,4 +4231,18 @@ Please check the proposed permissions and confirm or decline:
     'Zugriff' => 'Access',
     'Hier entscheidet die Firma. Sie selbst ordnen Dienstleister unter Administration → Externe Dienstleister zu.' => 'The company decides here. You assign providers under Administration → External service providers.',
     'Die Dienstleister wurden gespeichert.' => 'The service providers have been saved.',
+    // Einladung externer Dienstleister (ohne Bezug auf Tickets)
+    ',
+
+{company} hat Sie im Kundenportal als externen Dienstleister eingetragen. Dort sehen Sie die Bereiche, die Ihnen freigegeben sind, zum Beispiel übergebene Tickets.
+
+Über diesen Link vergeben Sie Ihr Passwort (7 Tage gültig, nur einmal verwendbar):
+
+' => ',
+
+{company} has registered you as an external service provider in the customer portal. There you see the areas shared with you, for example handed-over tickets.
+
+Use this link to set your password (valid for 7 days, single use):
+
+',
 ];

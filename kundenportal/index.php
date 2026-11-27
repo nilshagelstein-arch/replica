@@ -294,7 +294,11 @@ const PROVIDER_ROUTES = ['login', 'login_2fa', 'setup_2fa', 'logout', 'forgot_pa
     'docs', 'doc_space', 'doc', 'doc_search', 'doc_edit', 'doc_action', 'doc_file', 'doc_history', 'doc_version', 'doc_diff', 'doc_pdf'];
 if (is_provider_user()) {
     if (!in_array($r, PROVIDER_ROUTES, true)) abort(403);
-    if ($r === 'home' && !(int)current_user()['must_change_password']) redirect('tickets');
+    if ($r === 'home' && !(int)current_user()['must_change_password']) {
+        // Start: erste App, für die er bei einer Firma Zugriff hat
+        $start = ['tickets' => 'tickets', 'inventar' => 'inventory', 'vertraege' => 'contracts', 'dokumente' => 'docs'];
+        foreach ($start as $slug => $route) if (provider_company_ids(null, $slug)) redirect($route);
+    }
 }
 
 // Zeitsteuerung und E-Mail-Abruf der Tickets, falls kein (stündlicher) Cronjob läuft: höchstens alle 5 Minuten,
