@@ -1079,7 +1079,7 @@ function page_ticket(): void
                         </select></label>
                         <label><?= e(t('Auftrag an den Dienstleister')) ?> <textarea name="body" rows="3" placeholder="<?= e(t('Was soll der Dienstleister tun? (für den Ersteller nicht sichtbar)')) ?>"></textarea></label>
                         <button class="btn"><?= e(t('Übergeben')) ?></button>
-                        <?php if (!$providers && tickets_can_manage()): ?><p class="muted small"><a href="<?= e(turl('ticket_settings')) ?>#providers"><?= e(t('Externe Dienstleister eintragen')) ?></a></p><?php endif; ?>
+                        <?php if (!$providers && tickets_can_manage()): ?><p class="muted small"><a href="<?= e(url('users', is_admin() ? ['company' => (int)$tk['company_id']] : [])) ?>"><?= e(t('Externe Dienstleister eintragen')) ?></a></p><?php endif; ?>
                     </form>
                     <?php endif; ?>
                 </div>
@@ -1557,7 +1557,11 @@ function page_ticket_settings(): void
                 </details>
             <?php endforeach; ?>
         </div>
-        <?php ticket_providers_section($cid); ?>
+        <div class="card" id="providers">
+            <h2><?= e(t('Externe Dienstleister')) ?></h2>
+            <p class="muted"><?= e(t('Externe Dienstleister (z. B. den Kopierer-Service) legen Sie jetzt wie alle Konten unter Einstellungen → Benutzer an, mit der Rolle „Externer Dienstleister“.')) ?>
+                <a href="<?= e(url('users', is_admin() ? ['company' => $cid] : [])) ?>"><?= e(t('Zu den Benutzern')) ?></a></p>
+        </div>
         <?php ticket_mail_settings_section($cid, array_values(array_filter($queues, fn($q) => (int)$q['active']))); ?>
         <form method="post" class="form card">
             <?= csrf_field() ?><input type="hidden" name="action" value="settings">
@@ -1604,14 +1608,14 @@ function ticket_provider_invite(array $user, string $company): void
         . t("\n\nBei der ersten Anmeldung richten Sie die Zwei-Faktor-Anmeldung mit einer Authenticator-App ein.")], null);
 }
 
-function ticket_providers_post(int $cid, string $action): bool
+function ticket_providers_post(int $cid, string $action, ?callable $back = null): bool
 {
     if (!in_array($action, ['provider_save', 'provider_delete', 'provider_invite'], true)) return false;
     $company = (string)(tickets_company($cid)['name'] ?? '');
     $pid = (int)post('provider_id', 0);
     $old = $pid ? row('SELECT * FROM ticket_providers WHERE id = ? AND company_id = ?', [$pid, $cid]) : null;
     if ($pid && !$old) abort(404);
-    $back = fn() => tredirect('ticket_settings');
+    $back ??= fn() => tredirect('ticket_settings');
     if ($action === 'provider_delete') {
         if (row('SELECT id FROM tickets WHERE provider_id = ? LIMIT 1', [$pid])) {
             update('ticket_providers', $pid, ['active' => 0]);

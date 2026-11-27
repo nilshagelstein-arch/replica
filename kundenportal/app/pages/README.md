@@ -60,6 +60,7 @@ In der Spalte „POST-`action`“ stehen die Werte des Formularfelds `action`. �
 | `selfservice.php` | Registrierung, E-Mail-Bestätigung, Passwort vergessen | `register`, `verify_email`, `forgot_password`, `reset_password` `[selfservice.php:page_register]` | Speichern |
 | `updates.php` | Update-Pakete einspielen | `updates` `[updates.php:page_updates]` | `upload`, `apply`, `edit`, `delete` |
 | `users.php` | Benutzer und Admin-Rechte | `users`, `user_edit` `[users.php:page_user_edit]` | `save`, `reset_password`, `reset_2fa`, `delete`, `transfer_superadmin`, `verify_email`, `resend_verification`, `unlock` |
+| `users.php` (Dienstleister) | Externe Dienstleister der App „Tickets“ (`ticket_providers`) stehen in der Benutzerliste der Firma; angelegt über „+ Neuen Benutzer anlegen“ mit Rolle „Externer Dienstleister“ (`ticket_providers_post()` mit eigenem Rücksprung), bearbeitet unter `provider_edit` `[users.php:page_provider_edit]` | `provider_edit` | `provider_save`, `provider_invite`, `provider_delete` |
 
 **Von anderen Seiten genutzt:** `selfservice.php` liefert `handle_registration_decision`, `request_2fa_reset`, `portal_link` und `send_verification_mail` für `companies.php`, `auth.php` und `users.php`. `form_editor.php` liefert `render_word_editor` für `forms.php`. Wer diese Funktionen umbenennt, muss die Aufrufer mit ändern.
 

@@ -19,6 +19,7 @@ function page_users(): void
         $list = rows("SELECT * FROM users WHERE role IN ('superadmin', 'admin')
             ORDER BY CASE role WHEN 'superadmin' THEN 0 ELSE 1 END, active DESC, name");
         $companyId = 0;
+        $providers = [];
         $title = t('Benutzer: Administratoren (Dienstleister)');
     } else {
         $companyId = context_company_id();
@@ -28,10 +29,11 @@ function page_users(): void
         }
         require_company_access($companyId);
         $list = rows('SELECT * FROM users WHERE company_id = ? ORDER BY active DESC, name', [$companyId]);
+        $providers = users_company_providers($companyId);
         $cname = row('SELECT name FROM companies WHERE id = ?', [$companyId])['name'] ?? '';
         $title = t('Benutzer: ') . $cname;
     }
-    render_page($title, function () use ($u, $list, $companyId, $showAdmins) {
+    render_page($title, function () use ($u, $list, $companyId, $showAdmins, $providers) {
         if (is_staff_role($u['role'])) {
             echo '<div class="toolbar">' . ($showAdmins ? '' : company_switcher($companyId, 'users'));
             echo $showAdmins
@@ -53,14 +55,25 @@ function page_users(): void
                     <tr class="<?= (int)$row['active'] ? '' : 'inactive' ?>">
                         <td><?= e($row['name']) ?></td>
                         <td><?= e($row['email']) ?></td>
-                        <td><?= e(t(ROLES[$row['role']] ?? $row['role'])) ?><?php if ($row['role'] === 'admin'): ?><br><span class="muted small"><?= e(admin_rights_summary($row)) ?></span><?php endif; ?></td>
+                        <td><?= e(role_label($row['role'])) ?><?php if ($row['role'] === 'admin'): ?><br><span class="muted small"><?= e(admin_rights_summary($row)) ?></span><?php endif; ?></td>
                         <td><?= (int)$row['totp_enabled'] ? t('✓ eingerichtet') : ('<span class="muted">' . e(t('bei nächster Anmeldung')) . '</span>') ?><?= $row['totp_reset_requested_at'] ? (' <span class="badge st-rueckfrage">' . e(t('Reset beantragt')) . '</span>') : '' ?><?= (int)$row['email_verified'] ? '' : (' <span class="badge">' . e(t('E-Mail unbestätigt')) . '</span>') ?></td>
                         <td><?= fmt_dt($row['last_login']) ?></td>
                         <td><?= (int)$row['active'] ? e(t('aktiv')) : e(t('deaktiviert')) ?><?= $row['locked_until'] && strtotime($row['locked_until']) > time() ? (' · <strong>' . e(t('gesperrt')) . '</strong>') : '' ?></td>
                         <td class="actions"><?php if (!is_staff_role($row['role']) || is_superadmin()): ?><a href="<?= e(url('user_edit', ['id' => $row['id']])) ?>"><?= e(t('Bearbeiten')) ?></a><?php elseif ((int)$row['id'] === $u['id']): ?><a href="<?= e(url('account')) ?>"><?= e(t('Mein Konto')) ?></a><?php endif; ?></td>
                     </tr>
                 <?php endforeach; ?>
-                <?php if (!$list): ?><tr><td colspan="7" class="muted"><?= e(t('Noch keine Benutzer.')) ?></td></tr><?php endif; ?>
+                <?php foreach ($providers as $p): ?>
+                    <tr class="<?= (int)$p['active'] ? '' : 'inactive' ?>">
+                        <td><?= e($p['name']) ?></td>
+                        <td><?= e($p['email']) ?></td>
+                        <td><?= e(t('Externer Dienstleister')) ?><br><span class="muted small"><?= e((int)$p['see_all'] ? t('sieht alle Tickets') : t('sieht übergebene Tickets')) ?></span></td>
+                        <td><?= $p['user_id'] ? ((int)$p['totp_enabled'] ? t('✓ eingerichtet') : ('<span class="muted">' . e(t('bei nächster Anmeldung')) . '</span>')) : ('<span class="muted">' . e(t('nur per E-Mail')) . '</span>') ?></td>
+                        <td><?= $p['user_id'] ? fmt_dt($p['last_login']) : '–' ?></td>
+                        <td><?= (int)$p['active'] ? e(t('aktiv')) : e(t('deaktiviert')) ?></td>
+                        <td class="actions"><a href="<?= e(url('provider_edit', ['id' => $p['id']] + (is_admin() ? ['company' => $companyId] : []))) ?>"><?= e(t('Bearbeiten')) ?></a></td>
+                    </tr>
+                <?php endforeach; ?>
+                <?php if (!$list && !$providers): ?><tr><td colspan="7" class="muted"><?= e(t('Noch keine Benutzer.')) ?></td></tr><?php endif; ?>
                 </tbody>
             </table>
         </div>
@@ -97,6 +110,9 @@ function page_user_edit(): void
     // Es gibt genau einen Superadmin: die Rolle wird nicht vergeben, sondern nur übertragen
     $allowedRoles = $companyId === null ? ['admin'] : ['firma_user', 'firma_admin'];
     if ($target && $target['role'] === 'superadmin') $allowedRoles = ['superadmin'];
+    // Externe Dienstleister (App „Tickets“): beim Anlegen als Rolle wählbar, gespeichert als Dienstleister der Firma
+    $providerRole = !$target && $companyId && company_has_app($companyId, TICKETS_APP);
+    if ($providerRole) $allowedRoles[] = 'dienstleister';
     $data = $target ?? ['name' => '', 'email' => '', 'role' => $allowedRoles[0], 'active' => 1, 'lang' => ''];
     // Gruppen (Abteilungen) des Kontos, z. B. für die Ticket-Queues
     $groupDeps = $companyId ? departments_of($companyId) : [];
@@ -108,6 +124,10 @@ function page_user_edit(): void
     if (is_post()) {
         require_post_csrf();
         $action = post('action', 'save');
+        if ($action === 'save' && $providerRole && post('role') === 'dienstleister') {
+            $_POST['provider_id'] = '0';
+            ticket_providers_post($companyId, 'provider_save', fn () => redirect('users', is_staff_role($me['role']) ? ['company' => $companyId] : []));
+        }
         if ($action === 'save') {
             $data['name'] = mb_substr(post('name'), 0, 190);
             $data['email'] = strtolower(mb_substr(post('email'), 0, 190));
@@ -245,11 +265,11 @@ function page_user_edit(): void
                 <label><?= e(t('Rolle')) ?>
                     <select name="role" <?= $isSelf || count($allowedRoles) === 1 ? 'disabled' : '' ?>>
                         <?php foreach ($allowedRoles as $r): ?>
-                            <option value="<?= e($r) ?>" <?= $data['role'] === $r ? 'selected' : '' ?>><?= e(t(ROLES[$r])) ?></option>
+                            <option value="<?= e($r) ?>" <?= $data['role'] === $r ? 'selected' : '' ?>><?= e(role_label($r)) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </label>
-                <label><?= e(t('Sprache')) ?>
+                <label data-show-if="role!=dienstleister"><?= e(t('Sprache')) ?>
                     <?= lang_select('lang', lang_valid($data['lang'] ?? null), $companyId
                         ? t('Sprache der Firma ({x})', ['x' => LANGS[company_lang($companyId)]])
                         : t('Standard ({x})', ['x' => LANGS[DEFAULT_LANG]])) ?>
@@ -260,9 +280,17 @@ function page_user_edit(): void
             <p class="muted small"><?= e(t('Was ein Verwaltungsadmin darf, legen Sie unten unter „Rechte“ fest. Es gibt genau einen Superadmin; er darf immer alles, verwaltet die Administratoren-Konten und kann seine Rolle an einen Verwaltungsadmin übertragen.')) ?></p>
             <?php if ($showRights) render_admin_rights_fields($data); ?>
             <?php else: ?>
-            <p class="muted small"><?= e(t('Firmen-Benutzer können Aufträge erstellen und verfolgen. Firmen-Administratoren pflegen zusätzlich Firmenprofil, Benutzer, Abteilungen, Positionen, Katalog und Vorlagen der Firma.')) ?></p>
+            <p class="muted small" data-show-if="role!=dienstleister"><?= e(t('Benutzer arbeiten mit den freigeschalteten Apps nach den Rechten ihrer Abteilungen. Administratoren pflegen zusätzlich Firmenprofil, Benutzer, Rechte und die Einstellungen der Firma.')) ?></p>
+            <?php if (in_array('dienstleister', $allowedRoles, true)): ?>
+            <fieldset data-show-if="role=dienstleister"><legend><?= e(t('Externer Dienstleister')) ?></legend>
+                <p class="muted small"><?= e(t('Z. B. der Kopierer-Service. Bearbeiter können ihm Tickets übergeben; er sieht die Beschreibung und die öffentlichen Nachrichten, nie interne Notizen. Mit Portal-Zugang arbeitet er im Portal (auch für mehrere Firmen mit einem Zugang), sonst nur per E-Mail.')) ?></p>
+                <label class="check"><input type="checkbox" name="portal" value="1" checked> <?= e(t('Portal-Zugang (der Dienstleister bekommt eine Einladung mit Zwei-Faktor-Anmeldung)')) ?></label>
+                <label class="check"><input type="checkbox" name="see_all" value="1"> <?= e(t('Darf alle Tickets der Firma sehen (sonst nur die übergebenen)')) ?></label>
+                <label><?= e(t('Notiz')) ?> <input name="notes" maxlength="500" placeholder="<?= e(t('z. B. Vertragsnummer, Telefon')) ?>"></label>
+            </fieldset>
+            <?php endif; ?>
             <?php if ($groupDeps): ?>
-            <fieldset><legend><?= e(t('Gruppen (Abteilungen)')) ?></legend>
+            <fieldset data-show-if="role!=dienstleister"><legend><?= e(t('Gruppen (Abteilungen)')) ?></legend>
                 <div class="checks">
                 <?php foreach ($groupDeps as $d): ?>
                     <label class="check"><input type="checkbox" name="groups[]" value="<?= (int)$d['id'] ?>" <?= in_array((int)$d['id'], $userGroups, true) ? 'checked' : '' ?>> <?= e($d['name']) ?></label>
@@ -392,3 +420,51 @@ function render_admin_rights_fields(array $data): void
         </div>
     </fieldset>
 <?php }
+
+// ---------------------------------------------------------------------------
+// Externe Dienstleister in der Benutzerverwaltung (Daten: ticket_providers, App „Tickets“)
+// ---------------------------------------------------------------------------
+
+/** Dienstleister einer Firma mit Angaben zum Portal-Zugang; leer ohne App „Tickets“ */
+function users_company_providers(int $cid): array
+{
+    if (!company_has_app($cid, TICKETS_APP)) return [];
+    return rows('SELECT p.*, u.last_login, u.totp_enabled, u.active AS user_active FROM ticket_providers p LEFT JOIN users u ON u.id = p.user_id
+        WHERE p.company_id = ? ORDER BY p.active DESC, p.name', [$cid]);
+}
+
+function page_provider_edit(): void
+{
+    $me = require_manager();
+    $id = query_int('id');
+    $p = row('SELECT p.*, u.last_login, u.active AS user_active FROM ticket_providers p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?', [$id]);
+    if (!$p) abort(404);
+    $cid = (int)$p['company_id'];
+    if (!is_staff_role($me['role']) && $cid !== (int)$me['company_id']) abort(403);
+    require_company_access($cid);
+    $list = is_staff_role($me['role']) ? ['company' => $cid] : [];
+    if (is_post()) {
+        require_post_csrf();
+        $action = (string)post('action');
+        $_POST['provider_id'] = (string)$id;
+        $back = $action === 'provider_delete' ? fn () => redirect('users', $list) : fn () => redirect('provider_edit', ['id' => $id] + $list);
+        if (!ticket_providers_post($cid, $action, $back)) abort(400);
+    }
+    $open = (int)(row("SELECT COUNT(*) AS n FROM tickets WHERE provider_id = ? AND status = 'beim_dienstleister'", [$id])['n'] ?? 0);
+    render_page(t('Externer Dienstleister: {x}', ['x' => $p['name']]), function () use ($p, $list, $open) { ?>
+        <p><a href="<?= e(url('users', $list)) ?>"><?= e(t('Zurück zur Liste')) ?></a></p>
+        <div class="card">
+            <p class="muted small"><?= $p['user_id'] ? e(t('Portal-Zugang')) . ($p['last_login'] ? '' : ' (' . e(t('noch nicht angemeldet')) . ')') : e(t('nur per E-Mail')) ?>
+                <?php if ($open): ?> · <?= e(t('{n} Tickets offen', ['n' => $open])) ?><?php endif; ?></p>
+            <?php ticket_provider_form($p); ?>
+            <div class="btn-row">
+            <?php if ($p['user_id'] && !$p['last_login'] && (int)$p['user_active']): ?>
+                <form method="post" class="inline-form"><?= csrf_field() ?><input type="hidden" name="action" value="provider_invite">
+                    <button class="btn small"><?= e(t('Einladung erneut senden')) ?></button></form>
+            <?php endif; ?>
+                <form method="post" class="inline-form"><?= csrf_field() ?><input type="hidden" name="action" value="provider_delete">
+                    <button class="btn small danger" data-confirm="<?= e(t('Dienstleister „{x}“ entfernen?', ['x' => $p['name']])) ?>"><?= e(t('Entfernen')) ?></button></form>
+            </div>
+        </div>
+    <?php });
+}

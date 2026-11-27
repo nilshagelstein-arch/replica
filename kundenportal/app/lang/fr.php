@@ -4160,4 +4160,12 @@ Activer :
     'Archiv' => 'Archives',
     '{n} ältere Updates' => '{n} mises à jour plus anciennes',
     'Die letzten {n} Updates; ältere stehen unter „Archiv“.' => 'Les {n} dernières mises à jour ; les plus anciennes se trouvent sous « Archives ».',
+    // Benutzer: externe Dienstleister als Rolle
+    'Externe Dienstleister (z. B. den Kopierer-Service) legen Sie jetzt wie alle Konten unter Einstellungen → Benutzer an, mit der Rolle „Externer Dienstleister“.' => 'Les prestataires externes (par ex. le service copieurs) se créent désormais comme tous les comptes sous Paramètres → Utilisateurs, avec le rôle « Prestataire externe ».',
+    'Zu den Benutzern' => 'Vers les utilisateurs',
+    'Benutzer arbeiten mit den freigeschalteten Apps nach den Rechten ihrer Abteilungen. Administratoren pflegen zusätzlich Firmenprofil, Benutzer, Rechte und die Einstellungen der Firma.' => 'Les utilisateurs travaillent avec les applications activées selon les droits de leurs services. Les administrateurs gèrent en plus le profil, les utilisateurs, les droits et les paramètres de l’entreprise.',
+    'Z. B. der Kopierer-Service. Bearbeiter können ihm Tickets übergeben; er sieht die Beschreibung und die öffentlichen Nachrichten, nie interne Notizen. Mit Portal-Zugang arbeitet er im Portal (auch für mehrere Firmen mit einem Zugang), sonst nur per E-Mail.' => 'Par ex. le service copieurs. Les responsables peuvent lui transmettre des tickets ; il voit la description et les messages publics, jamais les notes internes. Avec un accès au portail, il travaille dans le portail (aussi pour plusieurs entreprises avec un seul accès), sinon uniquement par e-mail.',
+    'Externer Dienstleister: {x}' => 'Prestataire externe : {x}',
+    'Administrator' => 'Administrateur',
+    'Benutzer (Rolle)' => 'Utilisateur',
 ];

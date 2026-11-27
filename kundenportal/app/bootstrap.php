@@ -25,11 +25,21 @@ require_once APP_DIR . '/mail.php';
 const ROLES = [
     'superadmin'  => 'Superadmin (Dienstleister)',
     'admin'       => 'Verwaltungsadmin (Dienstleister)',
-    'firma_admin' => 'Firmen-Administrator',
-    'firma_user'  => 'Firmen-Benutzer',
+    'firma_admin' => 'Administrator',
+    'firma_user'  => 'Benutzer',
     // Externer Dienstleister: ohne eigene Firma, Zugriff nur auf die App „Tickets“ der Firmen, die ihn eingetragen haben
     'dienstleister' => 'Externer Dienstleister',
 ];
+
+/** Anzeigename einer Rolle in der Sprache des Benutzers („Benutzer“ als Rolle ist in en/fr Einzahl, als Menüpunkt Mehrzahl) */
+function role_label(string $role): string
+{
+    if ($role === 'firma_user') {
+        $x = t('Benutzer (Rolle)');
+        return $x === 'Benutzer (Rolle)' ? 'Benutzer' : $x;
+    }
+    return t(ROLES[$role] ?? $role);
+}
 
 const STATUSES = [
     'eingereicht'    => 'Eingereicht',

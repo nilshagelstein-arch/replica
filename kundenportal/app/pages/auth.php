@@ -295,7 +295,7 @@ function page_account(): void
                 <dl class="facts">
                     <dt><?= e(t('Name')) ?></dt><dd><?= e($u['name']) ?></dd>
                     <dt><?= e(t('E-Mail')) ?></dt><dd><?= e($u['email']) ?></dd>
-                    <dt><?= e(t('Rolle')) ?></dt><dd><?= e(t(ROLES[$u['role']] ?? $u['role'])) ?></dd>
+                    <dt><?= e(t('Rolle')) ?></dt><dd><?= e(role_label($u['role'])) ?></dd>
                     <dt><?= e(t('Letzte Anmeldung')) ?></dt><dd><?= fmt_dt($u['last_login']) ?></dd>
                 </dl>
             </div>
