@@ -58,18 +58,9 @@ if ($user && company_pending($user)) {
     if (isset($myApps['datensicherung']) && $user['role'] === 'firma_admin') {
         $nav[] = ['company_backups', t($myApps['datensicherung']['name']), $route === 'company_backups'];
     }
-    if (is_staff_role($user['role'])) {
-        $adminNav = [
-            'companies' => ['companies', t('Firmen'), in_array($route, ['companies', 'company_edit'], true)],
-            'users'     => ['users', t('Benutzer'), in_array($route, ['users', 'user_edit'], true)],
-            'apps'      => ['apps', t('Apps & Freigaben'), $route === 'apps'],
-            'mail'      => ['mail_settings', t('E-Mail-Versand'), $route === 'mail_settings'],
-            'audit'     => ['audit', t('Protokoll'), $route === 'audit'],
-            'backups'   => ['backups', t('Datensicherung'), in_array($route, ['backups', 'company_backups'], true)],
-            'updates'   => ['updates', t('Updates'), $route === 'updates'],
-            'contracts' => ['contract_sales', t('Vertriebsübersicht'), $route === 'contract_sales'],
-        ];
-        foreach ($adminNav as $area => $item) if (admin_can($area)) $nav[] = $item;
+    // Betreiber: die Verwaltung steht unter „Administration“ (Zahnrad); im Menü bleibt nur das Arbeitswerkzeug Vertriebsübersicht
+    if (is_staff_role($user['role']) && admin_can('contracts')) {
+        $nav[] = ['contract_sales', t('Vertriebsübersicht'), $route === 'contract_sales'];
     }
 }
 // Zentrale Einstellungen: Seite im Rahmen mit Kategorien; dann ist kein App-Menüpunkt aktiv
@@ -79,6 +70,14 @@ if ($settingsFrame) {
     $subnav = [];
 }
 $showSettings = $user && settings_available();
+// Administration: Leiste mit allen Verwaltungspunkten auf deren Seiten
+$adminActive = $user && !$settingsFrame ? admin_section_active($route) : null;
+$showAdmin = $user && is_staff_role((string)$user['role']);
+if ($adminActive) {
+    foreach ($nav as $i => $item) $nav[$i][2] = false;
+    $subnav = [['administration', t('Übersicht'), [], false]];
+    foreach (admin_sections_for_user() as $area => [$r, $label]) $subnav[] = [$r, t($label), [], $area === $adminActive];
+}
 // App, zu der die aktuelle Seite gehört (für das große Symbol links oben)
 $pageApp = null;
 if ($user && !company_pending($user)) {
@@ -125,7 +124,8 @@ if ($user && $user['company_id']) {
     <div class="who">
         <span><?= e($user['name']) ?></span>
         <span class="muted"><?= $companyName ? e($companyName) : e(($user['role'] ?? '') === 'dienstleister' ? t('Externer Dienstleister') : t('Administration')) ?></span>
-        <?php if ($showSettings): ?><a href="<?= e(url('settings')) ?>" class="gear<?= $settingsFrame ? ' active' : '' ?>" title="<?= e(t('Einstellungen')) ?>"><span aria-hidden="true">⚙</span> <?= e(t('Einstellungen')) ?></a><?php endif; ?>
+        <?php if ($showAdmin): ?><a href="<?= e(url('administration')) ?>" class="gear<?= $adminActive || $route === 'administration' ? ' active' : '' ?>" title="<?= e(t('Administration')) ?>"><span aria-hidden="true">⚙</span> <?= e(t('Administration')) ?></a><?php endif; ?>
+        <?php if ($showSettings): ?><a href="<?= e(url('settings')) ?>" class="gear<?= $settingsFrame ? ' active' : '' ?>" title="<?= e($showAdmin ? t('Einstellungen einer Firma') : t('Einstellungen')) ?>"><?php if (!$showAdmin): ?><span aria-hidden="true">⚙</span> <?php endif; ?><?= e($showAdmin ? t('Firmen-Einstellungen') : t('Einstellungen')) ?></a><?php endif; ?>
         <a href="<?= e(url('account')) ?>"><?= e(t('Mein Konto')) ?></a>
         <form method="post" action="<?= e(url('logout')) ?>" class="inline"><?= csrf_field() ?><button class="linklike"><?= e(t('Abmelden')) ?></button></form>
     </div>

@@ -4,6 +4,9 @@
  * Ansehen und herunterladen: Superadmin und Verwaltungsadmins. Hochladen, einspielen, bearbeiten, löschen: nur Superadmin.
  */
 
+/** So viele Updates stehen direkt in der Liste; ältere unter „Archiv“ */
+const UPDATES_RECENT = 5;
+
 function page_updates(): void
 {
     $me = require_admin();
@@ -112,13 +115,15 @@ function page_updates(): void
 
         <div class="card">
             <h2><?= e(t('Versionen')) ?></h2>
+            <?php if (count($list) > UPDATES_RECENT): ?><p class="muted small"><?= e(t('Die letzten {n} Updates; ältere stehen unter „Archiv“.', ['n' => UPDATES_RECENT])) ?></p><?php endif; ?>
             <?php if (!$list): ?>
                 <p class="muted"><?= e(t('Noch keine Updates abgelegt.')) ?></p>
             <?php else: ?>
+            <?php $table = function (array $part) use ($current, $super) { ?>
             <table class="table updates">
                 <thead><tr><th><?= e(t('Datum')) ?></th><th><?= e(t('Zusammenfassung')) ?></th><th><?= e(t('Autor')) ?></th><th><?= e(t('Status')) ?></th><th></th></tr></thead>
                 <tbody>
-                <?php foreach ($list as $u): $older = $current && $u['id'] !== $current['id'] && strcmp((string)$u['date'] . $u['id'], (string)$current['date'] . $current['id']) < 0; ?>
+                <?php foreach ($part as $u): $older = $current && $u['id'] !== $current['id'] && strcmp((string)$u['date'] . $u['id'], (string)$current['date'] . $current['id']) < 0; ?>
                     <tr>
                         <td class="nowrap"><?= e(fmt_date($u['date'])) ?><br><span class="muted small"><?= e(round($u['size'] / 1024)) ?> KB<?= !empty($u['files']) ? ' · ' . (int)$u['files'] . t(' Dateien') : '' ?></span></td>
                         <td><div class="prewrap"><?= $u['summary'] !== '' ? e($u['summary']) : ('<span class="muted">' . e(t('keine Zusammenfassung')) . '</span>') ?></div>
@@ -148,6 +153,16 @@ function page_updates(): void
                 <?php endforeach; ?>
                 </tbody>
             </table>
+            <?php };
+            $recent = array_slice($list, 0, UPDATES_RECENT);
+            $archive = array_slice($list, UPDATES_RECENT);
+            $table($recent);
+            if ($archive): ?>
+                <details class="updates-archive">
+                    <summary><strong><?= e(t('Archiv')) ?></strong> <span class="muted small">(<?= e(t('{n} ältere Updates', ['n' => count($archive)])) ?>)</span></summary>
+                    <?php $table($archive); ?>
+                </details>
+            <?php endif; ?>
             <?php endif; ?>
         </div>
 
