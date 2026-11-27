@@ -4189,4 +4189,46 @@ Activer :
     'Darf alle Tickets der Firma sehen' => 'Peut voir tous les tickets de l’entreprise',
     'Ohne „alle Tickets“ sieht der Dienstleister nur die Tickets, die ihm übergeben werden. Die Firma sieht ihn danach in ihrer Benutzerliste und kann ihn dort ebenfalls anpassen.' => 'Sans « tous les tickets », le prestataire ne voit que les tickets qui lui sont transmis. L’entreprise le voit ensuite dans sa liste d’utilisateurs et peut aussi l’y modifier.',
     'Anlegen und einladen' => 'Créer et inviter',
+    // Freigabe: externe Dienstleister durch den IT-Dienstleister verwalten
+    'Externe Dienstleister verwalten' => 'Gérer les prestataires externes',
+    'Ihr IT-Dienstleister darf für Sie wie ein Firmen-Administrator externe Dienstleister (z. B. den Kopierer-Service) anlegen, Ihrer Firma zuordnen und ihre Rechte anpassen.' => 'Votre prestataire informatique peut, comme un administrateur de l’entreprise, créer des prestataires externes (par ex. le service copieurs), les affecter à votre entreprise et ajuster leurs droits.',
+    'Keine Firma hat Ihnen die Verwaltung externer Dienstleister freigegeben.' => 'Aucune entreprise ne vous a autorisé à gérer les prestataires externes.',
+    'Ohne Freigabe (die Firma schaltet sie unter Einstellungen → Einsicht für den IT-Dienstleister → „Externe Dienstleister verwalten“ ein):' => 'Sans autorisation (l’entreprise l’active sous Paramètres → Accès pour le prestataire informatique → « Gérer les prestataires externes ») :',
+    'Zugeordnet, aber nicht von Ihnen änderbar:' => 'Affecté, mais non modifiable par vous :',
+    'Die Firma hat Ihnen die Verwaltung externer Dienstleister nicht freigegeben.' => 'L’entreprise ne vous a pas autorisé à gérer les prestataires externes.',
+    'Die Firma hat Ihnen die Verwaltung externer Dienstleister nicht freigegeben (Einstellungen → Einsicht für den IT-Dienstleister).' => 'L’entreprise ne vous a pas autorisé à gérer les prestataires externes (Paramètres → Accès pour le prestataire informatique).',
+    // Externe Dienstleister: Rechte je Firma, Bestätigung
+    'Alle Tickets der Firma sehen (sonst nur übergebene)' => 'Voir tous les tickets de l’entreprise (sinon seulement ceux transmis)',
+    'Tickets anlegen' => 'Créer des tickets',
+    'Tickets lösen und schließen' => 'Résoudre et clôturer les tickets',
+    'Geräte & Lizenzen ansehen' => 'Consulter appareils et licences',
+    'Lizenzen anlegen' => 'Créer des licences',
+    'folgt' => 'bientôt',
+    'anlegen und bearbeiten' => 'créer et modifier',
+    'Externer Dienstleister wartet auf Ihre Bestätigung' => 'Prestataire externe en attente de votre confirmation',
+    'Ihr IT-Dienstleister möchte den externen Dienstleister „{x}“ für Ihre Firma freischalten.
+
+Bitte prüfen Sie die vorgeschlagenen Rechte und bestätigen oder lehnen Sie ab:
+' => 'Votre prestataire informatique souhaite activer le prestataire externe « {x} » pour votre entreprise.
+
+Veuillez vérifier les droits proposés puis confirmer ou refuser :
+',
+    'Ticket als gelöst markieren? Der Ersteller kann es bestätigen oder wieder öffnen.' => 'Marquer le ticket comme résolu ? Le créateur peut le confirmer ou le rouvrir.',
+    'Der Dienstleister {name} hat das Ticket gelöst.' => 'Le prestataire {name} a résolu le ticket.',
+    'Das Ticket ist als gelöst markiert.' => 'Le ticket est marqué comme résolu.',
+    'wartet auf Bestätigung' => 'en attente de confirmation',
+    'Firmen und Rechte' => 'Entreprises et droits',
+    'Haken Sie die Firmen an, für die der Dienstleister arbeiten soll, und wählen Sie je Firma seine Rechte. Hat die Firma Ihnen „Externe Dienstleister verwalten“ freigegeben, gilt die Zuordnung sofort; sonst wartet sie auf die Bestätigung der Firma (die Firmen-Administratoren bekommen eine E-Mail).' => 'Cochez les entreprises pour lesquelles le prestataire doit travailler et choisissez ses droits par entreprise. Si l’entreprise vous a autorisé à « Gérer les prestataires externes », l’affectation s’applique immédiatement ; sinon elle attend la confirmation de l’entreprise (les administrateurs reçoivent un e-mail).',
+    'wartet auf Bestätigung der Firma' => 'en attente de la confirmation de l’entreprise',
+    'nicht zugeordnet' => 'non affecté',
+    'Verwaltung freigegeben' => 'gestion autorisée',
+    'ohne Freigabe: Bestätigung durch die Firma' => 'sans autorisation : confirmation par l’entreprise',
+    'Die Rechte ändert die Firma selbst (Einstellungen → Einsicht für den IT-Dienstleister). Sie können die Zuordnung hier aber entziehen.' => 'L’entreprise modifie elle-même les droits (Paramètres → Accès pour le prestataire informatique). Vous pouvez toutefois retirer l’affectation ici.',
+    'Hier sehen Sie alle externen Dienstleister Ihrer Firma und legen fest, ob und mit welchen Rechten sie Zugriff haben. Zuordnungen, die Ihr IT-Dienstleister vorgeschlagen hat, gelten erst, wenn Sie „Zugriff“ anhaken und speichern.' => 'Vous voyez ici tous les prestataires externes de votre entreprise et décidez s’ils ont accès et avec quels droits. Les affectations proposées par votre prestataire informatique ne s’appliquent qu’après avoir coché « Accès » et enregistré.',
+    'Noch keine externen Dienstleister.' => 'Aucun prestataire externe pour l’instant.',
+    'Unter Benutzer anlegen' => 'Créer sous Utilisateurs',
+    'wartet auf Ihre Bestätigung' => 'en attente de votre confirmation',
+    'Zugriff' => 'Accès',
+    'Hier entscheidet die Firma. Sie selbst ordnen Dienstleister unter Administration → Externe Dienstleister zu.' => 'C’est l’entreprise qui décide ici. Vous affectez les prestataires sous Administration → Prestataires externes.',
+    'Die Dienstleister wurden gespeichert.' => 'Les prestataires ont été enregistrés.',
 ];

@@ -198,6 +198,8 @@ function provider_access_rows(int $cid): array
             'hint' => 'Ihr IT-Dienstleister sieht und pflegt Ihre Verträge und bekommt die Fristen der Verträge, die er betreut.', 'extra' => [
                 ['ct_provider_costs', '… und dabei auch die Kosten sehen'],
                 ['ct_provider_all', '… und in seiner Vertriebsübersicht auch Verträge sehen, die andere Dienstleister oder wir selbst betreuen']]],
+        ['key' => 'dienstleister', 'app' => 'tickets', 'column' => 'staff_provider_admin', 'label' => 'Externe Dienstleister verwalten',
+            'hint' => 'Ihr IT-Dienstleister darf für Sie wie ein Firmen-Administrator externe Dienstleister (z. B. den Kopierer-Service) anlegen, Ihrer Firma zuordnen und ihre Rechte anpassen.', 'extra' => []],
         ['key' => 'dokumente', 'app' => 'dokumente', 'column' => 'wk_provider_access', 'label' => 'Dokumente & Anleitungen',
             'hint' => 'Ihr IT-Dienstleister sieht und pflegt Ihr Wiki. Den Passwort-Tresor sieht er nur in Ordnern, in die Sie ihn ausdrücklich aufnehmen.', 'extra' => []],
     ];
@@ -238,6 +240,10 @@ function page_provider_access(): void
         require_post_csrf();
         // Die Einsicht für den Dienstleister schaltet nur die Firma selbst
         if ($staff) abort(403, t('Diese Einsicht kann nur ein Administrator der Firma ein- oder ausschalten.'));
+        if (post('action') === 'providers') {
+            provider_access_save_providers($cid);
+            redirect('provider_access');
+        }
         $on = (array)($_POST['access'] ?? []);
         $data = [];
         $changed = [];
@@ -289,7 +295,55 @@ function page_provider_access(): void
             <?php if ($staff): ?><p class="muted small"><?= e(t('Diese Einsicht kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p>
             <?php else: ?><button class="btn primary"><?= e(t('Speichern')) ?></button><?php endif; ?>
         </form>
+        <?php if (company_has_app($cid, TICKETS_APP)) provider_access_providers_card($cid, $staff); ?>
     <?php });
+}
+
+/** Externe Dienstleister der Firma mit ihren Rechten; wartende Zuordnungen bestätigen oder ablehnen */
+function provider_access_providers_card(int $cid, bool $staff): void
+{
+    $list = rows('SELECT p.*, u.last_login FROM ticket_providers p LEFT JOIN users u ON u.id = p.user_id
+        WHERE p.company_id = ? ORDER BY p.pending DESC, p.active DESC, p.name', [$cid]); ?>
+    <form method="post" class="form card"><?= csrf_field() ?><input type="hidden" name="action" value="providers">
+        <h2><?= e(t('Externe Dienstleister')) ?></h2>
+        <p class="muted"><?= e(t('Hier sehen Sie alle externen Dienstleister Ihrer Firma und legen fest, ob und mit welchen Rechten sie Zugriff haben. Zuordnungen, die Ihr IT-Dienstleister vorgeschlagen hat, gelten erst, wenn Sie „Zugriff“ anhaken und speichern.')) ?></p>
+        <?php if (!$list): ?><p class="muted"><?= e(t('Noch keine externen Dienstleister.')) ?> <a href="<?= e(url('users', $staff ? ['company' => $cid] : [])) ?>"><?= e(t('Unter Benutzer anlegen')) ?></a></p><?php endif; ?>
+        <?php foreach ($list as $p): $pid = (int)$p['id']; ?>
+            <div class="queue-box">
+                <label class="check"><input type="checkbox" name="pa[<?= $pid ?>]" value="1" <?= (int)$p['active'] ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
+                    <strong><?= e($p['name']) ?></strong> <span class="muted small">· <?= e($p['email']) ?> · <?= $p['user_id'] ? e(t('Portal-Zugang')) : e(t('nur per E-Mail')) ?></span>
+                    <?php if ((int)$p['pending']): ?> <span class="badge st-rueckfrage"><?= e(t('wartet auf Ihre Bestätigung')) ?></span><?php elseif (!(int)$p['active']): ?> <span class="tag"><?= e(t('kein Zugriff')) ?></span><?php endif; ?>
+                    <?= ' ' . e(t('Zugriff')) ?></label>
+                <div class="checks"><?= provider_rights_fields("pr[$pid]", $p, $cid, $staff) ?></div>
+            </div>
+        <?php endforeach; ?>
+        <?php if ($list && !$staff): ?><button class="btn primary"><?= e(t('Dienstleister speichern')) ?></button><?php endif; ?>
+        <?php if ($staff): ?><p class="muted small"><?= e(t('Hier entscheidet die Firma. Sie selbst ordnen Dienstleister unter Administration → Externe Dienstleister zu.')) ?></p><?php endif; ?>
+    </form>
+<?php }
+
+function provider_access_save_providers(int $cid): void
+{
+    $on = (array)($_POST['pa'] ?? []);
+    $rin = is_array($_POST['pr'] ?? null) ? $_POST['pr'] : [];
+    $log = [];
+    foreach (rows('SELECT * FROM ticket_providers WHERE company_id = ?', [$cid]) as $p) {
+        $pid = (int)$p['id'];
+        $active = !empty($on[$pid]) ? 1 : 0;
+        $rights = provider_rights_read(is_array($rin[$pid] ?? null) ? $rin[$pid] : [], $cid);
+        $vals = $rights + ['active' => $active, 'pending' => 0];
+        $diff = [];
+        foreach ($vals as $k => $v) if ((int)$p[$k] !== $v) $diff[] = "$k=$v";
+        if (!$diff) continue;
+        update('ticket_providers', $pid, $vals);
+        $log[] = $p['name'] . ((int)$p['pending'] ? ($active ? ' bestätigt' : ' abgelehnt') : '') . ': ' . implode(',', $diff);
+    }
+    if ($log) {
+        foreach (array_chunk($log, 6) as $chunk) audit('settings.providers', mb_substr(implode('; ', $chunk), 0, 500), $cid);
+        flash('success', t('Die Dienstleister wurden gespeichert.'));
+    } else {
+        flash('success', t('Es gab keine Änderungen.'));
+    }
 }
 
 /** Kurzer Hinweis in einer App: Einsicht an/aus mit Link zur Kategorie (ersetzt die früheren Einzelschalter) */

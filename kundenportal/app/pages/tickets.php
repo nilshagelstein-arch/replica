@@ -152,6 +152,69 @@ function ticket_can_view(array $tk): bool
 // Dienstleister: intern (Betreiber des Portals, also Superadmin und Verwaltungsadmins) oder extern (je Firma eingetragen)
 // ---------------------------------------------------------------------------
 
+/**
+ * Rechte eines externen Dienstleisters je Firma (Spalten in ticket_providers).
+ * Typ: check (Häkchen) oder level (0 kein, 1 ansehen, 2 anlegen und bearbeiten); app: nur wenn die Firma die App hat.
+ * Ein Eintrag mit pending = 1 (und active = 0) wartet auf die Bestätigung der Firma.
+ */
+const PROVIDER_RIGHTS = [
+    'see_all'        => ['check', 'Alle Tickets der Firma sehen (sonst nur übergebene)', 'tickets'],
+    'can_create'     => ['check', 'Tickets anlegen', 'tickets'],
+    'can_resolve'    => ['check', 'Tickets lösen und schließen', 'tickets'],
+    'inv_view'       => ['check', 'Geräte & Lizenzen ansehen', 'inventar'],
+    'inv_lic_create' => ['check', 'Lizenzen anlegen', 'inventar'],
+    'ct_perm'        => ['level', 'Verträge', 'vertraege'],
+    'wk_perm'        => ['level', 'Dokumente & Anleitungen', 'dokumente'],
+];
+/** Rechte, die erst mit dem nächsten Update wirken (Anzeige „folgt“) */
+const PROVIDER_RIGHTS_SOON = ['inv_view', 'inv_lic_create', 'ct_perm', 'wk_perm'];
+
+/** Rechte für eine Firma (nur Apps, die sie hat) */
+function provider_rights_for(int $cid): array
+{
+    return array_filter(PROVIDER_RIGHTS, fn ($r) => company_has_app($cid, $r[2]));
+}
+
+/** Rechte aus einem Formular-Array (z. B. $_POST['r'][$cid]) lesen; „Lizenzen anlegen“ setzt „ansehen“ voraus */
+function provider_rights_read(array $in, int $cid): array
+{
+    $out = [];
+    foreach (PROVIDER_RIGHTS as $k => [$type]) {
+        $out[$k] = !isset(provider_rights_for($cid)[$k]) ? 0 : ($type === 'level' ? max(0, min(2, (int)($in[$k] ?? 0))) : (!empty($in[$k]) ? 1 : 0));
+    }
+    if ($out['inv_lic_create']) $out['inv_view'] = 1;
+    return $out;
+}
+
+/** Eingabefelder für die Rechte; $name z. B. "r[12]" */
+function provider_rights_fields(string $name, ?array $row, int $cid, bool $disabled = false, bool $labels = true): string
+{
+    $h = '';
+    foreach (provider_rights_for($cid) as $k => [$type, $label]) {
+        $v = (int)($row[$k] ?? 0);
+        $dis = $disabled ? ' disabled' : '';
+        $soon = in_array($k, PROVIDER_RIGHTS_SOON, true) ? ' <span class="tag">' . e(t('folgt')) . '</span>' : '';
+        if ($type === 'level') {
+            $sel = '<select name="' . e($name . "[$k]") . '"' . $dis . ' aria-label="' . e(t($label)) . '">';
+            foreach ([0 => t('kein Zugriff'), 1 => t('ansehen'), 2 => t('anlegen und bearbeiten')] as $lv => $ll) $sel .= '<option value="' . $lv . '"' . ($v === $lv ? ' selected' : '') . '>' . e($ll) . '</option>';
+            $h .= '<label class="small">' . e(t($label)) . ' ' . $sel . '</select>' . $soon . '</label>';
+        } else {
+            $h .= '<label class="check small"><input type="checkbox" name="' . e($name . "[$k]") . '" value="1"' . ($v ? ' checked' : '') . $dis . '> ' . e(t($label)) . $soon . '</label>';
+        }
+    }
+    return $h;
+}
+
+/** Firmen-Admins einer Firma per Mail über eine wartende Zuordnung informieren */
+function provider_notify_pending(int $cid, string $providerName): void
+{
+    $to = array_column(rows("SELECT email FROM users WHERE company_id = ? AND role = 'firma_admin' AND active = 1", [$cid]), 'email');
+    if (!$to) return;
+    send_mail_t($to, fn () => [t('Externer Dienstleister wartet auf Ihre Bestätigung'),
+        t("Ihr IT-Dienstleister möchte den externen Dienstleister „{x}“ für Ihre Firma freischalten.\n\nBitte prüfen Sie die vorgeschlagenen Rechte und bestätigen oder lehnen Sie ab:\n", ['x' => $providerName])
+        . portal_link('provider_access')], $cid);
+}
+
 /** Eintrag des angemeldeten externen Dienstleisters in der Firma (oder null) */
 function ticket_my_provider(int $cid): ?array
 {
@@ -622,6 +685,7 @@ function page_tickets(): void
         || row("SELECT id FROM tickets WHERE company_id = ? AND provider_internal = 1 AND status = 'beim_dienstleister' LIMIT 1", [$cid]));
     if ($extern || $staffProvider) $views['provider'] = t('An uns übergeben');
     if ($extern && (int)$myProvider['see_all'] === 1) $views['pall'] = t('Alle Tickets der Firma');
+    if ($extern && (int)$myProvider['can_create'] === 1) $views['mine'] = t('Meine Tickets');
     if ($processor) $views += ['queue' => t('Offen in meinen Queues'), 'assigned' => t('Mir zugewiesen'), 'waiting' => t('Wartet zu lange'),
         'extern' => t('Beim Dienstleister'), 'all' => t('Alle meiner Queues')];
     $view = (string)($_GET['view'] ?? '');
@@ -689,7 +753,7 @@ function page_tickets(): void
                 <?php if (tickets_can_manage()): ?> <a href="<?= e(turl('ticket_settings')) ?>"><?= e(t('Queues einrichten')) ?></a><?php else: ?> <?= e(t('Bitte wenden Sie sich an Ihren Firmen-Administrator.')) ?><?php endif; ?></div>
         <?php endif; ?>
         <div class="toolbar">
-            <?php if (!$staff && !$extern && $queues): ?><a class="btn primary" href="<?= e(turl('ticket_new')) ?>"><?= e(t('+ Neues Ticket')) ?></a><?php endif; ?>
+            <?php if (!$staff && (!$extern || (int)$myProvider['can_create'] === 1) && $queues): ?><a class="btn primary" href="<?= e(turl('ticket_new')) ?>"><?= e(t('+ Neues Ticket')) ?></a><?php endif; ?>
             <?php if ($staff && $queues && tickets_staff_may_see($cid)): ?><a class="btn primary" href="<?= e(turl('ticket_new')) ?>"><?= e(t('+ Ticket für einen Mitarbeiter')) ?></a><?php endif; ?>
             <?php if (tickets_can_manage()): ?><a class="btn" href="<?= e(turl('ticket_settings')) ?>"><?= e(t('Queues & Einstellungen')) ?></a><?php endif; ?>
             <?php if (tickets_stats_allowed($cid)): ?><a class="btn" href="<?= e(turl('ticket_stats')) ?>">📊 <?= e(t('Auswertung')) ?></a><?php endif; ?>
@@ -762,7 +826,8 @@ function page_ticket_new(): void
     $u = current_user();
     $staff = is_staff_role($u['role']);
     if ($staff && !tickets_staff_may_see($cid)) abort(403, t('Die Tickets dieser Firma sind nur intern sichtbar.'));
-    if ($u['role'] === 'dienstleister') abort(403);
+    // externe Dienstleister nur mit Recht „Tickets anlegen“
+    if ($u['role'] === 'dienstleister' && !(int)(ticket_my_provider($cid)['can_create'] ?? 0)) abort(403);
     $queues = rows('SELECT * FROM ticket_queues WHERE company_id = ? AND active = 1 ORDER BY sort, name', [$cid]);
     if (!$queues) tredirect('tickets');
     // Bearbeiter (und der Dienstleister mit Einsicht) dürfen ein Ticket im Namen eines Mitarbeiters anlegen
@@ -1091,7 +1156,10 @@ function page_ticket(): void
                     <p class="small"><?= e(t('Die Firma hat Ihnen dieses Ticket übergeben. Interne Notizen der Firma sehen Sie nicht.')) ?></p>
                     <form method="post" action="<?= $action ?>" class="form"><?= csrf_field() ?><input type="hidden" name="action" value="provider_done">
                         <label><?= e(t('Ergebnis (optional)')) ?> <textarea name="body" rows="3"></textarea></label>
-                        <button class="btn primary"><?= e(t('Erledigt – zurück an die Firma')) ?></button></form>
+                        <button class="btn primary"><?= e(t('Erledigt – zurück an die Firma')) ?></button>
+                        <?php if ((int)(ticket_my_provider((int)$tk['company_id'])['can_resolve'] ?? 0)): ?>
+                            <button class="btn" name="resolve" value="1" data-confirm="<?= e(t('Ticket als gelöst markieren? Der Ersteller kann es bestätigen oder wieder öffnen.')) ?>"><?= e(t('Als gelöst markieren')) ?></button>
+                        <?php endif; ?></form>
                 </div>
                 <?php endif; ?>
 
@@ -1348,6 +1416,13 @@ function page_ticket_action(): void
             $note = $done ? mb_substr(trim((string)post('body')), 0, 20000) : '';
             if ($note !== '') ticket_log($id, $cid, (int)$u['id'], 'provider', $note);
             $pname = ticket_provider_name($tk);
+            // Recht „Tickets lösen und schließen“: direkt auf „Gelöst“ statt zurück an die Firma
+            if ($done && post('resolve') === '1' && (int)(ticket_my_provider($cid)['can_resolve'] ?? 0)) {
+                $setStatus('geloest', 'Vom Dienstleister gelöst');
+                ticket_notify_processors(load_ticket($id), fn() => t('Der Dienstleister {name} hat das Ticket gelöst.', ['name' => $pname]) . ($note !== '' ? "\n\n" . $note : ''));
+                flash('success', t('Das Ticket ist als gelöst markiert.'));
+                $back();
+            }
             $setStatus($tk['assigned_to'] ? 'in_bearbeitung' : 'offen', $done ? 'Vom Dienstleister erledigt' : 'Vom Dienstleister zurückgeholt');
             ticket_wait_start($id, true);
             $t2 = load_ticket($id);
@@ -1646,8 +1721,9 @@ function ticket_providers_post(int $cid, string $action, ?callable $back = null)
             $linked = !$old || (int)$old['user_id'] !== $userId;
         }
     }
-    $data = ['name' => $name, 'email' => $email, 'user_id' => $userId, 'see_all' => post('see_all') === '1' ? 1 : 0,
-        'notes' => mb_substr(trim((string)post('notes')), 0, 500), 'active' => !$old || post('active') === '1' ? 1 : 0];
+    $data = ['name' => $name, 'email' => $email, 'user_id' => $userId,
+        'notes' => mb_substr(trim((string)post('notes')), 0, 500), 'active' => !$old || post('active') === '1' ? 1 : 0, 'pending' => 0]
+        + provider_rights_read(is_array($_POST['r'] ?? null) ? $_POST['r'] : ['see_all' => post('see_all')], $cid);
     if ($old) update('ticket_providers', $pid, $data);
     else $pid = insert('ticket_providers', $data + ['company_id' => $cid, 'created_at' => now()]);
     audit('ticket.provider', $name . ' <' . $email . '>' . ($userId ? ' +Portal' : '') . ($data['see_all'] ? ' +alle' : ''), $cid);
@@ -1698,8 +1774,9 @@ function ticket_providers_section(int $cid): void
     </div>
 <?php }
 
-function ticket_provider_form(?array $p): void
-{ ?>
+function ticket_provider_form(?array $p, ?int $cid = null): void
+{
+    $cid ??= (int)($p['company_id'] ?? ($GLOBALS['tickets_cid'] ?? context_company_id())); ?>
     <form method="post" class="form">
         <?= csrf_field() ?><input type="hidden" name="action" value="provider_save"><input type="hidden" name="provider_id" value="<?= (int)($p['id'] ?? 0) ?>">
         <div class="grid2">
@@ -1707,7 +1784,7 @@ function ticket_provider_form(?array $p): void
             <label><?= e(t('E-Mail-Adresse *')) ?> <input type="email" name="email" maxlength="190" required value="<?= e($p['email'] ?? '') ?>"></label>
         </div>
         <label class="check"><input type="checkbox" name="portal" value="1" <?= !empty($p['user_id']) ? 'checked' : '' ?>> <?= e(t('Portal-Zugang (der Dienstleister bekommt eine Einladung mit Zwei-Faktor-Anmeldung)')) ?></label>
-        <label class="check"><input type="checkbox" name="see_all" value="1" <?= (int)($p['see_all'] ?? 0) ? 'checked' : '' ?>> <?= e(t('Darf alle Tickets der Firma sehen (sonst nur die übergebenen)')) ?></label>
+        <fieldset><legend><?= e(t('Rechte')) ?></legend><?= provider_rights_fields('r', $p, $cid) ?></fieldset>
         <label><?= e(t('Notiz')) ?> <input name="notes" maxlength="500" value="<?= e($p['notes'] ?? '') ?>" placeholder="<?= e(t('z. B. Vertragsnummer, Telefon')) ?>"></label>
         <?php if ($p): ?><label class="check"><input type="checkbox" name="active" value="1" <?= (int)$p['active'] ? 'checked' : '' ?>> <?= e(t('Aktiv (bei der Übergabe auswählbar)')) ?></label><?php endif; ?>
         <button class="btn primary"><?= e(t('Dienstleister speichern')) ?></button>
