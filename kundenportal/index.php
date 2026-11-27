@@ -287,7 +287,7 @@ if (is_admin()) {
 
 // Externe Dienstleister: nur Anmeldung, eigenes Konto und die App „Tickets“ (Start leitet dorthin)
 const PROVIDER_ROUTES = ['login', 'login_2fa', 'setup_2fa', 'logout', 'forgot_password', 'reset_password', 'verify_email', 'account',
-    'home', 'app_css', 'i18n_js', 'tickets', 'ticket', 'ticket_action', 'ticket_file'];
+    'home', 'app_css', 'i18n_js', 'tickets', 'ticket', 'ticket_action', 'ticket_file', 'ticket_new'];
 if (is_provider_user()) {
     if (!in_array($r, PROVIDER_ROUTES, true)) abort(403);
     if ($r === 'home' && !(int)current_user()['must_change_password']) redirect('tickets');

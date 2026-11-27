@@ -4197,4 +4197,38 @@ Enable:
     'Zugeordnet, aber nicht von Ihnen änderbar:' => 'Assigned, but not changeable by you:',
     'Die Firma hat Ihnen die Verwaltung externer Dienstleister nicht freigegeben.' => 'The company has not allowed you to manage external service providers.',
     'Die Firma hat Ihnen die Verwaltung externer Dienstleister nicht freigegeben (Einstellungen → Einsicht für den IT-Dienstleister).' => 'The company has not allowed you to manage external service providers (Settings → Access for the IT service provider).',
+    // Externe Dienstleister: Rechte je Firma, Bestätigung
+    'Alle Tickets der Firma sehen (sonst nur übergebene)' => 'See all of the company’s tickets (otherwise only handed-over ones)',
+    'Tickets anlegen' => 'Create tickets',
+    'Tickets lösen und schließen' => 'Resolve and close tickets',
+    'Geräte & Lizenzen ansehen' => 'View devices & licences',
+    'Lizenzen anlegen' => 'Create licences',
+    'folgt' => 'coming soon',
+    'anlegen und bearbeiten' => 'create and edit',
+    'Externer Dienstleister wartet auf Ihre Bestätigung' => 'External service provider awaiting your confirmation',
+    'Ihr IT-Dienstleister möchte den externen Dienstleister „{x}“ für Ihre Firma freischalten.
+
+Bitte prüfen Sie die vorgeschlagenen Rechte und bestätigen oder lehnen Sie ab:
+' => 'Your IT service provider would like to enable the external service provider “{x}” for your company.
+
+Please check the proposed permissions and confirm or decline:
+',
+    'Ticket als gelöst markieren? Der Ersteller kann es bestätigen oder wieder öffnen.' => 'Mark ticket as resolved? The creator can confirm or reopen it.',
+    'Der Dienstleister {name} hat das Ticket gelöst.' => 'The service provider {name} has resolved the ticket.',
+    'Das Ticket ist als gelöst markiert.' => 'The ticket is marked as resolved.',
+    'wartet auf Bestätigung' => 'awaiting confirmation',
+    'Firmen und Rechte' => 'Companies and permissions',
+    'Haken Sie die Firmen an, für die der Dienstleister arbeiten soll, und wählen Sie je Firma seine Rechte. Hat die Firma Ihnen „Externe Dienstleister verwalten“ freigegeben, gilt die Zuordnung sofort; sonst wartet sie auf die Bestätigung der Firma (die Firmen-Administratoren bekommen eine E-Mail).' => 'Tick the companies the provider should work for and choose their permissions per company. If the company has approved “Manage external service providers” for you, the assignment applies immediately; otherwise it awaits the company’s confirmation (the company administrators receive an email).',
+    'wartet auf Bestätigung der Firma' => 'awaiting the company’s confirmation',
+    'nicht zugeordnet' => 'not assigned',
+    'Verwaltung freigegeben' => 'management approved',
+    'ohne Freigabe: Bestätigung durch die Firma' => 'no approval: company confirms',
+    'Die Rechte ändert die Firma selbst (Einstellungen → Einsicht für den IT-Dienstleister). Sie können die Zuordnung hier aber entziehen.' => 'The company changes the permissions itself (Settings → Access for the IT service provider). You can still remove the assignment here.',
+    'Hier sehen Sie alle externen Dienstleister Ihrer Firma und legen fest, ob und mit welchen Rechten sie Zugriff haben. Zuordnungen, die Ihr IT-Dienstleister vorgeschlagen hat, gelten erst, wenn Sie „Zugriff“ anhaken und speichern.' => 'Here you see all of your company’s external service providers and decide whether and with which permissions they have access. Assignments proposed by your IT service provider only apply once you tick “Access” and save.',
+    'Noch keine externen Dienstleister.' => 'No external service providers yet.',
+    'Unter Benutzer anlegen' => 'Create under Users',
+    'wartet auf Ihre Bestätigung' => 'awaiting your confirmation',
+    'Zugriff' => 'Access',
+    'Hier entscheidet die Firma. Sie selbst ordnen Dienstleister unter Administration → Externe Dienstleister zu.' => 'The company decides here. You assign providers under Administration → External service providers.',
+    'Die Dienstleister wurden gespeichert.' => 'The service providers have been saved.',
 ];

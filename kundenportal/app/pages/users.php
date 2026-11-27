@@ -66,7 +66,7 @@ function page_users(): void
                     <tr class="<?= (int)$p['active'] ? '' : 'inactive' ?>">
                         <td><?= e($p['name']) ?></td>
                         <td><?= e($p['email']) ?></td>
-                        <td><?= e(t('Externer Dienstleister')) ?><br><span class="muted small"><?= e((int)$p['see_all'] ? t('sieht alle Tickets') : t('sieht übergebene Tickets')) ?></span></td>
+                        <td><?= e(t('Externer Dienstleister')) ?><br><span class="muted small"><?= (int)$p['pending'] ? e(t('wartet auf Bestätigung')) : e((int)$p['see_all'] ? t('sieht alle Tickets') : t('sieht übergebene Tickets')) ?></span></td>
                         <td><?= $p['user_id'] ? ((int)$p['totp_enabled'] ? t('✓ eingerichtet') : ('<span class="muted">' . e(t('bei nächster Anmeldung')) . '</span>')) : ('<span class="muted">' . e(t('nur per E-Mail')) . '</span>') ?></td>
                         <td><?= $p['user_id'] ? fmt_dt($p['last_login']) : '–' ?></td>
                         <td><?= (int)$p['active'] ? e(t('aktiv')) : e(t('deaktiviert')) ?></td>
@@ -286,7 +286,7 @@ function page_user_edit(): void
             <fieldset data-show-if="role=dienstleister"><legend><?= e(t('Externer Dienstleister')) ?></legend>
                 <p class="muted small"><?= e(t('Z. B. der Kopierer-Service. Bearbeiter können ihm Tickets übergeben; er sieht die Beschreibung und die öffentlichen Nachrichten, nie interne Notizen. Mit Portal-Zugang arbeitet er im Portal (auch für mehrere Firmen mit einem Zugang), sonst nur per E-Mail.')) ?></p>
                 <label class="check"><input type="checkbox" name="portal" value="1" checked> <?= e(t('Portal-Zugang (der Dienstleister bekommt eine Einladung mit Zwei-Faktor-Anmeldung)')) ?></label>
-                <label class="check"><input type="checkbox" name="see_all" value="1"> <?= e(t('Darf alle Tickets der Firma sehen (sonst nur die übergebenen)')) ?></label>
+                <?= provider_rights_fields('r', null, (int)$companyId) ?>
                 <label><?= e(t('Notiz')) ?> <input name="notes" maxlength="500" placeholder="<?= e(t('z. B. Vertragsnummer, Telefon')) ?>"></label>
             </fieldset>
             <?php endif; ?>
@@ -454,7 +454,7 @@ function page_provider_edit(): void
             <?php if (!$canEdit): ?><p class="alert info small"><?= e(t('Die Firma hat Ihnen die Verwaltung externer Dienstleister nicht freigegeben (Einstellungen → Einsicht für den IT-Dienstleister).')) ?></p>
             <p><?= e($p['name']) ?> · <?= e($p['email']) ?> · <?= e((int)$p['see_all'] ? t('sieht alle Tickets') : t('sieht übergebene Tickets')) ?></p>
             </div><?php return; endif; ?>
-            <?php ticket_provider_form($p); ?>
+            <?php ticket_provider_form($p, (int)$p['company_id']); ?>
             <div class="btn-row">
             <?php if ($p['user_id'] && !$p['last_login'] && (int)$p['user_active']): ?>
                 <form method="post" class="inline-form"><?= csrf_field() ?><input type="hidden" name="action" value="provider_invite">
