@@ -963,7 +963,7 @@ function page_contract_settings(): void
 
         <div class="card">
             <h2><?= e(t('Rechte je Gruppe')) ?></h2>
-            <p class="muted"><?= e(t('Die Rechte der Abteilungen für alle Apps stehen gesammelt in den Einstellungen.')) ?> <a href="<?= e(url('rights', is_admin() ? ['company' => $cid] : [])) ?>"><?= e(t('Gruppen & Rechte öffnen')) ?></a></p>
+            <p class="muted"><?= e(t('Die Rechte der Abteilungen für alle Apps stehen gesammelt in den Einstellungen.')) ?> <a href="<?= e(url('rights', is_admin() ? ['company' => $cid] : [])) ?>"><?= e(t('Gruppenrechte öffnen')) ?></a></p>
         </div>
 
         <?php ct_api_settings_card($cid); ?>

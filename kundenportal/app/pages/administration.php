@@ -14,6 +14,7 @@ function admin_sections(): array
     return [
         'companies' => ['companies', 'Firmen', 'Kundenfirmen anlegen, freischalten und bearbeiten', ['company_edit']],
         'users'     => ['users', 'Benutzer', 'Konten aller Firmen und Verwaltungsadmins mit ihren Bereichsrechten', ['user_edit']],
+        'providers' => ['provider_accounts', 'Externe Dienstleister', 'Dienstleister-Zugänge anlegen und Firmen zuordnen', ['provider_account']],
         'apps'      => ['apps', 'Apps & Freigaben', 'Welche Firma welche App nutzen darf; externe Apps verwalten', []],
         'mail'      => ['mail_settings', 'E-Mail-Versand', 'Zentraler Versand des Portals (SMTP, Microsoft 365, Gmail)', ['oauth_start', 'oauth_callback']],
         'backups'   => ['backups', 'Datensicherung', 'Sicherungen des ganzen Portals und Google-Drive-Anbindung', ['backup_download']],
@@ -27,7 +28,7 @@ function admin_sections_for_user(): array
 {
     $u = current_user();
     if (!$u || !is_staff_role($u['role'])) return [];
-    return array_filter(admin_sections(), fn ($area) => admin_can($area), ARRAY_FILTER_USE_KEY);
+    return array_filter(admin_sections(), fn ($area) => $area === 'providers' ? provider_admin_can() : admin_can($area), ARRAY_FILTER_USE_KEY);
 }
 
 /**

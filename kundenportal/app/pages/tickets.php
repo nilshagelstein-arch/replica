@@ -1538,24 +1538,8 @@ function page_ticket_settings(): void
         </div>
         <div class="card">
             <h2><?= e(t('Gruppen')) ?></h2>
-            <p class="muted"><?= e(t('Gruppen sind die Abteilungen der Firma (Stammdaten). Ein Konto kann in mehreren Gruppen sein. Gruppen werden als Bearbeiter einer Queue eingetragen; beim Erstellen kann man ein Ticket für die eigene Gruppe sichtbar machen.')) ?></p>
-            <?php if (!$deps): ?>
-                <p class="muted"><?= e(t('Es sind noch keine Abteilungen angelegt.')) ?> <a href="<?= e(url('structure', is_admin() ? ['company' => $cid] : [])) ?>"><?= e(t('Abteilungen anlegen')) ?></a></p>
-            <?php endif; ?>
-            <?php foreach ($deps as $d): $gm = $gmembers[(int)$d['id']] ?? []; ?>
-                <details class="queue-box">
-                    <summary><strong><?= e($d['name']) ?></strong> <span class="muted small">· <?= e(t('{n} Mitglieder', ['n' => count(array_intersect($gm, array_map('intval', array_keys($userNames))))])) ?>
-                        <?php if ($gm): ?>: <?= e(implode(', ', array_filter(array_map(fn($x) => $userNames[$x] ?? null, $gm)))) ?><?php endif; ?></span></summary>
-                    <form method="post" class="form"><?= csrf_field() ?><input type="hidden" name="action" value="group_save"><input type="hidden" name="department_id" value="<?= (int)$d['id'] ?>">
-                        <div class="checks">
-                        <?php foreach ($users as $usr): ?>
-                            <label class="check"><input type="checkbox" name="members[]" value="<?= (int)$usr['id'] ?>" <?= in_array((int)$usr['id'], $gm, true) ? 'checked' : '' ?>> <?= e($usr['name']) ?></label>
-                        <?php endforeach; ?>
-                        </div>
-                        <button class="btn primary"><?= e(t('Gruppe speichern')) ?></button>
-                    </form>
-                </details>
-            <?php endforeach; ?>
+            <p class="muted"><?= e(t('Wer in welcher Gruppe (Abteilung) ist, legen Sie unter Einstellungen → Gruppen fest; welche Gruppen eine Queue bearbeiten, unter „Gruppenrechte“ oder in der Queue selbst.')) ?>
+                <a href="<?= e(url('group_members', is_admin() ? ['company' => $cid] : [])) ?>"><?= e(t('Gruppen öffnen')) ?></a></p>
         </div>
         <div class="card" id="providers">
             <h2><?= e(t('Externe Dienstleister')) ?></h2>

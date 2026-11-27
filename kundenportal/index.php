@@ -68,6 +68,7 @@ require APP_DIR . '/ticket_mail.php';
 require APP_DIR . '/pages/settings.php';
 require APP_DIR . '/pages/settings_rights.php';
 require APP_DIR . '/pages/administration.php';
+require APP_DIR . '/pages/provider_accounts.php';
 
 $routes = [
     'login'          => 'page_login',
@@ -83,8 +84,11 @@ $routes = [
     'settings'       => 'page_central_settings',
     'provider_access' => 'page_provider_access',
     'rights'         => 'page_rights',
+    'group_members'  => 'page_group_members',
     'administration' => 'page_administration',
     'provider_edit'  => 'page_provider_edit',
+    'provider_accounts' => 'page_provider_accounts',
+    'provider_account'  => 'page_provider_account',
     'backup_settings' => 'page_backup_settings',
     'apps'           => 'page_apps',
     'app_css'        => 'page_app_css',
@@ -218,7 +222,7 @@ const ROUTE_AREAS = [
     'backups' => ['backups', PERM_VIEW], 'backup_download' => ['backups', PERM_VIEW],
     'company_backups' => ['backups', PERM_VIEW], 'company_backup_download' => ['backups', PERM_VIEW],
     'backup_settings' => ['backups', PERM_VIEW], 'provider_access' => ['companies', PERM_VIEW],
-    'rights' => ['companies', PERM_VIEW],
+    'rights' => ['companies', PERM_VIEW], 'group_members' => ['users', PERM_VIEW],
     'dashboard' => ['onboarding', PERM_VIEW], 'request' => ['onboarding', PERM_VIEW], 'request_print' => ['onboarding', PERM_VIEW],
     'request_new' => ['onboarding', PERM_EDIT], 'change_new' => ['onboarding', PERM_EDIT], 'request_edit' => ['onboarding', PERM_EDIT],
     'request_action' => ['onboarding', PERM_EDIT],
@@ -263,7 +267,7 @@ const ROUTE_AREAS = [
  * damit eine neue Seite nicht versehentlich ohne Rechteprüfung erreichbar ist).
  */
 const ROUTES_WITHOUT_AREA = ['login', 'login_2fa', 'setup_2fa', 'logout', 'register', 'verify_email',
-    'forgot_password', 'reset_password', 'account', 'home', 'app_css', 'i18n_js', 'contract_ics', 'settings', 'administration'];
+    'forgot_password', 'reset_password', 'account', 'home', 'app_css', 'i18n_js', 'contract_ics', 'settings', 'administration', 'provider_accounts', 'provider_account'];
 
 $r = (string)($_GET['r'] ?? '');
 if ($r === '') {
