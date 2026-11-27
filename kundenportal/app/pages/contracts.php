@@ -849,7 +849,7 @@ function page_contract_file(): void
 }
 
 // ---------------------------------------------------------------------------
-// Einstellungen: Vertragsarten, Rechte je Gruppe, Einsicht für den Dienstleister
+// Einstellungen: Vertragsarten, Rechte je Gruppe, Erinnerungen (Einsicht: zentrale Einstellungen)
 // ---------------------------------------------------------------------------
 
 function page_contract_settings(): void
@@ -865,16 +865,6 @@ function page_contract_settings(): void
         if (ct_api_settings_post($cid, $action)) ct_redirect('contract_settings');
         if (ct_ocr_settings_post($cid, $action)) ct_redirect('contract_settings');
         switch ($action) {
-            case 'general':
-                // Die Einsicht für den Dienstleister schaltet nur die Firma selbst
-                if ($staff) abort(403);
-                $data = ['ct_provider_access' => post('provider_access') === '1' ? 1 : 0];
-                $data['ct_provider_costs'] = $data['ct_provider_access'] && post('provider_costs') === '1' ? 1 : 0;
-                $data['ct_provider_all'] = $data['ct_provider_access'] && post('provider_all') === '1' ? 1 : 0;
-                update('companies', $cid, $data);
-                audit('contract.settings', json_encode($data), $cid);
-                flash('success', t('Die Einstellungen wurden gespeichert.'));
-                break;
             case 'reminders':
                 $to = trim((string)post('pdf_recipients'));
                 $list = ct_parse_recipients($to);
@@ -945,19 +935,10 @@ function page_contract_settings(): void
     render_page(t('Einstellungen') . ' · ' . t('Verträge & Laufzeiten'), function () use ($cid, $co, $staff, $types, $deps) {
         echo company_switcher($cid, 'contract_settings');
         ct_tabs('contract_settings'); ?>
-        <form method="post" class="form card">
-            <?= csrf_field() ?><input type="hidden" name="action" value="general">
+        <div class="card">
             <h2><?= e(t('Einsicht für den IT-Dienstleister')) ?></h2>
-            <label class="check"><input type="checkbox" name="provider_access" value="1" <?= (int)($co['ct_provider_access'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
-                <?= e(t('Unser IT-Dienstleister darf unsere Verträge sehen und pflegen')) ?></label>
-            <label class="check"><input type="checkbox" name="provider_costs" value="1" <?= (int)($co['ct_provider_costs'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
-                <?= e(t('… und dabei auch die Kosten sehen')) ?></label>
-            <label class="check"><input type="checkbox" name="provider_all" value="1" <?= (int)($co['ct_provider_all'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
-                <?= e(t('… und in seiner Vertriebsübersicht auch Verträge sehen, die andere Dienstleister oder wir selbst betreuen')) ?></label>
-            <p class="muted small"><?= e(t('Ohne diese Einsicht sieht der IT-Dienstleister keine Verträge. Ihre eigenen Rechte über Gruppen gelten unabhängig davon.')) ?></p>
-            <?php if ($staff): ?><p class="muted small"><?= e(t('Diese Einsicht kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p>
-            <?php else: ?><button class="btn primary"><?= e(t('Speichern')) ?></button><?php endif; ?>
-        </form>
+            <?= provider_access_note($cid, 'ct_provider_access') ?>
+        </div>
 
         <form method="post" class="form card">
             <?= csrf_field() ?><input type="hidden" name="action" value="reminders">

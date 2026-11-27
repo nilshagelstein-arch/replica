@@ -4062,4 +4062,40 @@ From: {name} ({email})
     'Der verknüpfte Eintrag ist für Sie nicht freigegeben.' => 'The linked entry has not been shared with you.',
     // Zentrale Einstellungen
     'Mitarbeiter-Onboarding' => 'Employee onboarding',
+    // Zentrale Einstellungen, Stufe 2: Einsicht und Datensicherung
+    'Für diese Firma ist keine App mit Einsicht-Schalter freigeschaltet.' => 'No app with a provider access switch is enabled for this company.',
+    'Es gab keine Änderungen.' => 'There were no changes.',
+    'Hier legen Sie fest, in welche Apps Ihr IT-Dienstleister Einblick bekommt. Ausschalten wirkt sofort. Was er im Einzelnen darf, regeln seine eigenen Rechte; der Schalter ist Ihre Freigabe.' => 'Choose which apps your IT service provider may access. Switching off takes effect immediately. What the provider may do in detail is governed by their own permissions; the switch is your approval.',
+    'App' => 'App',
+    'Einsicht' => 'Access',
+    'wenn eingeschaltet' => 'when enabled',
+    'zuletzt geändert' => 'last changed',
+    'Zusatzfreigaben gelten nur, solange die Einsicht für die App eingeschaltet ist. Ihre eigenen Rechte über Gruppen gelten unabhängig davon.' => 'Additional approvals only apply while access to the app is enabled. Your own group permissions apply independently.',
+    'Einsicht für den IT-Dienstleister:' => 'Access for the IT service provider:',
+    'unter Einstellungen ändern' => 'change in Settings',
+    'Ihre Anfrage ist bereits bei Ihrem IT-Dienstleister.' => 'Your request has already been sent to your IT service provider.',
+    'App-Anfrage: Datensicherung für {x}' => 'App request: Backup for {x}',
+    'Die Firma „{x}“ möchte die App „Datensicherung“ nutzen.
+
+Angefragt von: {n} <{m}>
+
+Freischalten:
+' => 'The company “{x}” would like to use the “Backup” app.
+
+Requested by: {n} <{m}>
+
+Enable:
+',
+    'Ihre Anfrage wurde an Ihren IT-Dienstleister gesendet.' => 'Your request has been sent to your IT service provider.',
+    'Die App „Datensicherung“ ist für Ihre Firma noch nicht freigeschaltet. Ihr IT-Dienstleister kann sie für Sie freischalten.' => 'The “Backup” app is not yet enabled for your company. Your IT service provider can enable it for you.',
+    'Zuletzt angefragt am {d}.' => 'Last requested on {d}.',
+    'Freischaltung anfragen' => 'Request activation',
+    'Zu den Sicherungen' => 'Go to backups',
+    'Tägliche Sicherung, Aufbewahrung, Fehler-Mail und Google Drive:' => 'Daily backup, retention, error email and Google Drive:',
+    'Die Mitarbeiter-Statistik kann nur ein Administrator der Firma ein- oder ausschalten.' => 'Only a company administrator can switch the staff statistics on or off.',
+    'Die Tickets dieser Firma sind nur intern sichtbar. Die Firma kann die Einsicht für den IT-Dienstleister unter Einstellungen einschalten. Tickets, die die Firma an Sie übergibt, sehen Sie unter „An uns übergeben“. Queues und Einstellungen können Sie trotzdem pflegen.' => 'This company\'s tickets are only visible internally. The company can enable access for the IT service provider under Settings. Tickets the company hands over to you can be found under “Handed over to us”. You can still maintain queues and settings.',
+    'Ihr IT-Dienstleister sieht und bearbeitet die Tickets Ihrer Firma. Tickets, die Sie ihm ausdrücklich übergeben, sieht er auch ohne Einsicht.' => 'Your IT service provider sees and handles your company’s tickets. Tickets you explicitly hand over are visible to the provider even without access.',
+    'Ihr IT-Dienstleister sieht und pflegt Ihr Inventar und bekommt die Erinnerungen zu Lizenzen und Garantien.' => 'Your IT service provider sees and maintains your inventory and receives the licence and warranty reminders.',
+    'Ihr IT-Dienstleister sieht und pflegt Ihre Verträge und bekommt die Fristen der Verträge, die er betreut.' => 'Your IT service provider sees and maintains your contracts and receives the deadlines of the contracts they manage.',
+    'Ihr IT-Dienstleister sieht und pflegt Ihr Wiki. Den Passwort-Tresor sieht er nur in Ordnern, in die Sie ihn ausdrücklich aufnehmen.' => 'Your IT service provider sees and maintains your wiki. In the password vault, the provider only sees folders you explicitly add them to.',
 ];
