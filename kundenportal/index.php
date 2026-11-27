@@ -67,6 +67,7 @@ require APP_DIR . '/pages/docs_links.php';
 require APP_DIR . '/ticket_mail.php';
 require APP_DIR . '/pages/settings.php';
 require APP_DIR . '/pages/settings_rights.php';
+require APP_DIR . '/pages/administration.php';
 
 $routes = [
     'login'          => 'page_login',
@@ -82,6 +83,7 @@ $routes = [
     'settings'       => 'page_central_settings',
     'provider_access' => 'page_provider_access',
     'rights'         => 'page_rights',
+    'administration' => 'page_administration',
     'backup_settings' => 'page_backup_settings',
     'apps'           => 'page_apps',
     'app_css'        => 'page_app_css',
@@ -260,7 +262,7 @@ const ROUTE_AREAS = [
  * damit eine neue Seite nicht versehentlich ohne Rechteprüfung erreichbar ist).
  */
 const ROUTES_WITHOUT_AREA = ['login', 'login_2fa', 'setup_2fa', 'logout', 'register', 'verify_email',
-    'forgot_password', 'reset_password', 'account', 'home', 'app_css', 'i18n_js', 'contract_ics', 'settings'];
+    'forgot_password', 'reset_password', 'account', 'home', 'app_css', 'i18n_js', 'contract_ics', 'settings', 'administration'];
 
 $r = (string)($_GET['r'] ?? '');
 if ($r === '') {
