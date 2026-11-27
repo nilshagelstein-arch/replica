@@ -605,15 +605,38 @@ function context_company_id(): int
 }
 
 /** Externer Dienstleister: Firmen, die ihn eingetragen haben (aktiv, mit App „Tickets“), nach Name */
-function provider_company_ids(?array $u = null): array
+/**
+ * Externer Dienstleister: Firmen, für die er in einer App arbeiten darf. Ohne Angabe gilt die App der aktuellen Seite
+ * ($GLOBALS['provider_app'], gesetzt von require_app), sonst „tickets“. Für andere Apps braucht er das Recht der Firma
+ * (ticket_providers: inv_view, ct_perm, wk_perm) und die Firma die App.
+ */
+const PROVIDER_APP_RIGHT = ['tickets' => '1 = 1', 'inventar' => 'p.inv_view = 1', 'vertraege' => 'p.ct_perm > 0', 'dokumente' => 'p.wk_perm > 0'];
+
+function provider_company_ids(?array $u = null, ?string $app = null): array
 {
     static $cache = [];
     $u ??= current_user();
     if (!$u || ($u['role'] ?? '') !== 'dienstleister') return [];
+    $app ??= $GLOBALS['provider_app'] ?? 'tickets';
+    if (!isset(PROVIDER_APP_RIGHT[$app])) return [];
     $uid = (int)$u['id'];
-    return $cache[$uid] ??= array_map('intval', array_column(rows("SELECT DISTINCT c.id, c.name FROM ticket_providers p
-        JOIN companies c ON c.id = p.company_id JOIN company_apps ca ON ca.company_id = c.id JOIN apps a ON a.id = ca.app_id
-        WHERE p.user_id = ? AND p.active = 1 AND c.active = 1 AND a.slug = 'tickets' AND a.active = 1 ORDER BY c.name", [$uid]), 'id'));
+    // Zuordnung gilt nur mit App „Tickets“; die weitere App muss die Firma ebenfalls haben
+    $sql = "SELECT DISTINCT c.id, c.name FROM ticket_providers p JOIN companies c ON c.id = p.company_id
+        JOIN company_apps ca ON ca.company_id = c.id JOIN apps a ON a.id = ca.app_id
+        WHERE p.user_id = ? AND p.active = 1 AND c.active = 1 AND a.slug = 'tickets' AND a.active = 1 AND " . PROVIDER_APP_RIGHT[$app];
+    if ($app !== 'tickets') $sql .= " AND EXISTS (SELECT 1 FROM company_apps ca2 JOIN apps a2 ON a2.id = ca2.app_id WHERE ca2.company_id = c.id AND a2.slug = '$app' AND a2.active = 1)";
+    return $cache[$uid . ':' . $app] ??= array_map('intval', array_column(rows($sql . ' ORDER BY c.name', [$uid]), 'id'));
+}
+
+/** Zuordnung des angemeldeten externen Dienstleisters zu einer Firma (aktiv) oder null */
+function provider_row(int $cid, ?array $u = null): ?array
+{
+    static $cache = [];
+    $u ??= current_user();
+    if (!$u || ($u['role'] ?? '') !== 'dienstleister') return null;
+    $key = $cid . ':' . (int)$u['id'];
+    if (!array_key_exists($key, $cache)) $cache[$key] = row('SELECT * FROM ticket_providers WHERE company_id = ? AND user_id = ? AND active = 1', [$cid, $u['id']]) ?: null;
+    return $cache[$key];
 }
 
 function is_provider_user(): bool
@@ -640,7 +663,9 @@ function apps_for_user(): array
             fn($a) => !isset(APP_AREAS[$a['slug']]) || admin_perm(APP_AREAS[$a['slug']], $u) >= PERM_VIEW));
     }
     if ($u['role'] === 'dienstleister') {
-        return provider_company_ids($u) ? rows("SELECT * FROM apps WHERE slug = 'tickets' AND active = 1") : [];
+        $slugs = array_values(array_filter(array_keys(PROVIDER_APP_RIGHT), fn ($s) => (bool)provider_company_ids($u, $s)));
+        if (!$slugs) return [];
+        return rows('SELECT * FROM apps WHERE active = 1 AND slug IN (' . implode(',', array_fill(0, count($slugs), '?')) . ') ORDER BY sort, name', $slugs);
     }
     return rows('SELECT a.* FROM apps a JOIN company_apps ca ON ca.app_id = a.id
         WHERE ca.company_id = ? AND a.active = 1 ORDER BY a.sort, a.name', [$u['company_id']]);
@@ -663,7 +688,8 @@ function require_app(string $slug): array
         return $u;
     }
     if ($u['role'] === 'dienstleister') {
-        if ($slug !== 'tickets' || !provider_company_ids()) abort(403, t('Für Ihren Zugang ist derzeit keine Firma freigegeben.'));
+        $GLOBALS['provider_app'] = $slug;
+        if (!provider_company_ids($u, $slug)) abort(403, t('Für Ihren Zugang ist derzeit keine Firma freigegeben.'));
         return $u;
     }
     if (!company_has_app((int)$u['company_id'], $slug)) {

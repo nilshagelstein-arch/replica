@@ -59,7 +59,7 @@ function ct_company_id(): int
 
 function cturl(string $route, array $params = []): string
 {
-    if (is_admin() && !empty($GLOBALS['ct_cid'])) $params = ['company' => (int)$GLOBALS['ct_cid']] + $params;
+    if ((is_admin() || is_provider_user()) && !empty($GLOBALS['ct_cid'])) $params = ['company' => (int)$GLOBALS['ct_cid']] + $params;
     return url($route, $params);
 }
 
@@ -105,6 +105,11 @@ function ct_rights(int $cid, ?array $u = null): array
         if ($ids !== null && !in_array($cid, $ids, true)) $p = PERM_NONE;
         $perm = $p >= PERM_EDIT ? CT_PERM_EDIT : ($p >= PERM_VIEW ? CT_PERM_VIEW : CT_PERM_NONE);
         return $cache[$key] = ['perm' => $perm, 'costs' => $perm > CT_PERM_NONE && (int)($co['ct_provider_costs'] ?? 0) === 1, 'approve' => false];
+    }
+    // externer Dienstleister: Recht der Firma (ansehen bzw. anlegen und bearbeiten), keine Kosten, keine Freigaben
+    if ($u['role'] === 'dienstleister') {
+        $p = company_has_app($cid, CT_APP) ? min(CT_PERM_EDIT, (int)(provider_row($cid, $u)['ct_perm'] ?? 0)) : CT_PERM_NONE;
+        return $cache[$key] = ['perm' => $p, 'costs' => false, 'approve' => false];
     }
     if ((int)($u['company_id'] ?? 0) !== $cid) return $cache[$key] = $none;
     if ($u['role'] === 'firma_admin') return $cache[$key] = ['perm' => CT_PERM_EDIT, 'costs' => true, 'approve' => true];

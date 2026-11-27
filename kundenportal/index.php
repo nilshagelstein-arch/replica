@@ -287,7 +287,11 @@ if (is_admin()) {
 
 // Externe Dienstleister: nur Anmeldung, eigenes Konto und die App „Tickets“ (Start leitet dorthin)
 const PROVIDER_ROUTES = ['login', 'login_2fa', 'setup_2fa', 'logout', 'forgot_password', 'reset_password', 'verify_email', 'account',
-    'home', 'app_css', 'i18n_js', 'tickets', 'ticket', 'ticket_action', 'ticket_file', 'ticket_new'];
+    'home', 'app_css', 'i18n_js', 'tickets', 'ticket', 'ticket_action', 'ticket_file', 'ticket_new',
+    // weitere Apps nur mit dem Recht der Firma (die Seiten prüfen inv_perm, ct_rights bzw. wk_space_perms)
+    'inventory', 'inv_device', 'inv_file', 'inv_licenses', 'inv_license', 'inv_lic_action', 'inv_labels', 'inv_export', 'inv_handovers', 'inv_handover',
+    'contracts', 'contract', 'contract_file', 'contract_action', 'contract_deadlines', 'contract_export', 'contract_extract', 'contract_import',
+    'docs', 'doc_space', 'doc', 'doc_search', 'doc_edit', 'doc_action', 'doc_file', 'doc_history', 'doc_version', 'doc_diff', 'doc_pdf'];
 if (is_provider_user()) {
     if (!in_array($r, PROVIDER_ROUTES, true)) abort(403);
     if ($r === 'home' && !(int)current_user()['must_change_password']) redirect('tickets');

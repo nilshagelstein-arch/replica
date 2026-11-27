@@ -195,10 +195,11 @@ function page_inv_license(): void
     if ($perm === INV_PERM_NONE) abort(403);
     inv_lic_renew($cid);
     $isNew = ($_GET['id'] ?? '') === 'new';
-    if ($isNew && $perm < INV_PERM_EDIT) abort(403);
+    if ($isNew && $perm < INV_PERM_EDIT && !inv_provider_lic_create($cid)) abort(403);
     $l = $isNew ? null : inv_load_license(query_int('id'), $cid);
     if (!$isNew && !$l) abort(404);
-    $edit = $perm >= INV_PERM_EDIT;
+    // neue Lizenz: auch der externe Dienstleister mit „Lizenzen anlegen“ sieht das Formular
+    $edit = $perm >= INV_PERM_EDIT || ($isNew && inv_provider_lic_create($cid));
     $assign = $l ? rows('SELECT a.*, e.first_name, e.last_name, e.employee_no, e.status AS employee_status, d.inv_no, d.manufacturer, d.model
         FROM inv_license_assign a LEFT JOIN employees e ON e.id = a.employee_id LEFT JOIN inv_devices d ON d.id = a.device_id
         WHERE a.license_id = ? ORDER BY e.last_name, e.first_name, d.inv_no', [$l['id']]) : [];
@@ -383,9 +384,11 @@ function page_inv_lic_action(): void
     $cid = inv_company_id();
     if (!is_post()) abort(405);
     require_post_csrf();
-    if (inv_perm($cid) < INV_PERM_EDIT) abort(403);
     $action = (string)post('action');
     $idParam = (string)($_GET['id'] ?? '');
+    // externer Dienstleister mit „Lizenzen anlegen“: nur eine neue Lizenz speichern
+    $providerNew = $action === 'save' && $idParam === '' && inv_provider_lic_create($cid);
+    if (inv_perm($cid) < INV_PERM_EDIT && !$providerNew) abort(403);
     $l = $idParam !== '' ? inv_load_license((int)$idParam, $cid) : null;
     if ($idParam !== '' && !$l) abort(404);
     $back = fn() => iredirect('inv_license', ['id' => $l['id']]);

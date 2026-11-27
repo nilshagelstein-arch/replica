@@ -49,7 +49,7 @@ function wk_company_id(): int
 function wkurl(string $route, array $params = []): string
 {
     if (!empty($GLOBALS['wk_hub'])) $params = ['hub' => 1] + $params;
-    elseif (is_admin() && !empty($GLOBALS['wk_cid'])) $params = ['company' => (int)$GLOBALS['wk_cid']] + $params;
+    elseif ((is_admin() || is_provider_user()) && !empty($GLOBALS['wk_cid'])) $params = ['company' => (int)$GLOBALS['wk_cid']] + $params;
     return url($route, $params);
 }
 
@@ -112,6 +112,12 @@ function wk_space_perms(int $cid, ?array $u = null): array
     $out = [];
     if (is_staff_role($u['role'])) {
         $p = wk_staff_perm($cid, $u);
+        foreach ($spaces as $s) $out[(int)$s['id']] = $p;
+        return $cache[$key] = $out;
+    }
+    // externer Dienstleister: Recht der Firma für alle Bereiche; „Für alle Kunden“ nicht
+    if ($u['role'] === 'dienstleister') {
+        $p = !wk_is_hub($cid) && company_has_app($cid, WK_APP) ? min(WK_PERM_EDIT, (int)(provider_row($cid, $u)['wk_perm'] ?? 0)) : WK_PERM_NONE;
         foreach ($spaces as $s) $out[(int)$s['id']] = $p;
         return $cache[$key] = $out;
     }
@@ -366,7 +372,8 @@ function wk_tabs(int $cid, string $active, string $search = ''): void
 {
     if (!empty($GLOBALS['in_settings'])) return; // im Rahmen der Einstellungen ohne App-Reiter
     $tabs = ['docs' => t('Bereiche')];
-    if (!wk_is_hub($cid)) $tabs['doc_vault'] = t('Tresor');
+    // Tresor: nicht für externe Dienstleister
+    if (!wk_is_hub($cid) && !is_provider_user()) $tabs['doc_vault'] = t('Tresor');
     if (wk_can_manage($cid)) { $tabs['doc_templates'] = t('Vorlagen'); if (!wk_is_hub($cid)) $tabs['doc_settings'] = t('Einstellungen'); } ?>
     <div class="wk-head">
         <nav class="type-tabs">
