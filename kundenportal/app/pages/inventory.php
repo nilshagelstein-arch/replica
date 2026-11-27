@@ -624,8 +624,6 @@ function page_inv_settings(): void
                     'inv_handover_text' => mb_substr(trim(str_replace("\r", '', (string)post('handover_text'))), 0, 3000),
                     'inv_lead_days' => max(7, min(365, (int)post('lead_days', INV_LEAD_DEFAULT))),
                     'inv_my_keys' => post('my_keys') === '1' ? 1 : 0];
-                // Die Einsicht für den Dienstleister schaltet nur die Firma selbst
-                if (!$staff) $data['inv_provider_access'] = post('provider_access') === '1' ? 1 : 0;
                 update('companies', $cid, $data);
                 audit('inventory.settings', json_encode($data), $cid);
                 flash('success', t('Die Einstellungen wurden gespeichert.'));
@@ -710,9 +708,7 @@ function page_inv_settings(): void
             <label class="check"><input type="checkbox" name="my_keys" value="1" <?= (int)($co['inv_my_keys'] ?? 0) ? 'checked' : '' ?>>
                 <?= e(t('Mitarbeiter dürfen die Schlüssel ihrer eigenen Lizenzen unter „Meine Geräte“ anzeigen')) ?></label>
             <p class="muted small"><?= e(t('Jedes Anzeigen wird im Verlauf der Lizenz protokolliert.')) ?></p>
-            <label class="check"><input type="checkbox" name="provider_access" value="1" <?= (int)($co['inv_provider_access'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
-                <?= e(t('Einsicht für den IT-Dienstleister: Unser IT-Dienstleister darf unser Inventar sehen und pflegen')) ?></label>
-            <?php if ($staff): ?><p class="muted small"><?= e(t('Diese Einsicht kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p><?php endif; ?>
+            <?= provider_access_note($cid, 'inv_provider_access') ?>
             <button class="btn primary"><?= e(t('Speichern')) ?></button>
         </form>
 

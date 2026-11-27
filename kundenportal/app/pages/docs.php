@@ -1002,28 +1002,14 @@ function page_doc_settings(): void
     if (!wk_can_manage($cid)) abort(403, t('Die Einstellungen pflegen die Administratoren der Firma.'));
     $staff = is_staff_role(current_user()['role']);
     $co = wk_company($cid);
-    if (is_post()) {
-        require_post_csrf();
-        // Die Einsicht für den Dienstleister schaltet nur die Firma selbst
-        if ($staff) abort(403);
-        $v = post('provider_access') === '1' ? 1 : 0;
-        update('companies', $cid, ['wk_provider_access' => $v]);
-        wk_log($cid, 'settings', 'wk_provider_access=' . $v);
-        flash('success', t('Die Einstellungen wurden gespeichert.'));
-        wk_redirect('doc_settings');
-    }
+    if (is_post()) abort(400);
     render_page(t('Einstellungen') . ' · ' . t('Dokumente & Anleitungen'), function () use ($cid, $co, $staff) {
         echo wk_switcher($cid, 'doc_settings');
         wk_tabs($cid, 'doc_settings'); ?>
-        <form method="post" class="form card">
-            <?= csrf_field() ?>
+        <div class="card">
             <h2><?= e(t('Einsicht für den IT-Dienstleister')) ?></h2>
-            <label class="check"><input type="checkbox" name="provider_access" value="1" <?= (int)($co['wk_provider_access'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
-                <?= e(t('Unser IT-Dienstleister darf unser Wiki sehen und pflegen')) ?></label>
-            <p class="muted small"><?= e(t('Ohne diese Einsicht sieht der IT-Dienstleister keine Bereiche und Seiten. Ihre eigenen Rechte über Gruppen gelten unabhängig davon.')) ?></p>
-            <?php if ($staff): ?><p class="muted small"><?= e(t('Diese Einsicht kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p>
-            <?php else: ?><button class="btn primary"><?= e(t('Speichern')) ?></button><?php endif; ?>
-        </form>
+            <?= provider_access_note($cid, 'wk_provider_access') ?>
+        </div>
         <div class="card">
             <h2><?= e(t('Bereiche aus den Abteilungen')) ?></h2>
             <p class="muted small"><?= e(t('Legt für jede Abteilung ohne eigenen Bereich einen Bereich an. Die Abteilung darf ihn bearbeiten, alle anderen sehen ihn nicht, bis Sie das ändern.')) ?></p>

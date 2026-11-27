@@ -4062,4 +4062,40 @@ De : {name} ({email})
     'Der verknüpfte Eintrag ist für Sie nicht freigegeben.' => 'L’entrée liée ne vous est pas ouverte.',
     // Zentrale Einstellungen
     'Mitarbeiter-Onboarding' => 'Intégration des collaborateurs',
+    // Zentrale Einstellungen, Stufe 2: Einsicht und Datensicherung
+    'Für diese Firma ist keine App mit Einsicht-Schalter freigeschaltet.' => 'Aucune application avec un interrupteur d’accès prestataire n’est activée pour cette entreprise.',
+    'Es gab keine Änderungen.' => 'Aucune modification.',
+    'Hier legen Sie fest, in welche Apps Ihr IT-Dienstleister Einblick bekommt. Ausschalten wirkt sofort. Was er im Einzelnen darf, regeln seine eigenen Rechte; der Schalter ist Ihre Freigabe.' => 'Choisissez les applications auxquelles votre prestataire informatique a accès. La désactivation prend effet immédiatement. Ce qu’il peut faire en détail dépend de ses propres droits ; l’interrupteur est votre autorisation.',
+    'App' => 'Application',
+    'Einsicht' => 'Accès',
+    'wenn eingeschaltet' => 'si activé',
+    'zuletzt geändert' => 'dernière modification',
+    'Zusatzfreigaben gelten nur, solange die Einsicht für die App eingeschaltet ist. Ihre eigenen Rechte über Gruppen gelten unabhängig davon.' => 'Les autorisations supplémentaires ne s’appliquent que tant que l’accès à l’application est activé. Vos propres droits par groupe s’appliquent indépendamment.',
+    'Einsicht für den IT-Dienstleister:' => 'Accès pour le prestataire informatique :',
+    'unter Einstellungen ändern' => 'modifier dans les paramètres',
+    'Ihre Anfrage ist bereits bei Ihrem IT-Dienstleister.' => 'Votre demande a déjà été transmise à votre prestataire informatique.',
+    'App-Anfrage: Datensicherung für {x}' => 'Demande d’application : Sauvegarde pour {x}',
+    'Die Firma „{x}“ möchte die App „Datensicherung“ nutzen.
+
+Angefragt von: {n} <{m}>
+
+Freischalten:
+' => 'L’entreprise « {x} » souhaite utiliser l’application « Sauvegarde ».
+
+Demandé par : {n} <{m}>
+
+Activer :
+',
+    'Ihre Anfrage wurde an Ihren IT-Dienstleister gesendet.' => 'Votre demande a été envoyée à votre prestataire informatique.',
+    'Die App „Datensicherung“ ist für Ihre Firma noch nicht freigeschaltet. Ihr IT-Dienstleister kann sie für Sie freischalten.' => 'L’application « Sauvegarde » n’est pas encore activée pour votre entreprise. Votre prestataire informatique peut l’activer pour vous.',
+    'Zuletzt angefragt am {d}.' => 'Dernière demande le {d}.',
+    'Freischaltung anfragen' => 'Demander l’activation',
+    'Zu den Sicherungen' => 'Vers les sauvegardes',
+    'Tägliche Sicherung, Aufbewahrung, Fehler-Mail und Google Drive:' => 'Sauvegarde quotidienne, conservation, e-mail d’erreur et Google Drive :',
+    'Die Mitarbeiter-Statistik kann nur ein Administrator der Firma ein- oder ausschalten.' => 'Seul un administrateur de l’entreprise peut activer ou désactiver les statistiques par collaborateur.',
+    'Die Tickets dieser Firma sind nur intern sichtbar. Die Firma kann die Einsicht für den IT-Dienstleister unter Einstellungen einschalten. Tickets, die die Firma an Sie übergibt, sehen Sie unter „An uns übergeben“. Queues und Einstellungen können Sie trotzdem pflegen.' => 'Les tickets de cette entreprise ne sont visibles qu\'en interne. L\'entreprise peut autoriser l\'accès du prestataire informatique dans les paramètres. Les tickets que l\'entreprise vous transmet se trouvent sous « Transmis à nous ». Vous pouvez néanmoins gérer les files et les paramètres.',
+    'Ihr IT-Dienstleister sieht und bearbeitet die Tickets Ihrer Firma. Tickets, die Sie ihm ausdrücklich übergeben, sieht er auch ohne Einsicht.' => 'Votre prestataire informatique voit et traite les tickets de votre entreprise. Les tickets que vous lui transmettez explicitement lui restent visibles même sans accès.',
+    'Ihr IT-Dienstleister sieht und pflegt Ihr Inventar und bekommt die Erinnerungen zu Lizenzen und Garantien.' => 'Votre prestataire informatique voit et gère votre inventaire et reçoit les rappels de licences et de garanties.',
+    'Ihr IT-Dienstleister sieht und pflegt Ihre Verträge und bekommt die Fristen der Verträge, die er betreut.' => 'Votre prestataire informatique voit et gère vos contrats et reçoit les échéances des contrats qu’il gère.',
+    'Ihr IT-Dienstleister sieht und pflegt Ihr Wiki. Den Passwort-Tresor sieht er nur in Ordnern, in die Sie ihn ausdrücklich aufnehmen.' => 'Votre prestataire informatique voit et gère votre wiki. Dans le coffre-fort de mots de passe, il ne voit que les dossiers auxquels vous l’ajoutez explicitement.',
 ];

@@ -105,16 +105,7 @@ function page_company_backups(): void
             <?php endif; ?>
         </div>
 
-        <?php gdrive_card($cid, $self); ?>
-
-        <form method="post" action="<?= e($self) ?>" class="card form"><?= csrf_field() ?><input type="hidden" name="action" value="settings">
-            <h2><?= e(t('Tägliche Sicherung')) ?></h2>
-            <label class="check"><input type="checkbox" name="auto" value="1" <?= $auto ? 'checked' : '' ?>> <?= e(t('Jede Nacht automatisch sichern')) ?></label>
-            <label><?= e(t('Automatische Sicherungen im Portal behalten')) ?>
-                <input type="number" name="keep" min="1" max="365" value="<?= (int)setting_get(gk('cbackup_keep', $cid), (string)CBACKUP_KEEP_DEFAULT) ?>"></label>
-            <label class="check"><input type="checkbox" name="notify" value="1" <?= setting_get(gk('cbackup_notify', $cid), '1') === '1' ? 'checked' : '' ?>> <?= e(t('Bei Fehlern E-Mail an die Firmen-Administratoren senden')) ?></label>
-            <button class="btn primary"><?= e(t('Speichern')) ?></button>
-        </form>
+        <p class="muted small"><?= e(t('Tägliche Sicherung, Aufbewahrung, Fehler-Mail und Google Drive:')) ?> <a href="<?= e(url('backup_settings', $params)) ?>"><?= e(t('Einstellungen')) ?></a></p>
     <?php });
 }
 

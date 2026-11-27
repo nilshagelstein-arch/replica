@@ -679,7 +679,7 @@ function page_tickets(): void
     render_page(tickets_app_name(), function () use ($cid, $u, $staff, $extern, $queues, $views, $view, $state, $queueFilter, $search, $list, $counts, $processor) {
         echo company_switcher($cid, 'tickets');
         if ($staff && !tickets_staff_may_see($cid)): ?>
-            <div class="alert info"><?= e(t('Die Tickets dieser Firma sind nur intern sichtbar. Die Firma kann die Einsicht für den IT-Dienstleister in den Ticket-Einstellungen einschalten. Tickets, die die Firma an Sie übergibt, sehen Sie unter „An uns übergeben“. Queues und Einstellungen können Sie trotzdem pflegen.')) ?></div>
+            <div class="alert info"><?= e(t('Die Tickets dieser Firma sind nur intern sichtbar. Die Firma kann die Einsicht für den IT-Dienstleister unter Einstellungen einschalten. Tickets, die die Firma an Sie übergibt, sehen Sie unter „An uns übergeben“. Queues und Einstellungen können Sie trotzdem pflegen.')) ?></div>
         <?php endif; ?>
         <?php if ($extern): ?>
             <p class="muted"><?= e(t('Firma: {x}', ['x' => (string)(row('SELECT name FROM companies WHERE id = ?', [$cid])['name'] ?? '')])) ?></p>
@@ -1484,8 +1484,6 @@ function page_ticket_settings(): void
                 $times[$p] = [$r, $x];
             }
             $data['ticket_times'] = json_encode(['on' => post('times_on') === '1', 'skip_weekend' => post('skip_weekend') === '1', 'times' => $times]);
-            // Die Einsicht für den Dienstleister schaltet nur die Firma selbst
-            if (!$staff) $data['ticket_provider_access'] = post('provider_access') === '1' ? 1 : 0;
             // Mitarbeiter-Statistik (Mitbestimmung, Datenschutz): entscheidet ebenfalls nur die Firma
             if (!$staff) $data['ticket_staff_stats'] = post('staff_stats') === '1' ? 1 : 0;
             update('companies', $cid, $data);
@@ -1583,12 +1581,11 @@ function page_ticket_settings(): void
             <p class="muted small"><?= e(t('Geprüft wird bei jedem Lauf des Cronjobs (siehe Datensicherung, am besten stündlich) und zusätzlich alle paar Minuten, während jemand das Portal nutzt.')) ?></p>
             <h3><?= e(t('Allgemein')) ?></h3>
             <label><?= e(t('Kategorien (eine pro Zeile)')) ?> <textarea name="categories" rows="6"><?= e(implode("\n", $cats)) ?></textarea></label>
-            <label class="check"><input type="checkbox" name="provider_access" value="1" <?= (int)($co['ticket_provider_access'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
-                <?= e(t('Einsicht für den IT-Dienstleister: Unser IT-Dienstleister darf unsere Tickets sehen und bearbeiten')) ?></label>
             <label class="check"><input type="checkbox" name="staff_stats" value="1" <?= (int)($co['ticket_staff_stats'] ?? 0) ? 'checked' : '' ?> <?= $staff ? 'disabled' : '' ?>>
                 <?= e(t('Mitarbeiter-Statistik in der Auswertung zeigen (Tickets und Zeiten je Bearbeiter)')) ?></label>
             <p class="muted small"><?= e(t('Hinweis: Eine Auswertung, mit der sich Leistung oder Verhalten einzelner Mitarbeiter überwachen lässt, ist bei Firmen mit Betriebsrat mitbestimmungspflichtig und berührt den Datenschutz. Ausgeschaltet zeigt die Auswertung nur Zahlen je Queue, Dringlichkeit, Kategorie und Abteilung.')) ?></p>
-            <?php if ($staff): ?><p class="muted small"><?= e(t('Diese Einsicht und die Mitarbeiter-Statistik kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p><?php endif; ?>
+            <?php if ($staff): ?><p class="muted small"><?= e(t('Die Mitarbeiter-Statistik kann nur ein Administrator der Firma ein- oder ausschalten.')) ?></p><?php endif; ?>
+            <?= provider_access_note($cid, 'ticket_provider_access') ?>
             <button class="btn primary"><?= e(t('Speichern')) ?></button>
         </form>
     <?php });
